@@ -27,7 +27,7 @@ from apps.dashboard.serializers import (
 
 class MyAssignedTablesView(APIView):
 
-    authentication_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated]
 
     def get(self, request):
 

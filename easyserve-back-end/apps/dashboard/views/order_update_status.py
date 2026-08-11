@@ -1,6 +1,7 @@
 from rest_framework import status
 from rest_framework.response import Response
 from rest_framework.generics import UpdateAPIView
+from rest_framework.permissions import IsAuthenticated
 
 from apps.dashboard.serializers import OrderStatusUpdateSerializer
 from apps.dashboard.repositories import OrdersRepository
@@ -9,6 +10,7 @@ from apps.dashboard.services import OrderService
 
 class OrderStatusUpdateView(UpdateAPIView):
     serializer_class = OrderStatusUpdateSerializer
+    permission_classes = [IsAuthenticated]
 
     def get_object(self):
         return OrdersRepository.get_order(self.kwargs["pk"])

@@ -12,7 +12,7 @@ class CategoryViewSet(ModelViewSet):
     serializer_class = CategorySerializer
 
     def get_permissions(self):
-        if action in ['list', 'retrieve']:
+        if self.action in ['list', 'retrieve']:
             return [AllowAny()]
         return [IsRestaurantOwner()]
 
