@@ -30,7 +30,7 @@ class QRScanView(generics.GenericAPIView):
             )
 
         try:
-            table = Table.objects.select_related("restaurant", "waiter").get(
+            table = Table.objects.select_related("restaurant", "assigned_waiter").get(
                 restaurant_id=restaurant_id, table_number=table_number
             )
         except Table.DoesNotExist:

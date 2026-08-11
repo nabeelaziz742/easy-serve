@@ -17,6 +17,7 @@ from apps.restaurants.constants import (
     ReservationStatus
 )
 from apps.restaurants.serializers import OrderSerializer, OrderDetailSerializer
+from apps.restaurants.permissions import IsWaiter, IsChef, IsManager
 
 from apps.restaurants.models import (
     Cart,
@@ -92,7 +93,7 @@ class OrderCheckoutAPIView(APIView):
                     status=status.HTTP_400_BAD_REQUEST
                 )
 
-            dine_in_session, _ = DineInSession.objects.get_or_create(
+            dine_in_session, session_created = DineInSession.objects.get_or_create(
                 restaurant=restaurant,
                 table=table,
                 status=DineInSessionStatus.ACTIVE.value,
@@ -103,15 +104,20 @@ class OrderCheckoutAPIView(APIView):
                 }
             )
 
-            # 📅 Create reservation if not exists
-            Reservation.objects.create(
-                restaurant=restaurant,
-                user=user,
-                table=table,
-                reservation_time=now(),
-                guest_count=guests,
-                status=ReservationStatus.SEATED,
-            )
+            # 📅 Only create a reservation the first time this dine-in
+            # session is opened. Without this check, every subsequent
+            # order placed against the same active session (e.g. a table
+            # ordering multiple rounds) created a brand new Reservation,
+            # flooding the table with duplicate "SEATED" reservations.
+            if session_created:
+                Reservation.objects.create(
+                    restaurant=restaurant,
+                    user=user,
+                    table=table,
+                    reservation_time=now(),
+                    guest_count=guests,
+                    status=ReservationStatus.SEATED,
+                )
 
         # ===============================
         # 🟢 CREATE ORDER (SAFE)
@@ -166,80 +172,16 @@ class OrderCheckoutAPIView(APIView):
             status=status.HTTP_201_CREATED
         )
 
-class OrderCheckoutAPIViewOld(APIView):
-    """
-    Convert the current user's cart into an order.
-    Supports both dine-in and online orders.
-    """
-    permission_classes = [IsAuthenticated]
 
-    @transaction.atomic
-    def post(self, request, *args, **kwargs):
-        user_profile = request.user.profile
-
-        try:
-            cart = Cart.objects.get(user=user_profile)
-        except Cart.DoesNotExist:
-            return Response(
-                {"detail": "Cart not found."},
-                status=status.HTTP_404_NOT_FOUND
-            )
-
-        if not cart.cart_items.exists():
-            return Response(
-                {"detail": "Cart is empty."},
-                status=status.HTTP_400_BAD_REQUEST
-            )
-
-        order_type = request.data.get("order_type", "DINE_IN")
-
-        # Base order data
-        order_data = {
-            "user": user_profile,
-            "ordered_date": now(),
-            "order_type": order_type,
-            "ordered": True,
-            "payment_status": "Pending",
-            "total_price": cart.total_price,
-        }
-
-        # Dine-in fields
-        if order_type == "DINE_IN":
-            order_data["table_id"] = request.data.get("table")
-            order_data["waiter_id"] = request.data.get("waiter")
-
-        # Online fields
-        else:
-            order_data["billing_first_name"] = request.data.get("billing_first_name")
-            order_data["billing_last_name"] = request.data.get("billing_last_name")
-            order_data["billing_email"] = request.data.get("billing_email")
-            order_data["billing_phone"] = request.data.get("billing_phone")
-            order_data["billing_address"] = request.data.get("billing_address")
-            order_data["shipping_address"] = request.data.get("shipping_address")
-
-        # Create order
-        order = Orders.objects.create(**order_data)
-
-        # Copy cart items → order items
-        for cart_item in cart.cart_items.all():
-            order_item = OrderItem.objects.create(
-                menu_item=cart_item.menu_item,
-                quantity=cart_item.quantity,
-                comments=cart_item.comments,
-                price=cart_item.price,
-            )
-            order.items.add(order_item)
-
-        order.save()
-
-        # Empty cart
-        cart.cart_items.all().delete()
-        cart.update_total_price()
-
-        return Response(
-            OrderDetailSerializer(order).data,
-            status=status.HTTP_201_CREATED
-        )
+# NOTE: This app also exposes a separate Cart/CartItem flow
+# (create-cart, create-cart-item, retrieve-cart, update, delete — see
+# apps/restaurants/views/carts.py). OrderCheckoutAPIView above does NOT
+# read from that Cart; it takes "items" directly from the request body.
+# Pick one source of truth for checkout (either always build the order
+# from the user's Cart, or drop the Cart endpoints) so the frontend isn't
+# maintaining two parallel "what's in the order" states.
+# The old cart-based checkout (OrderCheckoutAPIViewOld) has been removed
+# since it was never wired into urls.py and was dead code.
 
 class WaiterOrderListAPIView(ListAPIView):
     serializer_class = OrderSerializer
@@ -271,10 +213,16 @@ class PendingOrderListAPIView(ListAPIView):
 
 
 class WaiterAcceptOrderAPIView(APIView):
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsWaiter]
 
     def post(self, request, order_id):
         order = get_object_or_404(Orders, id=order_id)
+
+        if order.accepted_by_waiter:
+            return Response(
+                {"detail": "Order has already been accepted by a waiter."},
+                status=status.HTTP_400_BAD_REQUEST
+            )
 
         order.waiter = request.user.profile
         order.accepted_by_waiter = True
@@ -286,10 +234,16 @@ class WaiterAcceptOrderAPIView(APIView):
 
 
 class AssignChefAPIView(APIView):
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsWaiter]
 
     def post(self, request, order_id):
         order = get_object_or_404(Orders, id=order_id)
+
+        if not order.accepted_by_waiter:
+            return Response(
+                {"detail": "Order must be accepted by a waiter before a chef can be assigned."},
+                status=status.HTTP_400_BAD_REQUEST
+            )
 
         chef_id = request.data.get("chef_id")
 
@@ -332,13 +286,25 @@ class ReadyOrdersAPIView(ListAPIView):
 
 
 class StartPreparingAPIView(APIView):
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsChef]
 
     def post(self, request, order_id):
         order = get_object_or_404(
             Orders,
             id=order_id
         )
+
+        if order.assigned_chef_id != request.user.profile.id:
+            return Response(
+                {"detail": "You are not the chef assigned to this order."},
+                status=status.HTTP_403_FORBIDDEN
+            )
+
+        if order.order_status != OrderStatus.TO_PREPARE:
+            return Response(
+                {"detail": "Order is not in a state that can be started."},
+                status=status.HTTP_400_BAD_REQUEST
+            )
 
         order.order_status = OrderStatus.PREPARING
         order.save()
@@ -349,13 +315,25 @@ class StartPreparingAPIView(APIView):
 
 
 class MarkPreparedAPIView(APIView):
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsChef]
 
     def post(self, request, order_id):
         order = get_object_or_404(
             Orders,
             id=order_id
         )
+
+        if order.assigned_chef_id != request.user.profile.id:
+            return Response(
+                {"detail": "You are not the chef assigned to this order."},
+                status=status.HTTP_403_FORBIDDEN
+            )
+
+        if order.order_status != OrderStatus.PREPARING:
+            return Response(
+                {"detail": "Order must be in Preparing state before it can be marked Prepared."},
+                status=status.HTTP_400_BAD_REQUEST
+            )
 
         order.order_status = OrderStatus.PREPARED
         order.save()
@@ -372,13 +350,19 @@ class MarkPreparedAPIView(APIView):
 
 
 class MarkServedAPIView(APIView):
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsWaiter]
 
     def post(self, request, order_id):
         order = get_object_or_404(
             Orders,
             id=order_id
         )
+
+        if order.order_status != OrderStatus.PREPARED:
+            return Response(
+                {"detail": "Order must be Prepared before it can be marked Served."},
+                status=status.HTTP_400_BAD_REQUEST
+            )
 
         order.order_status = OrderStatus.SERVED
         order.save()
@@ -389,7 +373,7 @@ class MarkServedAPIView(APIView):
 
 
 class ManagerDashboardAPIView(APIView):
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsManager]
 
     def get(self, request):
 
