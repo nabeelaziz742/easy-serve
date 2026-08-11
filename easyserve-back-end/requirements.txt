@@ -170,3 +170,4 @@ wget==3.2
 widgetsnbextension==4.0.15
 wrapt==2.0.1
 zope.interface==8.1.1
+drf-spectacular-sidecar
