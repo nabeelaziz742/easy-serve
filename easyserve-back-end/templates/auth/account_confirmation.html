@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta charset="UTF-8">
+    <title>New User Register</title>
+    <style amp4email-boilerplate>
+        body {
+            visibility: visible;
+        }
+    </style>
+
+    <style amp-custom>
+        @import url('https://fonts.googleapis.com/css2?family=Poppins&display=swap');
+        @import url('https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Montserrat:wght@400;600&display=swap');
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            font-family: 'Poppins', sans-serif, 'Montserrat';
+        }
+
+        .wrapper {
+            max-width: 100%;
+            margin: 0 auto;
+        }
+
+        #wrapper {
+            max-width: 600px;
+            width: 100%;
+            margin: 0 auto;
+            height: 700px;
+
+        }
+
+        .hr-line {
+            border-color: darkgray;
+        }
+
+        .link {
+            word-wrap: break-word;
+        }
+
+        .document-header {
+            width: 100%;
+            text-align: center;
+            margin-bottom: 5px;
+            height: 80px;
+
+        }
+
+        .heading {
+            text-transform: uppercase;
+            font-size: 25px;
+            margin: 20px 0;
+        }
+
+        #logo {
+            padding-top: 13px;
+        }
+
+
+        .main-heading {
+            font-family: "Montserrat";
+            padding: 12px 20px 20px 0px;
+            text-align: center;
+        }
+
+        .content-body {
+            padding: 0 25px;
+            margin: -170px 0px 0px 0px;
+        }
+
+        .paragraph {
+            font-size: 13px;
+            word-wrap: break-word;
+        }
+
+        .paragraph-details {
+            font-size: 13px;
+            word-wrap: break-word;
+            padding-top: 15px;
+            padding-bottom: 25px;
+        }
+
+        .regards-title {
+            font-size: 13px;
+            padding: 20px 0;
+        }
+
+        .content {
+            font-size: 13px;
+            padding: 20px 46px;
+            margin: auto;
+            text-align: left;
+        }
+
+
+
+        .resetLink {
+            color: white;
+            text-decoration: none;
+        }
+
+        .document-footer {
+            text-align: center;
+            height: 50px;
+
+            padding: 14px;
+        }
+
+        .footer {
+            font-size: 13px;
+            padding: 27px 0 5px 307px;
+            color: white;
+        }
+
+
+
+        td,
+        th {
+            border: 1px solid #dddddd;
+            text-align: left;
+            padding: 8px;
+        }
+
+        #first-col {
+            width: 100%;
+        }
+
+        #First-row {
+            width: 25%;
+        }
+
+        @media screen and (max-width: 600px) {
+            .wrapper {
+                height: auto;
+                padding: 10px;
+            }
+        }
+    </style>
+</head>
+
+<body>
+    </div>
+    <div id="wrapper">
+        <div class="wrapper">
+            <div class="document-header" style="background-color: {{primary_color}};">
+                <!-- DYNAMIC LOGO IMAGE WILL BE PLACED IN SOURCE ATTRIBUTE -->
+                <img id="logo" style="width: auto; max-width: 200px" src={{company_logo}} alt="Logo" />
+
+
+                <div class="content">
+
+                    <h2 class="main-heading">{{subject}}</h2>
+                    <br>
+
+
+                    <p>Dear {{username}},
+                        <br>
+                        We're excited to inform you that your account with {{company_name}} has been successfully
+                        confirmed! Welcome to our community. You can now enjoy all the benefits and features our
+                        platform has to offer.
+                    </p>
+                    <br>
+
+                    <a href="{{button}}" target="_blank" class="resetLink">
+                        <button type="button"
+                            style="display: inline-block; background-color: {{button_color}}; color:{{text_color}};  padding: 8px 10px; border-radius: 20px;">
+                            View Details
+                        </button>
+                    </a>
+
+
+
+
+                </div>
+                <div class="document-footer" style="background-color: {{primary_color}}; ">
+                    <p class="footer-content">{{starting_year}} {{company_name}}. {{copyright}}</p>
+                </div>
+</body>
+
+</html>

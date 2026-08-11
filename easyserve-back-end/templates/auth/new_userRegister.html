@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>New User Registration</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@400;600&display=swap');
+
+    body {
+      margin: 0;
+      padding: 0;
+      font-family: 'Poppins', sans-serif;
+      background-color: #f4f6f8;
+      color: #333;
+    }
+
+    .container {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      padding: 30px 15px;
+    }
+
+    .card {
+      max-width: 500px;
+      width: 100%;
+      background: #ffffff;
+      border-radius: 12px;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+      padding: 2rem;
+      text-align: center;
+    }
+
+    .logo {
+      max-width: 150px;
+      margin: 0 auto 20px auto;
+    }
+
+    .title {
+      font-size: 1.6rem;
+      font-weight: 600;
+      margin-bottom: 1rem;
+      color: #222;
+    }
+
+    .message {
+      font-size: 0.95rem;
+      line-height: 1.6;
+      margin-bottom: 1.5rem;
+      color: #555;
+    }
+
+    .btn {
+      display: inline-block;
+      padding: 12px 24px;
+      background-color: {{button_color}};
+      color: {{text_color}};
+      font-weight: 600;
+      font-size: 0.95rem;
+      border-radius: 8px;
+      text-decoration: none;
+      transition: background 0.2s ease-in-out;
+    }
+
+    .btn:hover {
+      opacity: 0.9;
+    }
+
+    .otp-block {
+      background: #f8f9fa;
+      padding: 12px;
+      border-radius: 8px;
+      font-size: 0.95rem;
+      margin-top: 1rem;
+      text-align: left;
+    }
+
+    .footer {
+      margin-top: 2rem;
+      font-size: 0.8rem;
+      color: #888;
+    }
+
+    @media screen and (max-width: 600px) {
+      .card {
+        padding: 1.5rem;
+      }
+      .title {
+        font-size: 1.3rem;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="card">
+      <!-- Logo -->
+      <img src="{{company_logo}}" alt="🍴" class="logo" />
+
+      <!-- Title -->
+      <h1 class="title">Welcome, {{username}}!</h1>
+
+      <!-- Message -->
+      <p class="message">
+        We’re excited to have you at <strong>{{company_name}}</strong> 🎉<br/>
+        To complete your registration, please verify your email address by clicking the button below.
+      </p>
+
+      <!-- Button OR OTP -->
+      {% if button %}
+        <a href="{{button}}" target="_blank" class="btn">Verify Email</a>
+      {% else %}
+        <div class="otp-block">
+          <p><b>Username:</b> {{username}}</p>
+          <p><b>Your one-time password:</b> {{otp}}</p>
+        </div>
+      {% endif %}
+
+      <!-- Footer -->
+      <div class="footer">
+        © {{starting_year}} {{company_name}}. {{copyright}}
+      </div>
+    </div>
+  </div>
+</body>
+</html>
