@@ -1,5 +1,6 @@
 from django.utils.timezone import now
 from apps.restaurants.models import Orders, Table
+from apps.restaurants.constants import OrderStatus
 
 
 class WaiterRepository:
@@ -23,7 +24,7 @@ class WaiterRepository:
 
         return {
             "total_orders": today_orders.count() or 0,
-            "served_orders": today_orders.filter(order_status="served").count() or 0,
-            "ready_orders": today_orders.filter(order_status="ready").count() or 0,
+            "served_orders": today_orders.filter(order_status=OrderStatus.SERVED).count() or 0,
+            "ready_orders": today_orders.filter(order_status=OrderStatus.PREPARED).count() or 0,
             "avg_serve_time": user_profile.avg_serve_time or "0",
         }
