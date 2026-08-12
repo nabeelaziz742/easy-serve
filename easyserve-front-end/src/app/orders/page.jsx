@@ -1,6 +1,6 @@
 "use client";
 
-import React from "react";
+import React, { useState } from "react";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
@@ -8,11 +8,13 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import { useGetOrdersQuery, usePayOrderMutation } from "@/services/private/orders";
+import OrderPayment from "@/components/payment/OrderPayment";
 
 function ClientOrders() {
-  const { data, isLoading, isFetching } = useGetOrdersQuery();
+  const { data, isLoading, isFetching, refetch } = useGetOrdersQuery();
   const [payOrder, { isLoading: isPaying }] = usePayOrderMutation();
   const loading = isLoading || isFetching;
+  const [cardPayOrderId, setCardPayOrderId] = useState(null);
 
   const handlePay = async (orderId) => {
     try {
@@ -179,21 +181,50 @@ function ClientOrders() {
                 </span>
               </p>
 
-              <div className="flex items-center gap-4">
-                <p className="text-xl font-semibold tracking-tight">
-                  Total {order.total_price || "N/A"}
-                </p>
+              <div className="flex flex-col items-end gap-3">
+                <div className="flex items-center gap-4">
+                  <p className="text-xl font-semibold tracking-tight">
+                    Total {order.total_price || "N/A"}
+                  </p>
 
-                {order.payment_status !== "Confirmed" &&
-                  !order.order_cancelled && (
-                    <Button
-                      size="sm"
-                      disabled={isPaying}
-                      onClick={() => handlePay(order.id)}
-                    >
-                      {isPaying ? "Confirming..." : "Pay Now"}
-                    </Button>
-                  )}
+                  {order.payment_status !== "Confirmed" &&
+                    !order.order_cancelled && (
+                      <div className="flex items-center gap-2">
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          disabled={isPaying}
+                          onClick={() => handlePay(order.id)}
+                        >
+                          {isPaying ? "Confirming..." : "Pay with Cash"}
+                        </Button>
+
+                        <Button
+                          size="sm"
+                          onClick={() =>
+                            setCardPayOrderId(
+                              cardPayOrderId === order.id ? null : order.id
+                            )
+                          }
+                        >
+                          Pay with Card
+                        </Button>
+                      </div>
+                    )}
+                </div>
+
+                {cardPayOrderId === order.id && (
+                  <div className="w-full max-w-sm rounded-xl border border-border/60 bg-background p-4">
+                    <OrderPayment
+                      orderId={order.id}
+                      onSuccess={() => {
+                        setCardPayOrderId(null);
+                        toast.success("Payment confirmed 🎉");
+                        refetch();
+                      }}
+                    />
+                  </div>
+                )}
               </div>
             </div>
           </Card>
