@@ -126,6 +126,13 @@ class ConfirmPaymentAPIView(APIView):
         order_id = request.data.get("order_id")
         order = get_object_or_404(Orders, id=order_id)
 
+        profile = getattr(request.user, "profile", None)
+        if profile is None or order.user_id != profile.id:
+            return Response(
+                {"detail": "You are not allowed to confirm payment for this order."},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
         try:
             payment = order.payment
         except Payment.DoesNotExist:

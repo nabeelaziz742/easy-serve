@@ -9,7 +9,7 @@ from django.shortcuts import get_object_or_404
 from apps.userprofile.models import UserProfile, Notification
 from apps.core.models.user import User
 from apps.restaurants.constants import OrderStatus
-from django.db.models import Sum
+from django.db.models import Sum, Q
 
 from apps.restaurants.constants import (
     OrderType,
@@ -130,6 +130,13 @@ class OrderCheckoutAPIView(APIView):
                 MenuItem,
                 id=item["menu_item"],
             )
+
+            if order_type == OrderType.DINE_IN.value:
+                if menu_item.menu.restaurant_id != restaurant.id:
+                    return Response(
+                        {"detail": "Menu item does not belong to the selected restaurant."},
+                        status=status.HTTP_400_BAD_REQUEST,
+                    )
 
             quantity = max(1, int(item.get("quantity", 1)))
 
@@ -271,9 +278,21 @@ class PendingOrderListAPIView(ListAPIView):
     permission_classes = [IsWaiter]
 
     def get_queryset(self):
-        return Orders.objects.filter(
-            accepted_by_waiter=False
-        ).order_by("-created_at")
+        profile = self.request.user.profile
+        restaurant = profile.restaurant
+        if restaurant is None:
+            return Orders.objects.none()
+
+        return (
+            Orders.objects
+            .filter(accepted_by_waiter=False)
+            .filter(
+                Q(table__restaurant=restaurant)
+                | Q(items__menu_item__menu__restaurant=restaurant)
+            )
+            .distinct()
+            .order_by("-created_at")
+        )
 
 
 class WaiterAcceptOrderAPIView(APIView):
@@ -281,6 +300,17 @@ class WaiterAcceptOrderAPIView(APIView):
 
     def post(self, request, order_id):
         order = get_object_or_404(Orders, id=order_id)
+        profile = request.user.profile
+        restaurant = profile.restaurant
+
+        if restaurant is None or not (
+            (order.table_id and order.table.restaurant_id == restaurant.id)
+            or order.items.filter(menu_item__menu__restaurant=restaurant).exists()
+        ):
+            return Response(
+                {"detail": "You are not allowed to manage this order."},
+                status=status.HTTP_403_FORBIDDEN,
+            )
 
         if order.accepted_by_waiter:
             return Response(
@@ -302,6 +332,17 @@ class AssignChefAPIView(APIView):
 
     def post(self, request, order_id):
         order = get_object_or_404(Orders, id=order_id)
+        profile = request.user.profile
+        restaurant = profile.restaurant
+
+        if restaurant is None or not (
+            (order.table_id and order.table.restaurant_id == restaurant.id)
+            or order.items.filter(menu_item__menu__restaurant=restaurant).exists()
+        ):
+            return Response(
+                {"detail": "You are not allowed to manage this order."},
+                status=status.HTTP_403_FORBIDDEN,
+            )
 
         if not order.accepted_by_waiter:
             return Response(
@@ -344,9 +385,21 @@ class ReadyOrdersAPIView(ListAPIView):
     permission_classes = [IsWaiter]
 
     def get_queryset(self):
-        return Orders.objects.filter(
-            order_status=OrderStatus.PREPARED
-        ).order_by("-created_at")
+        profile = self.request.user.profile
+        restaurant = profile.restaurant
+        if restaurant is None:
+            return Orders.objects.none()
+
+        return (
+            Orders.objects
+            .filter(order_status=OrderStatus.PREPARED)
+            .filter(
+                Q(table__restaurant=restaurant)
+                | Q(items__menu_item__menu__restaurant=restaurant)
+            )
+            .distinct()
+            .order_by("-created_at")
+        )
 
 
 class StartPreparingAPIView(APIView):
@@ -358,9 +411,21 @@ class StartPreparingAPIView(APIView):
             id=order_id
         )
 
-        if order.assigned_chef_id != request.user.profile.id:
+        chef_profile = request.user.profile
+
+        if order.assigned_chef_id != chef_profile.id:
             return Response(
                 {"detail": "You are not the chef assigned to this order."},
+                status=status.HTTP_403_FORBIDDEN
+            )
+
+        if (
+            chef_profile.restaurant_id
+            and order.table_id
+            and order.table.restaurant_id != chef_profile.restaurant_id
+        ):
+            return Response(
+                {"detail": "This order does not belong to your restaurant."},
                 status=status.HTTP_403_FORBIDDEN
             )
 
@@ -387,15 +452,32 @@ class MarkPreparedAPIView(APIView):
             id=order_id
         )
 
-        if order.assigned_chef_id != request.user.profile.id:
+        chef_profile = request.user.profile
+
+        if order.assigned_chef_id != chef_profile.id:
             return Response(
                 {"detail": "You are not the chef assigned to this order."},
                 status=status.HTTP_403_FORBIDDEN
             )
 
+        if (
+            chef_profile.restaurant_id
+            and order.table_id
+            and order.table.restaurant_id != chef_profile.restaurant_id
+        ):
+            return Response(
+                {"detail": "This order does not belong to your restaurant."},
+                status=status.HTTP_403_FORBIDDEN
+            )
+
         if order.order_status != OrderStatus.PREPARING:
             return Response(
-                {"detail": "Order must be in Preparing state before it can be marked Prepared."},
+                {
+                    "detail": (
+                        "Order must be in Preparing state "
+                        "before it can be marked Prepared."
+                    )
+                },
                 status=status.HTTP_400_BAD_REQUEST
             )
 
@@ -422,9 +504,32 @@ class MarkServedAPIView(APIView):
             id=order_id
         )
 
+        waiter_profile = request.user.profile
+
+        if order.waiter_id != waiter_profile.id:
+            return Response(
+                {"detail": "You are not the waiter assigned to this order."},
+                status=status.HTTP_403_FORBIDDEN
+            )
+
+        if (
+            waiter_profile.restaurant_id
+            and order.table_id
+            and order.table.restaurant_id != waiter_profile.restaurant_id
+        ):
+            return Response(
+                {"detail": "This order does not belong to your restaurant."},
+                status=status.HTTP_403_FORBIDDEN
+            )
+
         if order.order_status != OrderStatus.PREPARED:
             return Response(
-                {"detail": "Order must be Prepared before it can be marked Served."},
+                {
+                    "detail": (
+                        "Order must be Prepared before it can be "
+                        "marked Served."
+                    )
+                },
                 status=status.HTTP_400_BAD_REQUEST
             )
 
@@ -440,38 +545,69 @@ class ManagerDashboardAPIView(APIView):
     permission_classes = [IsManager]
 
     def get(self, request):
+        profile = request.user.profile
 
-        total_revenue = Orders.objects.filter(
+        # Restaurant owner can manage multiple restaurants.
+        # Manager/staff users are linked to a single restaurant.
+        if request.user.user_type == "restaurant_owner":
+            restaurant_ids = profile.owned_restaurants.values_list(
+                "id",
+                flat=True,
+            )
+        else:
+            if not profile.restaurant:
+                return Response({
+                    "total_orders": 0,
+                    "pending_orders": 0,
+                    "preparing_orders": 0,
+                    "prepared_orders": 0,
+                    "served_orders": 0,
+                    "total_waiters": 0,
+                    "total_chefs": 0,
+                    "total_revenue": 0,
+                })
+
+            restaurant_ids = [profile.restaurant_id]
+
+        # Orders belonging to the manager's restaurant(s).
+        restaurant_orders = Orders.objects.filter(
+            Q(table__restaurant_id__in=restaurant_ids)
+            | Q(items__menu_item__menu__restaurant_id__in=restaurant_ids)
+        ).distinct()
+
+        total_revenue = restaurant_orders.filter(
             order_status=OrderStatus.SERVED
         ).aggregate(
             revenue=Sum("total_price")
         )["revenue"] or 0
 
         data = {
-            "total_orders": Orders.objects.count(),
+            "total_orders": restaurant_orders.count(),
 
-            "pending_orders": Orders.objects.filter(
+            "pending_orders": restaurant_orders.filter(
                 order_status=OrderStatus.TO_PREPARE
             ).count(),
 
-            "preparing_orders": Orders.objects.filter(
+            "preparing_orders": restaurant_orders.filter(
                 order_status=OrderStatus.PREPARING
             ).count(),
 
-            "prepared_orders": Orders.objects.filter(
+            "prepared_orders": restaurant_orders.filter(
                 order_status=OrderStatus.PREPARED
             ).count(),
 
-            "served_orders": Orders.objects.filter(
+            "served_orders": restaurant_orders.filter(
                 order_status=OrderStatus.SERVED
             ).count(),
 
             "total_waiters": User.objects.filter(
-                user_type="waiter"
+                user_type="waiter",
+                profile__restaurant_id__in=restaurant_ids,
             ).count(),
 
             "total_chefs": User.objects.filter(
-                user_type="chef"
+                user_type="chef",
+                profile__restaurant_id__in=restaurant_ids,
             ).count(),
 
             "total_revenue": total_revenue,

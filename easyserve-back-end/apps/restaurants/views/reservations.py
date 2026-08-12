@@ -95,6 +95,16 @@ class ReservationListCreateAPIView(ListCreateAPIView):
         )
 
 class ReservationDetailAPIView(RetrieveAPIView):
-    queryset = Reservation.objects.all()
-    permission_classes = [IsAuthenticated]
     serializer_class = ReservationDetailSerializer
+    permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        profile = getattr(self.request.user, "profile", None)
+        if not profile:
+            return Reservation.objects.none()
+
+        return (
+            Reservation.objects
+            .filter(user=profile)
+            .select_related("restaurant")
+        )
