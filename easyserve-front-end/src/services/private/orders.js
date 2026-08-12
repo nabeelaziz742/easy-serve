@@ -28,6 +28,15 @@ export const orderApi = privateAPi.injectEndpoints({
       invalidatesTags: ["getOrders"],
     }),
 
+    payOrder: build.mutation({
+      query: ({ orderId, paymentMethod }) => ({
+        url: `/restaurants/orders/${orderId}/pay/`,
+        method: "POST",
+        body: { payment_method: paymentMethod || "cash" },
+      }),
+      invalidatesTags: ["getOrders", "getOrder"],
+    }),
+
     updateOrder: build.mutation({
       query: (body) => ({
         url: `/dashboard/orders/${body?.orderNumber}/`,
@@ -156,6 +165,7 @@ export const {
   useGetOrdersQuery,
   useGetOrderQuery,
   useAddOrderMutation,
+  usePayOrderMutation,
   useUpdateOrderMutation,
   useGetOrderStatusQuery,
   usePatchOrderStatusMutation,

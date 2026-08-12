@@ -1,5 +1,6 @@
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
+import { Toaster } from "sonner";
 import StateProvider from "@/providers/StateProvider";
 import LayoutClient from "./layoutClient";
 import AIChatbot from "@/components/Aichatbot";
@@ -22,6 +23,7 @@ export default function RootLayout({ children }) {
           <LayoutClient>{children}</LayoutClient>
 
           <AIChatbot />
+          <Toaster richColors position="top-right" />
         </StateProvider>
       </body>
     </html>

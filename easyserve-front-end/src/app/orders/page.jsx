@@ -5,48 +5,35 @@ import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { Skeleton } from "@/components/ui/skeleton";
-import { useGetOrdersQuery } from "@/services/private/orders";
+import { Button } from "@/components/ui/button";
+import { toast } from "sonner";
+import { useGetOrdersQuery, usePayOrderMutation } from "@/services/private/orders";
 
 function ClientOrders() {
   const { data, isLoading, isFetching } = useGetOrdersQuery();
+  const [payOrder, { isLoading: isPaying }] = usePayOrderMutation();
   const loading = isLoading || isFetching;
 
+  const handlePay = async (orderId) => {
+    try {
+      await payOrder({ orderId, paymentMethod: "cash" }).unwrap();
+      toast.success("Payment confirmed 🎉");
+    } catch (err) {
+      toast.error(err?.data?.detail || "Could not confirm payment.");
+    }
+  };
+
   const ORDER_STATUS_META = {
-    "To Prepare": {
-      label: "Preparing",
-      emoji: "👨‍🍳",
-      variant: "warning",
-    },
-    "Ready": {
-      label: "Ready",
-      emoji: "🍽️",
-      variant: "success",
-    },
-    "Served": {
-      label: "Served",
-      emoji: "✅",
-      variant: "success",
-    },
-    "Cancelled": {
-      label: "Cancelled",
-      emoji: "❌",
-      variant: "destructive",
-    },
+    "To Prepare": { label: "Preparing", emoji: "👨‍🍳", variant: "warning" },
+    "Ready": { label: "Ready", emoji: "🍽️", variant: "success" },
+    "Served": { label: "Served", emoji: "✅", variant: "success" },
+    "Cancelled": { label: "Cancelled", emoji: "❌", variant: "destructive" },
   };
 
   const PAYMENT_STATUS_META = {
-    Pending: {
-      emoji: "⏳",
-      variant: "outline",
-    },
-    Paid: {
-      emoji: "💳",
-      variant: "success",
-    },
-    Failed: {
-      emoji: "❌",
-      variant: "destructive",
-    },
+    Pending: { emoji: "⏳", variant: "outline" },
+    Confirmed: { emoji: "💳", variant: "success" },
+    Cancelled: { emoji: "❌", variant: "destructive" },
   };
 
   const ORDER_TYPE_META = {
@@ -55,8 +42,6 @@ function ClientOrders() {
     Takeaway: "🥡 Takeaway",
   };
 
-
-  /* ================= LOADING ================= */
   if (loading) {
     return (
       <div className="flex h-150 items-center justify-center">
@@ -69,7 +54,6 @@ function ClientOrders() {
     );
   }
 
-  /* ================= EMPTY ================= */
   if (!data?.results?.length) {
     return (
       <div className="flex h-150 items-center justify-center">
@@ -83,7 +67,6 @@ function ClientOrders() {
     );
   }
 
-  /* ================= LIST ================= */
   return (
     <div className="mx-auto grid max-w-5xl gap-12">
       {data.results.map((order) => {
@@ -101,7 +84,6 @@ function ClientOrders() {
               dark:shadow-[0_8px_30px_-12px_rgba(0,0,0,0.7)]
             "
           >
-            {/* ================= HEADER ================= */}
             <div className="px-8 pt-7 pb-5">
               <div className="flex items-start justify-between gap-6">
                 <div className="space-y-1">
@@ -114,41 +96,33 @@ function ClientOrders() {
                 </div>
 
                 <div className="flex flex-wrap gap-2">
-                  {/* ORDER TYPE */}
                   <Badge variant="secondary" className="px-3 py-1">
                     {ORDER_TYPE_META[order.order_type] || order.order_type}
                   </Badge>
 
-                  {/* ORDER STATUS */}
                   {order.order_status && (
                     <Badge
                       variant={ORDER_STATUS_META[order.order_status]?.variant || "outline"}
                       className="px-3 py-1"
                     >
                       {ORDER_STATUS_META[order.order_status]?.emoji}{" "}
-                      {ORDER_STATUS_META[order.order_status]?.label ||
-                        order.order_status}
+                      {ORDER_STATUS_META[order.order_status]?.label || order.order_status}
                     </Badge>
                   )}
 
-                  {/* PAYMENT STATUS */}
                   <Badge
-                    variant={
-                      PAYMENT_STATUS_META[order.payment_status]?.variant || "outline"
-                    }
+                    variant={PAYMENT_STATUS_META[order.payment_status]?.variant || "outline"}
                     className="px-3 py-1"
                   >
                     {PAYMENT_STATUS_META[order.payment_status]?.emoji}{" "}
                     {order.payment_status}
                   </Badge>
                 </div>
-
               </div>
             </div>
 
             <Separator />
 
-            {/* ================= ITEMS ================= */}
             <div className="px-8 py-7">
               <div className="space-y-4">
                 {order.items.map((item) => (
@@ -190,7 +164,6 @@ function ClientOrders() {
               </div>
             </div>
 
-            {/* ================= FOOTER ================= */}
             <div
               className="
                 flex flex-col gap-4
@@ -206,9 +179,22 @@ function ClientOrders() {
                 </span>
               </p>
 
-              <p className="text-xl font-semibold tracking-tight">
-                Total {order.total_price || "N/A"}
-              </p>
+              <div className="flex items-center gap-4">
+                <p className="text-xl font-semibold tracking-tight">
+                  Total {order.total_price || "N/A"}
+                </p>
+
+                {order.payment_status !== "Confirmed" &&
+                  !order.order_cancelled && (
+                    <Button
+                      size="sm"
+                      disabled={isPaying}
+                      onClick={() => handlePay(order.id)}
+                    >
+                      {isPaying ? "Confirming..." : "Pay Now"}
+                    </Button>
+                  )}
+              </div>
             </div>
           </Card>
         );

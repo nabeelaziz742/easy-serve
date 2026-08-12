@@ -22,6 +22,7 @@ from apps.restaurants.views import (
     ReservationDetailAPIView,
     ReservationListCreateAPIView,
     PendingOrderListAPIView,
+    PayOrderAPIView,
     WaiterAcceptOrderAPIView,
     AssignChefAPIView,
     ChefOrderListAPIView,
@@ -111,6 +112,11 @@ urlpatterns = [
         'orders/',
         UserOrderHistoryAPIView.as_view(),
         name='user-order-history'
+    ),
+    path(
+        'orders/<int:order_id>/pay/',
+        PayOrderAPIView.as_view(),
+        name='pay-order'
     ),
     path(
         'orders/waiter/',

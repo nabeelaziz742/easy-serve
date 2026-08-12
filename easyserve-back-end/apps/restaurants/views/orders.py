@@ -14,7 +14,9 @@ from django.db.models import Sum
 from apps.restaurants.constants import (
     OrderType,
     DineInSessionStatus,
-    ReservationStatus
+    ReservationStatus,
+    PaymentStatus,
+    PaymentMethod,
 )
 from apps.restaurants.serializers import OrderSerializer, OrderDetailSerializer
 from apps.restaurants.permissions import IsWaiter, IsChef, IsManager
@@ -28,6 +30,7 @@ from apps.restaurants.models import (
     Restaurant,
     Table,
     Reservation,
+    PaymentDetails,
 )
 
 
@@ -54,9 +57,6 @@ class OrderCheckoutAPIView(APIView):
                 status=status.HTTP_400_BAD_REQUEST
             )
 
-        # ===============================
-        # 🟠 DINE-IN VALIDATION FIRST
-        # ===============================
         dine_in_session = None
         table = None
 
@@ -104,11 +104,6 @@ class OrderCheckoutAPIView(APIView):
                 }
             )
 
-            # 📅 Only create a reservation the first time this dine-in
-            # session is opened. Without this check, every subsequent
-            # order placed against the same active session (e.g. a table
-            # ordering multiple rounds) created a brand new Reservation,
-            # flooding the table with duplicate "SEATED" reservations.
             if session_created:
                 Reservation.objects.create(
                     restaurant=restaurant,
@@ -119,9 +114,6 @@ class OrderCheckoutAPIView(APIView):
                     status=ReservationStatus.SEATED,
                 )
 
-        # ===============================
-        # 🟢 CREATE ORDER (SAFE)
-        # ===============================
         order = Orders.objects.create(
             user=user,
             order_type=order_type,
@@ -131,16 +123,12 @@ class OrderCheckoutAPIView(APIView):
             table=table,
         )
 
-        # ===============================
-        # 🧾 ADD ITEMS
-        # ===============================
         total_price = 0
 
         for item in items:
             menu_item = get_object_or_404(
                 MenuItem,
                 id=item["menu_item"],
-                # restaurant=dine_in_session.restaurant if dine_in_session else None
             )
 
             quantity = max(1, int(item.get("quantity", 1)))
@@ -173,15 +161,66 @@ class OrderCheckoutAPIView(APIView):
         )
 
 
-# NOTE: This app also exposes a separate Cart/CartItem flow
-# (create-cart, create-cart-item, retrieve-cart, update, delete — see
-# apps/restaurants/views/carts.py). OrderCheckoutAPIView above does NOT
-# read from that Cart; it takes "items" directly from the request body.
-# Pick one source of truth for checkout (either always build the order
-# from the user's Cart, or drop the Cart endpoints) so the frontend isn't
-# maintaining two parallel "what's in the order" states.
-# The old cart-based checkout (OrderCheckoutAPIViewOld) has been removed
-# since it was never wired into urls.py and was dead code.
+class PayOrderAPIView(APIView):
+    """
+    Confirms payment for an order (manual/staff-confirmed flow,
+    not a live payment gateway).
+    """
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request, order_id):
+        order = get_object_or_404(Orders, id=order_id)
+        profile = request.user.profile
+
+        is_owner = order.user_id == profile.id
+        is_staff = getattr(request.user, "user_type", None) in (
+            "waiter", "manager", "super_admin"
+        )
+
+        if not (is_owner or is_staff):
+            return Response(
+                {"detail": "You are not allowed to confirm payment for this order."},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
+        if order.payment_status == PaymentStatus.CONFIRMED.value:
+            return Response(
+                {"detail": "This order has already been paid."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        if order.order_cancelled:
+            return Response(
+                {"detail": "Cannot pay for a cancelled order."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        method_key = request.data.get("payment_method", "cash")
+        method_value = (
+            PaymentMethod.TRANSFER.value
+            if method_key == "transfer"
+            else PaymentMethod.CATCH_ON_DELIVERY.value
+        )
+
+        with transaction.atomic():
+            PaymentDetails.objects.update_or_create(
+                order=order,
+                defaults={
+                    "user": order.user,
+                    "payment_method": method_value,
+                    "payment_status": PaymentStatus.CONFIRMED.value,
+                    "receipt_image": request.FILES.get("receipt_image"),
+                },
+            )
+
+            order.payment_status = PaymentStatus.CONFIRMED.value
+            order.save(update_fields=["payment_status"])
+
+        return Response(
+            OrderDetailSerializer(order).data,
+            status=status.HTTP_200_OK,
+        )
+
 
 class WaiterOrderListAPIView(ListAPIView):
     serializer_class = OrderSerializer
