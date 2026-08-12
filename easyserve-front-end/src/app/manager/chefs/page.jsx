@@ -12,7 +12,7 @@ export default function ChefsPage() {
   useEffect(() => {
     const fetchChefs = async () => {
       try {
-        const res = await fetch("http://localhost:9000/api/user/staff/?type=chef", {
+        const res = await fetch("http://127.0.0.1:8000/api/user/staff/?type=chef", {
           headers: {
             Authorization: `Bearer ${token}`,
           },

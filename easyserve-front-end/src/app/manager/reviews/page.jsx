@@ -25,7 +25,7 @@ export default function ReviewsPage() {
   useEffect(() => {
     const fetchReviews = async () => {
       try {
-        const res = await fetch("http://localhost:9000/api/ratings/restaurant-reviews/", {
+        const res = await fetch("http://127.0.0.1:8000/api/ratings/restaurant-reviews/", {
           headers: { Authorization: `Bearer ${token}` },
         });
         const json = await res.json();

@@ -25,7 +25,7 @@ export default function AddChefPage() {
     e.preventDefault();
 
     try {
-      const response = await fetch("http://localhost:9000/api/user/register/", {
+      const response = await fetch("http://127.0.0.1:8000/api/user/register/", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",

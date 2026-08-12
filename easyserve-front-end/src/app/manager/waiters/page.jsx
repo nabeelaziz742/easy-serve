@@ -14,7 +14,7 @@ export default function WaitersPage() {
 
   const fetchWaiters = async () => {
     try {
-      const res = await fetch("http://localhost:9000/api/user/staff/?type=waiter", {
+      const res = await fetch("http://127.0.0.1:8000/api/user/staff/?type=waiter", {
         headers: { Authorization: `Bearer ${token}` },
       });
       const data = await res.json();
@@ -49,7 +49,7 @@ export default function WaitersPage() {
     e.preventDefault();
     setSaving(true);
     try {
-      const res = await fetch(`http://localhost:9000/api/user/staff/${editingUser.id}/`, {
+      const res = await fetch(`http://127.0.0.1:8000/api/user/staff/${editingUser.id}/`, {
         method: "PATCH",
         headers: {
           "Content-Type": "application/json",
@@ -74,7 +74,7 @@ export default function WaitersPage() {
   const handleDelete = async (id) => {
     if (!confirm("Are you sure you want to delete this waiter?")) return;
     try {
-      const res = await fetch(`http://localhost:9000/api/user/staff/${id}/`, {
+      const res = await fetch(`http://127.0.0.1:8000/api/user/staff/${id}/`, {
         method: "DELETE",
         headers: { Authorization: `Bearer ${token}` },
       });

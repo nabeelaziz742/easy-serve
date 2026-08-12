@@ -56,6 +56,13 @@ class RegistrationView(APIView):
             profile_serializer = UserProfileSerializer(data=profile)
             profile_serializer.is_valid(raise_exception=True)
             profile_serializer.save(user=instance)
+        else:
+            # No profile payload sent (e.g. manager "Add Waiter/Chef" form).
+            # Every User must have a UserProfile - endpoints like order
+            # accept/assign rely on request.user.profile and crash with a
+            # 500 if it doesn't exist.
+            from apps.userprofile.models import UserProfile
+            UserProfile.objects.get_or_create(user=instance)
 
         # Manager-added staff (waiter/chef) - turant active, email verification skip
         if instance.user_type in ['waiter', 'chef']:
