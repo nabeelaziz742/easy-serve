@@ -30,7 +30,9 @@ class LoginAPITestCase(TestCase):
         response = self.client.post(self.login_url, data, format='json')
         self.assertEqual(response.status_code, status.HTTP_200_OK)
 
-        self.assertIn('token', response.data)
+        self.assertIn('access', response.data)
+        self.assertIn('refresh', response.data)
+        self.assertIn('refresh', response.data)
 
     def test_login_invalid_user(self):
         data = {
@@ -39,4 +41,4 @@ class LoginAPITestCase(TestCase):
         }
 
         response = self.client.post(self.login_url, data, format='json')
-        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)

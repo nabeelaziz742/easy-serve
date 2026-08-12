@@ -44,7 +44,7 @@ const baseQueryWithReauth = async (args, api, extraOptions) => {
         type: "auth/onLoggedIn",
         payload: {
           access: refreshResult.data.access,
-          refresh,
+          refresh: refreshResult.data.refresh || refresh,
           user_type: api.getState().auth.user?.user_type,
         },
       });
@@ -69,6 +69,10 @@ export const privateAPi = createApi({
     'reviews',
     'tables',
     "getOrders",
+    "getOrder",
+    "PendingOrders",
+    "ReadyOrders",
+    "ChefOrders",
     "TopAISuggestions",
     "User",
     "UserFiles",

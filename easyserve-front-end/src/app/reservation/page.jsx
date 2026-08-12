@@ -21,10 +21,10 @@ import {
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { useCreateReservationMutation } from "@/services/private/reservations";
-import { useState } from "react";
+import React, { Suspense } from "react";
 
 
-export default function ReservationPage() {
+function ReservationPageContent() {
   const router = useRouter();
 
 
@@ -147,5 +147,13 @@ export default function ReservationPage() {
         </CardContent>
       </Card>
     </div>
+  );
+}
+
+export default function ReservationPage() {
+  return (
+    <Suspense fallback={<div className="min-h-screen" />}>
+      <ReservationPageContent />
+    </Suspense>
   );
 }

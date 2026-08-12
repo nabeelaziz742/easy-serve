@@ -222,9 +222,34 @@ class PayOrderAPIView(APIView):
         )
 
 
+class OrderDetailAPIView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request, order_id):
+        order = get_object_or_404(Orders, id=order_id)
+        profile = request.user.profile
+        user_type = getattr(request.user, "user_type", None)
+
+        if order.user_id != profile.id:
+            allowed_staff_types = (
+                "waiter",
+                "chef",
+                "manager",
+                "restaurant_owner",
+                "super_admin",
+            )
+            if user_type not in allowed_staff_types:
+                return Response(
+                    {"detail": "You are not allowed to view this order."},
+                    status=status.HTTP_403_FORBIDDEN,
+                )
+
+        return Response(OrderDetailSerializer(order).data)
+
+
 class WaiterOrderListAPIView(ListAPIView):
     serializer_class = OrderSerializer
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsWaiter]
 
     def get_queryset(self):
         return Orders.objects.filter(
@@ -243,7 +268,7 @@ class UserOrderHistoryAPIView(ListAPIView):
 
 class PendingOrderListAPIView(ListAPIView):
     serializer_class = OrderSerializer
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsWaiter]
 
     def get_queryset(self):
         return Orders.objects.filter(
@@ -307,7 +332,7 @@ class AssignChefAPIView(APIView):
 
 class ChefOrderListAPIView(ListAPIView):
     serializer_class = OrderSerializer
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsChef]
 
     def get_queryset(self):
         return Orders.objects.filter(
@@ -316,7 +341,7 @@ class ChefOrderListAPIView(ListAPIView):
 
 class ReadyOrdersAPIView(ListAPIView):
     serializer_class = OrderSerializer
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsWaiter]
 
     def get_queryset(self):
         return Orders.objects.filter(

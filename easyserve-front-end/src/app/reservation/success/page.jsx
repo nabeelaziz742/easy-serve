@@ -1,5 +1,6 @@
 "use client";
 
+import { Suspense } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import { motion } from "framer-motion";
 import { List, ArrowRight } from "lucide-react";
@@ -16,7 +17,7 @@ import { Separator } from "@/components/ui/separator";
 import { Badge } from "@/components/ui/badge";
 import { useGetReservationByIdQuery } from "@/services/private/reservations";
 
-export default function ReservationSuccessPage() {
+function ReservationSuccessContent() {
   const searchParams = useSearchParams();
   const router = useRouter();
 
@@ -162,5 +163,18 @@ export default function ReservationSuccessPage() {
         </Card>
       </motion.div>
     </div>
+  );
+}
+
+
+export default function ReservationSuccessPage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen flex items-center justify-center">
+        Loading reservation details...
+      </div>
+    }>
+      <ReservationSuccessContent />
+    </Suspense>
   );
 }

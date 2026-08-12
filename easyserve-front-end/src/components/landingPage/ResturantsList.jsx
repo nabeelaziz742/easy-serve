@@ -1,6 +1,6 @@
 "use client";
 
-import React from "react";
+import React, { Suspense } from "react";
 import {
   MapPin,
   Phone,
@@ -299,7 +299,7 @@ const RestaurantCard = ({
 
 // ===================== MAIN PAGE =====================
 
-export default function RestaurantsList() {
+function RestaurantsListContent() {
 
   const { data: allRestaurants } =
     useGetRestaurantsQuery();
@@ -519,5 +519,13 @@ export default function RestaurantsList() {
 
       </div>
     </section>
+  );
+}
+
+export default function RestaurantsList() {
+  return (
+    <Suspense fallback={<RestaurantSkeleton />}>
+      <RestaurantsListContent />
+    </Suspense>
   );
 }

@@ -27,6 +27,7 @@ function ClientOrders() {
 
   const ORDER_STATUS_META = {
     "To Prepare": { label: "Preparing", emoji: "👨‍🍳", variant: "warning" },
+    "Preparing": { label: "Preparing", emoji: "👨‍🍳", variant: "warning" },
     "Ready": { label: "Ready", emoji: "🍽️", variant: "success" },
     "Served": { label: "Served", emoji: "✅", variant: "success" },
     "Cancelled": { label: "Cancelled", emoji: "❌", variant: "destructive" },
