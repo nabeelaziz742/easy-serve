@@ -2,7 +2,7 @@
 
 import React from "react";
 import { useSelector } from "react-redux";
-import { useParams } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 import { router } from "next/dist/client";
 
 import { MenuItemCard } from "@/components/landingPage/MenuItemCard";
@@ -14,6 +14,7 @@ import { useGetRestaurantMenusQuery } from "@/services/public/resturants";
 function Restaurant() {
 
   const param = useParams();
+  const router = useRouter();
 
   const dineIn = useSelector(
     (state) => state.dineIn
