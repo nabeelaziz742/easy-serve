@@ -76,8 +76,8 @@ function HeroCard({ value }) {
       </div>
       <div className="relative z-10">
         <p className="text-emerald-200 font-semibold tracking-widest text-[9px] uppercase mb-0.5">Total Served</p>
-        <h2 className="text-base font-bold tracking-tight text-white">{value}</h2>
       </div>
+        <h2 className="text-base font-bold tracking-tight text-white">{value}</h2>
     </Card>
   );
 }
