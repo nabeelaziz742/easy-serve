@@ -7,10 +7,11 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from apps.restaurants.constants import PaymentMethod, PaymentStatus
+from apps.restaurants.constants import PaymentMethod, PaymentStatus, OrderStatus
 from apps.restaurants.models import Orders, PaymentDetails
 from apps.restaurants.permissions import IsManager, IsWaiter
 from apps.restaurants.serializers import OrderDetailSerializer
+from apps.restaurants.services.table_lifecycle import release_table_after_payment
 
 
 class RequestCashPaymentAPIView(APIView):
@@ -103,6 +104,12 @@ class SettleCashPaymentAPIView(APIView):
         payment.save(update_fields=["cash_settled_by", "cash_settled_at", "payment_status", "updated_at"])
         order.payment_status = PaymentStatus.CONFIRMED.value
         order.save(update_fields=["payment_status"])
+
+        # Once the manager has actually settled the cash, the dine-in
+        # session is complete and the physical table becomes available.
+        if order.order_status == OrderStatus.SERVED:
+            release_table_after_payment(order)
+
         return Response({"message": "Cash settled successfully.", "payment_status": "confirmed", "amount": str(order.total_price), "waiter": str(payment.cash_received_by), "manager": str(manager)})
 
 
