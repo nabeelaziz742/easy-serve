@@ -29,7 +29,7 @@ class TableService:
                 items = TableRepository.get_order_items(order)
 
                 table_info.update({
-                    "status": order.table.table_state,
+                    "status": order.table.get_table_state_display().upper().replace(" ", "_"),
                     "customers": order.table.customer_count,
                     "orderItems": [
                         {
