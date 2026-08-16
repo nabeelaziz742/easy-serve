@@ -1,6 +1,7 @@
 "use client";
 
 import { motion } from "framer-motion";
+import { useRouter } from "next/navigation";
 
 import {
   X,
@@ -30,6 +31,7 @@ import { useAddOrderMutation } from "@/services/private/orders";
 export default function CartDrawer() {
 
   const dispatch = useDispatch();
+  const router = useRouter();
 
   const [addOrder, { isLoading }] =
     useAddOrderMutation();
@@ -96,11 +98,13 @@ export default function CartDrawer() {
       const res =
         await addOrder(body).unwrap();
 
+      // The order has been successfully created. Clear the cart and
+      // take the customer to the Orders page so the newly created order
+      // is immediately visible instead of appearing to disappear.
       dispatch(clearCart());
-
       dispatch(toggleCart());
-
       console.log("Order created:", res);
+      router.push("/orders");
 
     } catch (error) {
 
