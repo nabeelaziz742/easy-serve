@@ -7,7 +7,7 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from apps.restaurants.constants import PaymentMethod, PaymentStatus, OrderStatus
+from apps.restaurants.constants import PaymentMethod, PaymentStatus, OrderStatus, TableState
 from apps.restaurants.models import Orders, PaymentDetails
 from apps.restaurants.permissions import IsManager, IsWaiter
 from apps.restaurants.serializers import OrderDetailSerializer
@@ -72,6 +72,14 @@ class ReceiveCashPaymentAPIView(APIView):
         payment.cash_received_at = now()
         payment.payment_status = PaymentStatus.PENDING.value
         payment.save(update_fields=["cash_received_by", "cash_received_at", "payment_status", "updated_at"])
+
+        # Receiving cash happens after the meal is served. Keep the table
+        # explicitly out of OCCUPIED while the manager still needs to settle
+        # the cash. Final settlement will release the table to EMPTY.
+        if order.order_status == OrderStatus.SERVED:
+            order.table.table_state = TableState.PAYMENT_PENDING.value
+            order.table.save(update_fields=["table_state", "updated_at"])
+
         return Response({"message": "Cash received and recorded. Awaiting manager settlement.", "payment_status": "cash_received", "amount": str(order.total_price), "waiter": str(waiter)})
 
 
