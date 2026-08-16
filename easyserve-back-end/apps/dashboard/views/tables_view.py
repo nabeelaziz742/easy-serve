@@ -13,7 +13,13 @@ class TablesListView(ListAPIView):
     def get_queryset(self):
         user = self.request.user
         profile = getattr(user, 'profile', None)
-        if not profile or not user.user_type == 'waiter' or not profile.restaurant:
+        allowed_user_types = {'waiter', 'manager', 'restaurant_owner'}
+
+        if (
+            not profile
+            or user.user_type not in allowed_user_types
+            or not profile.restaurant
+        ):
             return Table.objects.none()
 
         service = TableService()
