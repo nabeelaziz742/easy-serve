@@ -13,6 +13,7 @@ from apps.restaurants.views import (
     StartPreparingAPIView, MarkPreparedAPIView, MarkServedAPIView,
     ManagerDashboardAPIView, ReadyOrdersAPIView,
     RequestCashPaymentAPIView, ReceiveCashPaymentAPIView, SettleCashPaymentAPIView,
+    WaiterCashOrdersAPIView, ManagerCashOrdersAPIView,
 )
 from apps.restaurants.views.ai import RestaurantTopSuggestionsView, RestaurantMenuSuggestionsView
 
@@ -43,6 +44,8 @@ urlpatterns = [
     path('orders/<int:order_id>/cash-request/', RequestCashPaymentAPIView.as_view(), name='cash-request'),
     path('orders/<int:order_id>/cash-receive/', ReceiveCashPaymentAPIView.as_view(), name='cash-receive'),
     path('orders/<int:order_id>/cash-settle/', SettleCashPaymentAPIView.as_view(), name='cash-settle'),
+    path('orders/waiter/cash/', WaiterCashOrdersAPIView.as_view(), name='waiter-cash-orders'),
+    path('orders/manager/cash/', ManagerCashOrdersAPIView.as_view(), name='manager-cash-orders'),
     path('orders/waiter/', WaiterOrderListAPIView.as_view(), name='waiter-order-list'),
     path('reservations/', ReservationListCreateAPIView.as_view(), name='reservation-list-create'),
     path('reservations/<int:pk>/', ReservationDetailAPIView.as_view(), name='reservation-detail'),
