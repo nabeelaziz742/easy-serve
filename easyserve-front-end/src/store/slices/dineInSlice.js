@@ -1,16 +1,16 @@
 import { createSlice } from "@reduxjs/toolkit";
 
-
 const initialState = {
   active: false,
   restaurant: null,
   table: null,
   menus: [],
-  active_session: null,
+  active_session: false,
+  session: null,
   guests: null,
   name: "",
   phone: "",
-  sessionToken: null
+  sessionToken: null,
 };
 
 const dineInSlice = createSlice({
@@ -22,6 +22,8 @@ const dineInSlice = createSlice({
         ...state,
         ...action.payload,
         active: true,
+        name: action.payload.name ?? state.name ?? "",
+        phone: action.payload.phone ?? state.phone ?? "",
       };
     },
 
@@ -29,13 +31,27 @@ const dineInSlice = createSlice({
       state.guests = action.payload;
     },
 
-    setGuestInfo: (state, action) => {
-      state.guest_name = action.payload.name;
-      state.guest_phone = action.payload.phone;
+    setGuestInfo(state, action) {
+      state.name = action.payload.name ?? "";
+      state.phone = action.payload.phone ?? "";
     },
 
-    clearDineIn(state) {
-      return state.initialState;
+    setDineInSession(state, action) {
+      state.active_session = action.payload.active_session ?? true;
+      state.session = action.payload.session ?? state.session;
+      state.sessionToken =
+        action.payload.sessionToken ??
+        action.payload.session?.token ??
+        state.sessionToken;
+      if (action.payload.session?.guests != null) {
+        state.guests = action.payload.session.guests;
+      }
+      state.name = action.payload.session?.name ?? state.name;
+      state.phone = action.payload.session?.phone ?? state.phone;
+    },
+
+    clearDineIn() {
+      return initialState;
     },
   },
 });
@@ -44,6 +60,7 @@ export const {
   setDineInContext,
   setDineInGuests,
   setGuestInfo,
+  setDineInSession,
   clearDineIn,
 } = dineInSlice.actions;
 
