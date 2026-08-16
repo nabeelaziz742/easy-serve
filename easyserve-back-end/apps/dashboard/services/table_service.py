@@ -29,9 +29,9 @@ class TableService:
             if order:
                 items = TableRepository.get_order_items(order)
 
-                # The order/payment lifecycle is authoritative once an order
-                # has been served. This prevents a stale table_state from
-                # keeping a completed table visibly OCCUPIED.
+                # Order/payment lifecycle is authoritative for a completed
+                # dine-in order. Never let a stale table_state keep a served
+                # table looking OCCUPIED.
                 if order.order_status == OrderStatus.SERVED.value:
                     if order.payment_status == PaymentStatus.CONFIRMED.value:
                         status = TableState.EMPTY.name
@@ -42,8 +42,8 @@ class TableService:
 
                 table_info["status"] = status
 
-                # A fully paid/closed table is clean for the next customer;
-                # don't display the previous order as if it were still active.
+                # Once payment is confirmed, the previous order must no
+                # longer make the table look active or occupied.
                 if status == TableState.EMPTY.name:
                     table_info["customers"] = 0
                 else:
@@ -54,7 +54,7 @@ class TableService:
                                 "item_name": i.menu_item.name,
                                 "quantity": i.quantity,
                                 "price": str(i.price),
-                                "comments": i.comments or ""
+                                "comments": i.comments or "",
                             }
                             for i in items
                         ],
@@ -66,9 +66,10 @@ class TableService:
                                 "rate": order.review.rate,
                                 "comment": order.review.comment,
                                 "created_by": order.review.created_by,
-                                "created_at": order.review.created_at
+                                "created_at": order.review.created_at,
                             }
-                            if hasattr(order, "review") and order.review else None
+                            if hasattr(order, "review") and order.review
+                            else None
                         ),
                     })
 
