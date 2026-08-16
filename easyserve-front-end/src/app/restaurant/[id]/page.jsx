@@ -19,7 +19,11 @@ function Restaurant() {
     () => param?.id && typeof window !== "undefined" && window.location.search.includes("mode=dine-in")
   );
 
-  const hasDineInMenus = (dineIn?.menus?.length ?? 0) > 0;
+  // Dine-in validation can restore menu metadata without menu items.
+  // Only treat the restored menus as usable when they actually contain items.
+  const hasDineInMenus = (dineIn?.menus ?? []).some(
+    (menu) => (menu?.menu_items?.length ?? 0) > 0
+  );
 
   const { data } = useGetRestaurantMenusQuery(param.id, {
     skip: !param.id || (dineIn?.active && hasDineInMenus),
