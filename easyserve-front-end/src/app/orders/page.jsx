@@ -15,22 +15,37 @@ function ClientOrders() {
   const [payOrder, { isLoading: isPaying }] = usePayOrderMutation();
   const loading = isLoading || isFetching;
   const [cardPayOrderId, setCardPayOrderId] = useState(null);
+  const [cashRequestedIds, setCashRequestedIds] = useState([]);
 
   const handlePay = async (orderId) => {
     try {
-      await payOrder({ orderId, paymentMethod: "cash" }).unwrap();
-      toast.success("Payment confirmed 🎉");
+      const res = await payOrder({
+        orderId,
+        paymentMethod: "cash",
+      }).unwrap();
+
+      if (res?.payment_pending) {
+        setCashRequestedIds((current) =>
+          current.includes(orderId) ? current : [...current, orderId]
+        );
+        toast.success("Cash payment requested. Waiting for restaurant confirmation.");
+      } else {
+        toast.success("Payment confirmed 🎉");
+      }
+
+      refetch();
     } catch (err) {
-      toast.error(err?.data?.detail || "Could not confirm payment.");
+      toast.error(err?.data?.detail || "Could not submit cash payment request.");
     }
   };
 
   const ORDER_STATUS_META = {
     "To Prepare": { label: "Preparing", emoji: "👨‍🍳", variant: "warning" },
-    "Preparing": { label: "Preparing", emoji: "👨‍🍳", variant: "warning" },
-    "Ready": { label: "Ready", emoji: "🍽️", variant: "success" },
-    "Served": { label: "Served", emoji: "✅", variant: "success" },
-    "Cancelled": { label: "Cancelled", emoji: "❌", variant: "destructive" },
+    Preparing: { label: "Preparing", emoji: "👨‍🍳", variant: "warning" },
+    Prepared: { label: "Ready", emoji: "🍽️", variant: "success" },
+    Ready: { label: "Ready", emoji: "🍽️", variant: "success" },
+    Served: { label: "Served", emoji: "✅", variant: "success" },
+    Cancelled: { label: "Cancelled", emoji: "❌", variant: "destructive" },
   };
 
   const PAYMENT_STATUS_META = {
@@ -47,10 +62,10 @@ function ClientOrders() {
 
   if (loading) {
     return (
-      <div className="flex h-150 items-center justify-center">
-        <div className="grid w-full max-w-4xl gap-6">
-          {Array.from({ length: 3 }).map((_, i) => (
-            <Skeleton key={i} className="h-48 rounded-3xl" />
+      <div className="flex min-h-[70vh] items-center justify-center px-5 py-8">
+        <div className="grid w-full max-w-6xl grid-cols-1 gap-5 lg:grid-cols-2">
+          {Array.from({ length: 4 }).map((_, i) => (
+            <Skeleton key={i} className="h-80 rounded-2xl" />
           ))}
         </div>
       </div>
@@ -59,8 +74,8 @@ function ClientOrders() {
 
   if (!data?.results?.length) {
     return (
-      <div className="flex h-150 items-center justify-center">
-        <Card className="rounded-3xl p-10 text-center shadow-sm">
+      <div className="flex min-h-[70vh] items-center justify-center px-5 py-8">
+        <Card className="rounded-2xl p-8 text-center shadow-sm">
           <h2 className="text-lg font-semibold">No Orders Found</h2>
           <p className="mt-2 text-sm text-muted-foreground">
             There are currently no orders available.
@@ -71,151 +86,132 @@ function ClientOrders() {
   }
 
   return (
-    <div className="mx-auto grid max-w-5xl gap-12">
-      {data.results.map((order) => {
-        const orderedDate = new Date(order.ordered_date).toLocaleString();
+    <div className="mx-auto w-full max-w-6xl px-5 py-7">
+      <div className="mb-6">
+        <h1 className="text-2xl font-bold tracking-tight">My Orders</h1>
+        <p className="mt-1 text-sm text-muted-foreground">
+          Track your orders and payment status.
+        </p>
+      </div>
 
-        return (
-          <Card
-            key={order.id}
-            className="
-              overflow-hidden rounded-3xl
-              border border-border/60
-              bg-background
-              shadow-[0_8px_30px_-12px_rgba(0,0,0,0.12)]
-              transition hover:shadow-[0_16px_40px_-12px_rgba(0,0,0,0.18)]
-              dark:shadow-[0_8px_30px_-12px_rgba(0,0,0,0.7)]
-            "
-          >
-            <div className="px-8 pt-7 pb-5">
-              <div className="flex items-start justify-between gap-6">
-                <div className="space-y-1">
-                  <h2 className="text-xl font-semibold tracking-tight">
-                    Order #{order.id}
-                  </h2>
-                  <p className="text-sm text-muted-foreground">
-                    {order.billing_first_name} {order.billing_last_name}
-                  </p>
-                </div>
+      <div className="grid grid-cols-1 items-start gap-5 lg:grid-cols-2">
+        {data.results.map((order) => {
+          const orderedDate = new Date(order.ordered_date).toLocaleString();
+          const cashRequested = cashRequestedIds.includes(order.id);
+          const paymentMeta = PAYMENT_STATUS_META[order.payment_status];
+          const orderMeta = ORDER_STATUS_META[order.order_status];
 
-                <div className="flex flex-wrap gap-2">
-                  <Badge variant="secondary" className="px-3 py-1">
-                    {ORDER_TYPE_META[order.order_type] || order.order_type}
-                  </Badge>
+          return (
+            <Card
+              key={order.id}
+              className="overflow-hidden rounded-2xl border border-border/60 bg-background shadow-sm transition hover:shadow-md"
+            >
+              <div className="px-5 py-4">
+                <div className="flex items-start justify-between gap-4">
+                  <div className="min-w-0">
+                    <h2 className="text-base font-bold tracking-tight">
+                      Order #{order.id}
+                    </h2>
+                    <p className="mt-0.5 truncate text-xs text-muted-foreground">
+                      {order.billing_first_name} {order.billing_last_name}
+                    </p>
+                  </div>
 
-                  {order.order_status && (
-                    <Badge
-                      variant={ORDER_STATUS_META[order.order_status]?.variant || "outline"}
-                      className="px-3 py-1"
-                    >
-                      {ORDER_STATUS_META[order.order_status]?.emoji}{" "}
-                      {ORDER_STATUS_META[order.order_status]?.label || order.order_status}
+                  <div className="flex shrink-0 flex-wrap justify-end gap-1.5">
+                    <Badge variant="secondary" className="px-2 py-0.5 text-[11px]">
+                      {ORDER_TYPE_META[order.order_type] || order.order_type}
                     </Badge>
-                  )}
 
-                  <Badge
-                    variant={PAYMENT_STATUS_META[order.payment_status]?.variant || "outline"}
-                    className="px-3 py-1"
-                  >
-                    {PAYMENT_STATUS_META[order.payment_status]?.emoji}{" "}
-                    {order.payment_status}
-                  </Badge>
+                    {orderMeta && (
+                      <Badge
+                        variant={orderMeta.variant}
+                        className="px-2 py-0.5 text-[11px]"
+                      >
+                        {orderMeta.emoji} {orderMeta.label}
+                      </Badge>
+                    )}
+
+                    <Badge
+                      variant={paymentMeta?.variant || "outline"}
+                      className="px-2 py-0.5 text-[11px]"
+                    >
+                      {paymentMeta?.emoji || "⏳"} {order.payment_status}
+                    </Badge>
+                  </div>
                 </div>
               </div>
-            </div>
 
-            <Separator />
+              <Separator />
 
-            <div className="px-8 py-7">
-              <div className="space-y-4">
+              <div className="space-y-2.5 px-5 py-4">
                 {order.items.map((item) => (
                   <div
                     key={item.id}
-                    className="
-                      flex items-center justify-between gap-6
-                      rounded-2xl
-                      border border-border/50
-                      bg-muted/30
-                      px-5 py-4
-                      transition
-                      hover:bg-muted/50
-                    "
+                    className="flex items-center justify-between gap-4 rounded-xl border border-border/50 bg-muted/30 px-3.5 py-3"
                   >
                     <div className="min-w-0">
-                      <p className="truncate font-medium leading-tight">
+                      <p className="truncate text-sm font-semibold">
                         {item.menu_item.name}
                       </p>
-                      <p className="mt-1 text-xs text-muted-foreground">
+                      <p className="mt-0.5 truncate text-[11px] text-muted-foreground">
                         {item.comments || "No special instructions"}
                       </p>
                     </div>
 
-                    <div className="flex shrink-0 items-center gap-10 text-sm">
+                    <div className="flex shrink-0 items-center gap-4 text-xs">
                       <span className="text-muted-foreground">
-                        Qty{" "}
-                        <span className="font-medium text-foreground">
-                          {item.quantity}
-                        </span>
+                        Qty <span className="font-semibold text-foreground">{item.quantity}</span>
                       </span>
-
-                      <span className="text-base font-semibold">
-                        {item.price}
-                      </span>
+                      <span className="text-sm font-bold">Rs. {item.price}</span>
                     </div>
                   </div>
                 ))}
               </div>
-            </div>
 
-            <div
-              className="
-                flex flex-col gap-4
-                bg-muted/40
-                px-8 py-6
-                sm:flex-row sm:items-center sm:justify-between
-              "
-            >
-              <p className="text-sm text-muted-foreground">
-                Ordered on{" "}
-                <span className="font-medium text-foreground">
-                  {orderedDate}
-                </span>
-              </p>
+              <div className="border-t bg-muted/30 px-5 py-4">
+                <div className="flex flex-col gap-3">
+                  <div className="flex items-center justify-between gap-4">
+                    <p className="text-[11px] text-muted-foreground">
+                      {orderedDate}
+                    </p>
+                    <p className="text-lg font-bold tracking-tight">
+                      Total Rs. {order.total_price || "N/A"}
+                    </p>
+                  </div>
 
-              <div className="flex flex-col items-end gap-3">
-                <div className="flex items-center gap-4">
-                  <p className="text-xl font-semibold tracking-tight">
-                    Total {order.total_price || "N/A"}
-                  </p>
+                  {order.payment_status !== "Confirmed" && !order.order_cancelled && (
+                    <div className="flex flex-col gap-2 sm:flex-row sm:justify-end">
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        disabled={isPaying || cashRequested}
+                        onClick={() => handlePay(order.id)}
+                        className="h-9 text-xs"
+                      >
+                        {cashRequested
+                          ? "Cash Requested — Awaiting Confirmation"
+                          : isPaying
+                            ? "Submitting..."
+                            : "Request Cash Payment"}
+                      </Button>
 
-                  {order.payment_status !== "Confirmed" &&
-                    !order.order_cancelled && (
-                      <div className="flex items-center gap-2">
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          disabled={isPaying}
-                          onClick={() => handlePay(order.id)}
-                        >
-                          {isPaying ? "Confirming..." : "Pay with Cash"}
-                        </Button>
-
-                        <Button
-                          size="sm"
-                          onClick={() =>
-                            setCardPayOrderId(
-                              cardPayOrderId === order.id ? null : order.id
-                            )
-                          }
-                        >
-                          Pay with Card
-                        </Button>
-                      </div>
-                    )}
+                      <Button
+                        size="sm"
+                        onClick={() =>
+                          setCardPayOrderId(
+                            cardPayOrderId === order.id ? null : order.id
+                          )
+                        }
+                        className="h-9 text-xs"
+                      >
+                        Pay with Card
+                      </Button>
+                    </div>
+                  )}
                 </div>
 
                 {cardPayOrderId === order.id && (
-                  <div className="w-full max-w-sm rounded-xl border border-border/60 bg-background p-4">
+                  <div className="mt-3 rounded-xl border border-border/60 bg-background p-3">
                     <OrderPayment
                       orderId={order.id}
                       onSuccess={() => {
@@ -227,10 +223,10 @@ function ClientOrders() {
                   </div>
                 )}
               </div>
-            </div>
-          </Card>
-        );
-      })}
+            </Card>
+          );
+        })}
+      </div>
     </div>
   );
 }
