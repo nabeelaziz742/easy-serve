@@ -14,6 +14,7 @@ import {
   LogOut,
   User,
   Menu,
+  Banknote,
 } from "lucide-react";
 
 const navItems = [
@@ -23,6 +24,7 @@ const navItems = [
   { href: "/manager/chefs",     label: "Chefs",      icon: ChefHat },
   { href: "/manager/reviews",   label: "Reviews",    icon: Star },
   { href: "/manager/analytics", label: "Analytics",  icon: BarChart3 },
+  { href: "/manager/cash",      label: "Cash",       icon: Banknote },
 ];
 
 export default function ManagerLayout({ children }) {
@@ -33,7 +35,7 @@ export default function ManagerLayout({ children }) {
   return (
     <div className="flex flex-col min-h-screen">
 
-      {/* ───── TOPBAR ───── */}
+      {/* TOPBAR */}
       <header className="h-16 bg-green-950 text-white flex items-center justify-between px-6 shadow-xl sticky top-0 z-50">
         <div className="flex items-center gap-4">
           <button
@@ -54,17 +56,17 @@ export default function ManagerLayout({ children }) {
           </div>
         </div>
 
-        <Link href="/manager/profile">
-          <div className="flex items-center gap-2.5 px-4 py-2 rounded-xl border border-white/10 hover:bg-white/10 transition-all duration-200 cursor-pointer">
-            <div className="w-7 h-7 rounded-full bg-white/10 flex items-center justify-center">
-              <User size={14} className="text-white" />
-            </div>
-            <span className="text-sm font-semibold text-white">Profile</span>
-          </div>
-        </Link>
+        <button
+          type="button"
+          onClick={() => dispatch(onLoggedOut())}
+          className="flex items-center gap-2 px-4 py-2 rounded-xl border border-red-200/20 bg-red-500/10 text-red-200 hover:bg-red-500/20 transition-all duration-200"
+        >
+          <LogOut size={15} />
+          <span className="text-sm font-semibold">Logout</span>
+        </button>
       </header>
 
-      {/* ───── BODY ───── */}
+      {/* BODY */}
       <div className="flex flex-1 items-stretch">
 
         {/* SIDEBAR */}
