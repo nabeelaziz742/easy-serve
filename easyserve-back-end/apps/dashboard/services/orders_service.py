@@ -1,7 +1,7 @@
 from django.db import transaction
 
 from apps.dashboard.repositories import OrdersRepository
-from apps.restaurants.constants import OrderStatus
+from apps.restaurants.constants import OrderStatus, PaymentStatus
 from apps.restaurants.services.table_lifecycle import (
     set_table_awaiting_payment,
     release_table_after_payment,
@@ -22,7 +22,7 @@ class OrderService:
         # A served dine-in order is no longer an occupied table. Keep it
         # visible as awaiting payment until the payment is actually settled.
         if value == OrderStatus.SERVED:
-            if updated_order.payment_status == 2:  # PaymentStatus.CONFIRMED
+            if updated_order.payment_status == PaymentStatus.CONFIRMED.value:
                 release_table_after_payment(updated_order)
             else:
                 set_table_awaiting_payment(updated_order)
