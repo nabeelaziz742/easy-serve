@@ -7,4 +7,5 @@ from .orders import *
 from .payments import *
 from .reviews import *
 from .dine_in_validate import *
+from .dine_in_session import *
 from .reservations import *
