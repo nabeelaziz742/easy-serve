@@ -58,11 +58,11 @@ export default function GuestSelector({ onContinue }) {
         <input
           type="text"
           placeholder="Your name (optional)"
-          value={dineIn.guest_name}
+          value={dineIn.guest_name || ""}
           onChange={(e) =>
             dispatch(setGuestInfo({
               name: e.target.value,
-              phone: dineIn.guest_phone,
+              phone: dineIn.guest_phone || "",
             }))
           }
           className="w-full border rounded p-2"
@@ -71,10 +71,10 @@ export default function GuestSelector({ onContinue }) {
         <input
           type="tel"
           placeholder="Phone number (optional)"
-          value={dineIn.guest_phone}
+          value={dineIn.guest_phone || ""}
           onChange={(e) =>
             dispatch(setGuestInfo({
-              name: dineIn.guest_name,
+              name: dineIn.guest_name || "",
               phone: e.target.value,
             }))
           }
