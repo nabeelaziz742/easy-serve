@@ -1,5 +1,6 @@
 from apps.dashboard.repositories import TableRepository
 
+
 class TableService:
 
     @staticmethod
@@ -10,15 +11,15 @@ class TableService:
 
         for table in tables:
             order = TableRepository.get_latest_order_for_table(table)
+            status = table.get_table_state_display().upper().replace(" ", "_")
 
-            # Default empty table state
             table_info = {
                 "id": table.id,
                 "number": table.table_number,
-                "status": "EMPTY",
-                "customers": 0,
+                "status": status,
+                "customers": table.customer_count,
                 "orderItems": [],
-                "orderTime": '00:00:00',
+                "orderTime": None,
                 "orderId": None,
                 "customer_name": None,
                 "review": None,
@@ -36,7 +37,8 @@ class TableService:
                             "quantity": i.quantity,
                             "price": str(i.price),
                             "comments": i.comments or ""
-                        } for i in items
+                        }
+                        for i in items
                     ],
                     "orderTime": order.created_at,
                     "orderId": order.id,
@@ -51,8 +53,6 @@ class TableService:
                         if hasattr(order, "review") and order.review else None
                     ),
                 })
-            # else:
-            #     table_info["status"] = table.table_state
 
             tables_data.append(table_info)
 
