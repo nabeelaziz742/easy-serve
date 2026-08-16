@@ -5,8 +5,11 @@ import RoleGuard from "@/components/auth/RoleGuard";
 import { Banknote, CheckCircle2 } from "lucide-react";
 
 export default function ManagerCashPage() {
-  const { data: orders = [], isLoading } = useGetManagerCashOrdersQuery(undefined, { pollingInterval: 15000 });
+  const { data: ordersResponse, isLoading } = useGetManagerCashOrdersQuery(undefined, { pollingInterval: 15000 });
   const [settleCash, { isLoading: settling }] = useSettleCashPaymentMutation();
+  const orders = Array.isArray(ordersResponse)
+    ? ordersResponse
+    : ordersResponse?.results || [];
 
   const handleSettle = async (id) => {
     try {
