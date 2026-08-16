@@ -7,7 +7,6 @@ export const orderApi = privateAPi.injectEndpoints({
     addOrder: build.mutation({ query: (body) => ({ url: "/restaurants/orders/checkout-order/", method: "POST", body }), invalidatesTags: ["getOrders"] }),
     payOrder: build.mutation({ query: ({ orderId, paymentMethod }) => ({ url: `/restaurants/orders/${orderId}/pay/`, method: "POST", body: { payment_method: paymentMethod || "cash" } }), invalidatesTags: ["getOrders", "getOrder"] }),
     requestCashPayment: build.mutation({ query: (orderId) => ({ url: `/restaurants/orders/${orderId}/cash-request/`, method: "POST" }), invalidatesTags: ["getOrders", "getOrder", "WaiterCashOrders", "ManagerCashOrders"] }),
-    receiveCashPayment: build.mutation({ query: (orderId) => ({ url: `/restaurants/orders/${orderId}/cash-receive/`, method: "POST" }), invalidatesTags: ["WaiterCashOrders", "ManagerCashOrders", "getOrders", "getOrder"] }),
     settleCashPayment: build.mutation({ query: (orderId) => ({ url: `/restaurants/orders/${orderId}/cash-settle/`, method: "POST" }), invalidatesTags: ["ManagerCashOrders", "getOrders", "getOrder", "ManagerDashboard"] }),
     getManagerCashOrders: build.query({ query: () => ({ url: "/restaurants/orders/manager/cash/", method: "GET" }), providesTags: ["ManagerCashOrders"] }),
     updateOrder: build.mutation({ query: (body) => ({ url: `/dashboard/orders/${body?.orderNumber}/`, method: "PATCH", body }), invalidatesTags: ["GetOrders", "getOrder"] }),
@@ -27,7 +26,7 @@ export const orderApi = privateAPi.injectEndpoints({
 
 export const {
   useGetOrdersQuery, useGetOrderQuery, useAddOrderMutation, usePayOrderMutation,
-  useRequestCashPaymentMutation, useReceiveCashPaymentMutation, useSettleCashPaymentMutation, useGetManagerCashOrdersQuery,
+  useRequestCashPaymentMutation, useSettleCashPaymentMutation, useGetManagerCashOrdersQuery,
   useUpdateOrderMutation, useGetOrderStatusQuery, usePatchOrderStatusMutation,
   useGetPendingOrdersQuery, useGetReadyOrdersQuery, useAcceptOrderMutation, useAssignChefMutation,
   useGetChefOrdersQuery, useStartPreparingMutation, useMarkPreparedMutation, useMarkServedMutation,
