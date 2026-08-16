@@ -4,6 +4,7 @@ from .tables import *
 from .ai import *
 from .carts import *
 from .orders import *
+from .orders_fixes import *
 from .payments import *
 from .reviews import *
 from .dine_in_validate import *
