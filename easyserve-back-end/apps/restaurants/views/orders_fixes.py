@@ -14,7 +14,7 @@ from apps.userprofile.models import UserProfile, Notification
 
 
 class PendingOrderListAPIView(ListAPIView):
-    """Orders that are genuinely waiting for waiter acceptance."""
+    """Orders genuinely waiting for waiter acceptance."""
 
     serializer_class = OrderSerializer
     permission_classes = [IsWaiter]
@@ -41,7 +41,7 @@ class PendingOrderListAPIView(ListAPIView):
 
 
 class WaiterAcceptOrderAPIView(APIView):
-    """Accept an order and automatically assign the least-busy chef."""
+    """Accept an order and automatically assign the least-busy active chef."""
 
     permission_classes = [IsWaiter]
 
@@ -82,14 +82,18 @@ class WaiterAcceptOrderAPIView(APIView):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        chefs = (
+        chef = (
             UserProfile.objects
-            .filter(user__user_type="chef", restaurant=restaurant, user__is_active=True)
+            .filter(
+                user__user_type="chef",
+                restaurant=restaurant,
+                user__is_active=True,
+            )
             .annotate(
                 active_order_count=Count(
-                    "assigned_chef__id",
+                    "chef_orders",
                     filter=Q(
-                        assigned_chef__order_status__in=(
+                        chef_orders__order_status__in=(
                             OrderStatus.TO_PREPARE,
                             OrderStatus.PREPARING,
                         )
@@ -97,8 +101,8 @@ class WaiterAcceptOrderAPIView(APIView):
                 )
             )
             .order_by("active_order_count", "id")
+            .first()
         )
-        chef = chefs.first()
 
         if chef is None:
             return Response(
@@ -109,7 +113,9 @@ class WaiterAcceptOrderAPIView(APIView):
         order.waiter = waiter
         order.accepted_by_waiter = True
         order.assigned_chef = chef
-        order.save(update_fields=["waiter", "accepted_by_waiter", "assigned_chef", "updated_at"])
+        order.save(
+            update_fields=["waiter", "accepted_by_waiter", "assigned_chef", "updated_at"]
+        )
 
         Notification.objects.create(
             profile=chef,
