@@ -7,7 +7,10 @@ import { useGetTablesQuery } from "@/services/private/tables";
 
 
 export default function TablesPage() {
-  const { data, isLoading, isError } = useGetTablesQuery();
+  const { data, isLoading, isError } = useGetTablesQuery(undefined, {
+    pollingInterval: 5000,
+    refetchOnFocus: true,
+  });
 
   const tables = data?.results ?? [];
 
