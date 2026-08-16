@@ -1,36 +1,70 @@
 "use client";
 
+import { useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import {
   setDineInGuests,
   setGuestInfo,
+  setDineInSession,
 } from "@/store/slices/dineInSlice";
+import { useStartDineInSessionMutation } from "@/services/public/dineIn";
 
 export default function GuestSelector({ onContinue }) {
   const dispatch = useDispatch();
   const dineIn = useSelector((state) => state.dineIn);
+  const [startDineInSession, { isLoading }] = useStartDineInSessionMutation();
+  const [error, setError] = useState("");
 
-  const capacity = dineIn.table.capacity;
+  const capacity = dineIn.table?.capacity ?? 0;
   const guests = dineIn.guests;
 
-  // 🔹 Recommendation logic
   const recommendedMin = Math.max(1, capacity - 2);
   const recommendedMax = capacity;
+  const isOverCapacity = Number(guests || 0) > capacity;
 
-  const isOverCapacity = guests > capacity;
+  const handleContinue = async () => {
+    setError("");
+
+    if (!guests || isOverCapacity) return;
+
+    try {
+      const response = await startDineInSession({
+        restaurant: dineIn.restaurant.id,
+        table: dineIn.table.number,
+        guests: Number(guests),
+        name: dineIn.name,
+        phone: dineIn.phone,
+        session_token: dineIn.sessionToken,
+      }).unwrap();
+
+      dispatch(
+        setDineInSession({
+          active_session: response.active_session,
+          session: response.session,
+          sessionToken: response.session?.token ?? null,
+        })
+      );
+
+      onContinue();
+    } catch (err) {
+      setError(
+        err?.data?.detail ||
+          "Unable to start the dine-in session. Please try again."
+      );
+    }
+  };
 
   return (
     <div className="space-y-5">
       <h3 className="text-lg font-semibold">How many guests?</h3>
 
-      {/* Guest Count */}
       <input
         type="number"
         min={1}
         max={capacity}
-        value={guests || ""}
+        value={guests ?? ""}
         onChange={(e) =>
-          dispatch(setDineInGuests(Number(e.target.value)))
+          dispatch(setDineInGuests(e.target.value ? Number(e.target.value) : null))
         }
         className={`w-full border rounded p-2 ${
           isOverCapacity ? "border-red-500" : ""
@@ -38,7 +72,6 @@ export default function GuestSelector({ onContinue }) {
         placeholder="Enter number of guests"
       />
 
-      {/* UX Intelligence */}
       <p className="text-sm text-gray-500">
         Table capacity: {capacity}
       </p>
@@ -53,17 +86,18 @@ export default function GuestSelector({ onContinue }) {
         </p>
       )}
 
-      {/* Optional Info */}
       <div className="space-y-2 pt-2">
         <input
           type="text"
           placeholder="Your name (optional)"
-          value={dineIn.guest_name || ""}
+          value={dineIn.name ?? ""}
           onChange={(e) =>
-            dispatch(setGuestInfo({
-              name: e.target.value,
-              phone: dineIn.guest_phone || "",
-            }))
+            dispatch(
+              setGuestInfo({
+                name: e.target.value,
+                phone: dineIn.phone,
+              })
+            )
           }
           className="w-full border rounded p-2"
         />
@@ -71,24 +105,29 @@ export default function GuestSelector({ onContinue }) {
         <input
           type="tel"
           placeholder="Phone number (optional)"
-          value={dineIn.guest_phone || ""}
+          value={dineIn.phone ?? ""}
           onChange={(e) =>
-            dispatch(setGuestInfo({
-              name: dineIn.guest_name || "",
-              phone: e.target.value,
-            }))
+            dispatch(
+              setGuestInfo({
+                name: dineIn.name,
+                phone: e.target.value,
+              })
+            )
           }
           className="w-full border rounded p-2"
         />
       </div>
 
-      {/* Safety */}
+      {error && (
+        <p className="text-sm text-red-600">{error}</p>
+      )}
+
       <button
-        disabled={!guests || isOverCapacity}
-        onClick={onContinue}
+        disabled={!guests || isOverCapacity || isLoading}
+        onClick={handleContinue}
         className="w-full bg-green-700 text-white py-2 rounded disabled:opacity-50"
       >
-        Continue to Menu
+        {isLoading ? "Starting table session..." : "Continue to Menu"}
       </button>
     </div>
   );
