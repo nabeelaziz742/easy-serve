@@ -12,6 +12,7 @@ from rest_framework.views import APIView
 from apps.payment.models import Payment
 from apps.restaurants.constants import PaymentStatus
 from apps.restaurants.models import Orders
+from apps.restaurants.services.table_lifecycle import release_table_after_payment
 
 stripe.api_key = settings.STRIPE_SECRET_KEY
 
@@ -44,7 +45,6 @@ class CreatePaymentIntentAPIView(APIView):
 
         order = get_object_or_404(Orders, id=order_id)
 
-        # Only the customer who placed the order can pay for it.
         profile = getattr(request.user, "profile", None)
         if profile is None or order.user_id != profile.id:
             return Response(
@@ -162,6 +162,9 @@ class ConfirmPaymentAPIView(APIView):
             order.payment_status = PaymentStatus.CONFIRMED.value
             order.save(update_fields=["payment_status"])
 
+            if order.order_status == 4:
+                release_table_after_payment(order)
+
             return Response(
                 {"detail": "Payment confirmed.", "payment_status": "Confirmed"},
                 status=status.HTTP_200_OK,
@@ -213,5 +216,8 @@ class StripeWebhookAPIView(APIView):
                 order = payment.order
                 order.payment_status = PaymentStatus.CONFIRMED.value
                 order.save(update_fields=["payment_status"])
+
+                if order.order_status == 4:
+                    release_table_after_payment(order)
 
         return Response(status=status.HTTP_200_OK)
