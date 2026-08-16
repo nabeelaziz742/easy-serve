@@ -9,6 +9,7 @@ from apps.restaurants.views import (
     TableViewSet,
     QRScanView,
     DineInValidateAPIView,
+    DineInStartSessionAPIView,
     CreateCartAPIView,
     CartItemCreateAPIView,
     RetrieveCartAPIView,
@@ -66,6 +67,11 @@ urlpatterns = [
         "dine-in/validate/",
         DineInValidateAPIView.as_view(),
         name='validate-dine-in',
+    ),
+    path(
+        "dine-in/start-session/",
+        DineInStartSessionAPIView.as_view(),
+        name='start-dine-in-session',
     ),
 
     # AI suggestions endpoints
@@ -142,64 +148,55 @@ urlpatterns = [
     ),
 
     # WAITER
+    path(
+        'orders/pending/',
+        PendingOrderListAPIView.as_view(),
+        name='pending-orders'
+    ),
+    path(
+        'orders/<int:order_id>/accept/',
+        WaiterAcceptOrderAPIView.as_view(),
+        name='accept-order'
+    ),
+    path(
+        'orders/<int:order_id>/assign-chef/',
+        AssignChefAPIView.as_view(),
+        name='assign-chef'
+    ),
 
-path(
-    'orders/pending/',
-    PendingOrderListAPIView.as_view(),
-    name='pending-orders'
-),
+    # CHEF
+    path(
+        'orders/chef/',
+        ChefOrderListAPIView.as_view(),
+        name='chef-orders'
+    ),
+    path(
+        'orders/<int:order_id>/start-preparing/',
+        StartPreparingAPIView.as_view(),
+        name='start-preparing'
+    ),
+    path(
+        'orders/<int:order_id>/mark-prepared/',
+        MarkPreparedAPIView.as_view(),
+        name='mark-prepared'
+    ),
 
-path(
-    'orders/<int:order_id>/accept/',
-    WaiterAcceptOrderAPIView.as_view(),
-    name='accept-order'
-),
+    # WAITER SERVE
+    path(
+        'orders/<int:order_id>/mark-served/',
+        MarkServedAPIView.as_view(),
+        name='mark-served'
+    ),
 
-path(
-    'orders/<int:order_id>/assign-chef/',
-    AssignChefAPIView.as_view(),
-    name='assign-chef'
-),
-
-# CHEF
-
-path(
-    'orders/chef/',
-    ChefOrderListAPIView.as_view(),
-    name='chef-orders'
-),
-
-path(
-    'orders/<int:order_id>/start-preparing/',
-    StartPreparingAPIView.as_view(),
-    name='start-preparing'
-),
-
-path(
-    'orders/<int:order_id>/mark-prepared/',
-    MarkPreparedAPIView.as_view(),
-    name='mark-prepared'
-),
-
-# WAITER SERVE
-
-path(
-    'orders/<int:order_id>/mark-served/',
-    MarkServedAPIView.as_view(),
-    name='mark-served'
-),
-
-# MANAGER
-
-path(
-    'manager/dashboard/',
-    ManagerDashboardAPIView.as_view(),
-    name='manager-dashboard'
-),
-
-path(
-    'orders/ready/',
-    ReadyOrdersAPIView.as_view(),
-    name='ready-orders'
-),
+    # MANAGER
+    path(
+        'manager/dashboard/',
+        ManagerDashboardAPIView.as_view(),
+        name='manager-dashboard'
+    ),
+    path(
+        'orders/ready/',
+        ReadyOrdersAPIView.as_view(),
+        name='ready-orders'
+    ),
 ]
