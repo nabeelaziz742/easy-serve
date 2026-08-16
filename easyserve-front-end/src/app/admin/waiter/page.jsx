@@ -7,7 +7,7 @@ import { useGetWaiterDashboardQuery, useGetWaiterCashOrdersQuery, useReceiveCash
 
 export default function DashboardPage() {
   const { data, isLoading, isError } = useGetWaiterDashboardQuery(undefined, { pollingInterval: 60000 });
-  const { data: cashOrders = [], isLoading: cashLoading } = useGetWaiterCashOrdersQuery(undefined, { pollingInterval: 15000 });
+  const { data: cashOrdersResponse, isLoading: cashLoading } = useGetWaiterCashOrdersQuery(undefined, { pollingInterval: 15000 });
   const [receiveCash, { isLoading: receivingCash }] = useReceiveCashPaymentMutation();
 
   if (isLoading) return <p>Loading dashboard...</p>;
@@ -16,6 +16,9 @@ export default function DashboardPage() {
   const user = data.user;
   const apiStats = data.stats;
   const tables = data.tables;
+  const cashOrders = Array.isArray(cashOrdersResponse)
+    ? cashOrdersResponse
+    : cashOrdersResponse?.results || [];
 
   const stats = [
     { title: "Total Orders Today", value: apiStats.total_orders, icon: UtensilsCrossed, color: "bg-yellow-50 text-yellow-700 border-yellow-100" },
