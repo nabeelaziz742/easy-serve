@@ -29,43 +29,48 @@ class TableService:
             if order:
                 items = TableRepository.get_order_items(order)
 
-                # Do not let a stale table_state keep a table OCCUPIED after
-                # the order has already been served. The order/payment
-                # lifecycle is authoritative for the current dine-in state.
+                # The order/payment lifecycle is authoritative once an order
+                # has been served. This prevents a stale table_state from
+                # keeping a completed table visibly OCCUPIED.
                 if order.order_status == OrderStatus.SERVED.value:
                     if order.payment_status == PaymentStatus.CONFIRMED.value:
-                        derived_status = TableState.EMPTY.value
+                        status = TableState.EMPTY.name
                     else:
-                        derived_status = TableState.PAYMENT_PENDING.value
-                    status = TableState(derived_status).name
+                        status = TableState.PAYMENT_PENDING.name
                 else:
                     status = order.table.get_table_state_display().upper().replace(" ", "_")
 
-                table_info.update({
-                    "status": status,
-                    "customers": order.table.customer_count,
-                    "orderItems": [
-                        {
-                            "item_name": i.menu_item.name,
-                            "quantity": i.quantity,
-                            "price": str(i.price),
-                            "comments": i.comments or ""
-                        }
-                        for i in items
-                    ],
-                    "orderTime": order.created_at,
-                    "orderId": order.id,
-                    "customer_name": getattr(order.user, "full_name", None),
-                    "review": (
-                        {
-                            "rate": order.review.rate,
-                            "comment": order.review.comment,
-                            "created_by": order.review.created_by,
-                            "created_at": order.review.created_at
-                        }
-                        if hasattr(order, "review") and order.review else None
-                    ),
-                })
+                table_info["status"] = status
+
+                # A fully paid/closed table is clean for the next customer;
+                # don't display the previous order as if it were still active.
+                if status == TableState.EMPTY.name:
+                    table_info["customers"] = 0
+                else:
+                    table_info.update({
+                        "customers": order.table.customer_count,
+                        "orderItems": [
+                            {
+                                "item_name": i.menu_item.name,
+                                "quantity": i.quantity,
+                                "price": str(i.price),
+                                "comments": i.comments or ""
+                            }
+                            for i in items
+                        ],
+                        "orderTime": order.created_at,
+                        "orderId": order.id,
+                        "customer_name": getattr(order.user, "full_name", None),
+                        "review": (
+                            {
+                                "rate": order.review.rate,
+                                "comment": order.review.comment,
+                                "created_by": order.review.created_by,
+                                "created_at": order.review.created_at
+                            }
+                            if hasattr(order, "review") and order.review else None
+                        ),
+                    })
 
             tables_data.append(table_info)
 
