@@ -15,8 +15,7 @@ class TablesListView(ListAPIView):
         profile = getattr(user, "profile", None)
         service = TableService()
 
-        # Super admins are not tied to a single restaurant. The admin
-        # dashboard must aggregate tables from every active restaurant.
+        # Super admins can see tables from every active restaurant.
         if user.is_superuser or user.user_type == "super_admin":
             tables_data = []
             restaurant_ids = Restaurant.objects.filter(
@@ -33,16 +32,17 @@ class TablesListView(ListAPIView):
         if not profile or user.user_type not in allowed_user_types:
             return Table.objects.none()
 
-        # Existing accounts can be connected to a restaurant in different
-        # ways. Resolve them deterministically instead of silently returning [].
+        # Resolve the restaurant from the staff profile first.
         restaurant = getattr(profile, "restaurant", None)
 
+        # Older/demo profiles may only have selected_restaurant populated.
         if restaurant is None and getattr(profile, "selected_restaurant", None):
             restaurant = Restaurant.objects.filter(
                 pk=profile.selected_restaurant,
                 is_active=True,
             ).first()
 
+        # Waiters can also be resolved from an assigned active table.
         if restaurant is None and user.user_type == "waiter":
             assigned_table = (
                 Table.objects.filter(
@@ -56,12 +56,21 @@ class TablesListView(ListAPIView):
             if assigned_table:
                 restaurant = assigned_table.restaurant
 
+        # Restaurant owners may have the restaurant through ownership.
         if restaurant is None and user.user_type == "restaurant_owner":
             restaurant = (
                 profile.owned_restaurants.filter(is_active=True)
                 .order_by("id")
                 .first()
             )
+
+        # Demo/single-restaurant fallback: managers often have a profile but
+        # no restaurant relation yet. If there is exactly one active restaurant,
+        # use it instead of returning an empty table list.
+        if restaurant is None:
+            active_restaurants = Restaurant.objects.filter(is_active=True)
+            if active_restaurants.count() == 1:
+                restaurant = active_restaurants.first()
 
         if restaurant is None:
             return Table.objects.none()
