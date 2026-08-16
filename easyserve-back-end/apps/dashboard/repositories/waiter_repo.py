@@ -20,41 +20,48 @@ class WaiterRepository:
 
     @staticmethod
     def get_active_table_count(user_profile):
-        """Return distinct tables currently requiring waiter attention.
+        """Count distinct tables currently requiring waiter attention.
 
-        A table stays active while its dine-in order is in the service
-        pipeline, including the post-service cash-settlement stage. A table
-        becomes inactive only when the served order is fully paid/confirmed.
-        We also include explicitly assigned non-empty tables so the metric
-        remains useful before the first order is created.
+        The latest order is authoritative when a stale TableState conflicts
+        with the order lifecycle. A served + confirmed order releases the
+        table from the active count; a served order awaiting cash settlement
+        remains active until the manager settles it.
         """
         inactive_states = {
             TableState.EMPTY.value,
             TableState.CLEANING.value,
             TableState.UNAVAILABLE.value,
         }
+        active_ids = set()
 
-        assigned_active_ids = set(
-            WaiterRepository.get_assigned_tables(user_profile)
-            .exclude(table_state__in=inactive_states)
-            .values_list("id", flat=True)
-        )
-
-        active_order_ids = set(
-            Orders.objects.filter(
-                waiter=user_profile,
-                table__isnull=False,
-                order_cancelled=False,
+        for table in WaiterRepository.get_assigned_tables(user_profile):
+            latest_order = (
+                Orders.objects
+                .filter(table=table, order_cancelled=False)
+                .order_by("-created_at")
+                .first()
             )
-            .exclude(
-                order_status=OrderStatus.SERVED.value,
-                payment_status=PaymentStatus.CONFIRMED.value,
-            )
-            .values_list("table_id", flat=True)
-            .distinct()
-        )
 
-        return len(assigned_active_ids | active_order_ids)
+            if latest_order and (
+                latest_order.order_status == OrderStatus.SERVED.value
+                and latest_order.payment_status == PaymentStatus.CONFIRMED.value
+            ):
+                continue
+
+            if table.table_state not in inactive_states:
+                active_ids.add(table.id)
+
+        active_order_table_ids = Orders.objects.filter(
+            waiter=user_profile,
+            table__isnull=False,
+            order_cancelled=False,
+        ).exclude(
+            order_status=OrderStatus.SERVED.value,
+            payment_status=PaymentStatus.CONFIRMED.value,
+        ).values_list("table_id", flat=True).distinct()
+
+        active_ids.update(active_order_table_ids)
+        return len(active_ids)
 
     @staticmethod
     def get_today_stats(user_profile):
