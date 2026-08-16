@@ -64,6 +64,8 @@ class ReceiveCashPaymentAPIView(APIView):
             return Response({"detail": "Cash payment has not been requested."}, status=status.HTTP_400_BAD_REQUEST)
         if payment.cash_received_by_id:
             return Response({"detail": "Cash has already been received by a waiter."}, status=status.HTTP_400_BAD_REQUEST)
+        if payment.cash_settled_by_id:
+            return Response({"detail": "Cash is already settled."}, status=status.HTTP_400_BAD_REQUEST)
 
         payment.cash_received_by = waiter
         payment.cash_received_at = now()
@@ -105,7 +107,7 @@ class SettleCashPaymentAPIView(APIView):
 
 
 class WaiterCashOrdersAPIView(ListAPIView):
-    """Cash orders assigned to the logged-in waiter."""
+    """Cash orders assigned to the logged-in waiter that have not yet been received."""
     permission_classes = [IsWaiter]
     serializer_class = OrderDetailSerializer
 
@@ -115,11 +117,13 @@ class WaiterCashOrdersAPIView(ListAPIView):
             waiter=waiter,
             paymentdetails__payment_method=PaymentMethod.CATCH_ON_DELIVERY.value,
             paymentdetails__payment_status=PaymentStatus.PENDING.value,
+            paymentdetails__cash_received_by__isnull=True,
+            paymentdetails__cash_settled_by__isnull=True,
         ).select_related("table", "user", "waiter").prefetch_related("items__menu_item").distinct().order_by("-created_at")
 
 
 class ManagerCashOrdersAPIView(ListAPIView):
-    """Cash orders in the manager's restaurant that still need settlement."""
+    """Cash orders in the manager's restaurant where the waiter has received cash but manager has not settled it."""
     permission_classes = [IsManager]
     serializer_class = OrderDetailSerializer
 
@@ -129,4 +133,6 @@ class ManagerCashOrdersAPIView(ListAPIView):
             table__restaurant=manager.restaurant,
             paymentdetails__payment_method=PaymentMethod.CATCH_ON_DELIVERY.value,
             paymentdetails__payment_status=PaymentStatus.PENDING.value,
+            paymentdetails__cash_received_by__isnull=False,
+            paymentdetails__cash_settled_by__isnull=True,
         ).select_related("table", "user", "waiter").prefetch_related("items__menu_item").distinct().order_by("-created_at")
