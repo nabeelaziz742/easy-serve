@@ -1,4 +1,5 @@
 from apps.dashboard.repositories import TableRepository
+from apps.restaurants.constants import OrderStatus, PaymentStatus, TableState
 
 
 class TableService:
@@ -28,8 +29,20 @@ class TableService:
             if order:
                 items = TableRepository.get_order_items(order)
 
+                # Do not let a stale table_state keep a table OCCUPIED after
+                # the order has already been served. The order/payment
+                # lifecycle is authoritative for the current dine-in state.
+                if order.order_status == OrderStatus.SERVED.value:
+                    if order.payment_status == PaymentStatus.CONFIRMED.value:
+                        derived_status = TableState.EMPTY.value
+                    else:
+                        derived_status = TableState.PAYMENT_PENDING.value
+                    status = TableState(derived_status).name
+                else:
+                    status = order.table.get_table_state_display().upper().replace(" ", "_")
+
                 table_info.update({
-                    "status": order.table.get_table_state_display().upper().replace(" ", "_"),
+                    "status": status,
                     "customers": order.table.customer_count,
                     "orderItems": [
                         {
