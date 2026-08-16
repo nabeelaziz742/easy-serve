@@ -1,17 +1,23 @@
 "use client";
 
-import React, { useEffect } from "react";
-import { useSelector } from "react-redux";
-import { useParams, useRouter } from "next/navigation";
+import React, { useEffect, useState } from "react";
+import { useDispatch, useSelector } from "react-redux";
+import { useParams } from "next/navigation";
 
 import { MenuItemCard } from "@/components/landingPage/MenuItemCard";
 import AIChatbot from "@/components/Aichatbot";
 import { useGetRestaurantMenusQuery } from "@/services/public/resturants";
+import { setDineInContext } from "@/store/slices/dineInSlice";
+
+const DINE_IN_STORAGE_KEY = "easyserve:dine-in-context";
 
 function Restaurant() {
   const param = useParams();
-  const router = useRouter();
+  const dispatch = useDispatch();
   const dineIn = useSelector((state) => state.dineIn);
+  const [restoringDineIn, setRestoringDineIn] = useState(
+    () => param?.id && typeof window !== "undefined" && window.location.search.includes("mode=dine-in")
+  );
 
   const hasDineInMenus = (dineIn?.menus?.length ?? 0) > 0;
 
@@ -20,10 +26,34 @@ function Restaurant() {
   });
 
   useEffect(() => {
-    if (dineIn.active && !dineIn.guests) {
-      router.push("/dine-in/guests");
+    if (!param?.id || !window.location.search.includes("mode=dine-in")) {
+      setRestoringDineIn(false);
+      return;
     }
-  }, [dineIn.active, dineIn.guests, router]);
+
+    if (dineIn.active) {
+      setRestoringDineIn(false);
+      return;
+    }
+
+    try {
+      const raw = window.localStorage.getItem(DINE_IN_STORAGE_KEY);
+      const saved = raw ? JSON.parse(raw) : null;
+
+      if (
+        saved?.active &&
+        saved?.restaurant?.id?.toString() === param.id?.toString() &&
+        saved?.table?.number
+      ) {
+        dispatch(setDineInContext(saved));
+      }
+    } catch (error) {
+      console.error("Failed to restore dine-in context:", error);
+      window.localStorage.removeItem(DINE_IN_STORAGE_KEY);
+    } finally {
+      setRestoringDineIn(false);
+    }
+  }, [dispatch, dineIn.active, param?.id]);
 
   const restaurant = dineIn?.active
     ? dineIn.restaurant
@@ -34,6 +64,7 @@ function Restaurant() {
   // still browse the menu instead of seeing a blank screen.
   const menus = hasDineInMenus ? dineIn.menus : data?.menus;
 
+  if (restoringDineIn) return null;
   if (!restaurant) return null;
 
   if (dineIn.active && !dineIn.guests) return null;
