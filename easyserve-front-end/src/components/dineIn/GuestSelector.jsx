@@ -9,6 +9,8 @@ import {
 } from "@/store/slices/dineInSlice";
 import { useStartDineInSessionMutation } from "@/services/public/dineIn";
 
+const DINE_IN_STORAGE_KEY = "easyserve:dine-in-context";
+
 export default function GuestSelector({ onContinue }) {
   const dispatch = useDispatch();
   const dineIn = useSelector((state) => state.dineIn);
@@ -43,6 +45,27 @@ export default function GuestSelector({ onContinue }) {
           session: response.session,
           sessionToken: response.session?.token ?? null,
         })
+      );
+
+      // Redux state is memory-only. Persist the active dine-in context so a
+      // normal browser refresh does not turn the customer back into an
+      // anonymous online-order visitor.
+      const persistedContext = {
+        active: true,
+        restaurant: dineIn.restaurant,
+        table: dineIn.table,
+        menus: dineIn.menus ?? [],
+        active_session: response.active_session,
+        session: response.session,
+        guests: response.session?.guests ?? Number(guests),
+        name: response.session?.name ?? dineIn.name ?? "",
+        phone: response.session?.phone ?? dineIn.phone ?? "",
+        sessionToken: response.session?.token ?? null,
+      };
+
+      window.localStorage.setItem(
+        DINE_IN_STORAGE_KEY,
+        JSON.stringify(persistedContext)
       );
 
       onContinue();
