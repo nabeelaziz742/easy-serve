@@ -1,6 +1,6 @@
 "use client";
 
-import React from "react";
+import React, { useEffect } from "react";
 import { useSelector } from "react-redux";
 import { useParams, useRouter } from "next/navigation";
 
@@ -19,6 +19,12 @@ function Restaurant() {
     skip: !param.id || (dineIn?.active && hasDineInMenus),
   });
 
+  useEffect(() => {
+    if (dineIn.active && !dineIn.guests) {
+      router.push("/dine-in/guests");
+    }
+  }, [dineIn.active, dineIn.guests, router]);
+
   const restaurant = dineIn?.active
     ? dineIn.restaurant
     : data?.restaurant;
@@ -30,10 +36,7 @@ function Restaurant() {
 
   if (!restaurant) return null;
 
-  if (dineIn.active && !dineIn.guests) {
-    router.push("/dine-in/guests");
-    return null;
-  }
+  if (dineIn.active && !dineIn.guests) return null;
 
   return (
     <section className="bg-gray-50 py-12 min-h-96">
