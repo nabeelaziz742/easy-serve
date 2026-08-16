@@ -15,31 +15,58 @@ import { useValidateTableMutation } from "@/services/public/dineIn";
 import { useDispatch } from "react-redux";
 import { setDineInContext } from "@/store/slices/dineInSlice";
 
-
 const QR_READER_ID = "qr-reader";
 
 export default function ScanQRPage() {
-
-  const navigateSafely = async (to) => {
-    await safeStopScanner();
-
-    if (to === "back") {
-      router.back();
-    } else {
-      router.push(to);
-    }
-  };
-
   const router = useRouter();
   const dispatch = useDispatch();
   const [validateTable] = useValidateTableMutation();
 
   const scannerRef = useRef(null);
   const startedRef = useRef(false);
+  const processingRef = useRef(false);
 
-  /* -------------------------
-     QR DATA PARSER
-  -------------------------- */
+  const safeStopScanner = useCallback(async () => {
+    const scanner = scannerRef.current;
+    scannerRef.current = null;
+    startedRef.current = false;
+
+    if (!scanner) return;
+
+    try {
+      const state = scanner.getState();
+      if (state === 2 || state === 3) {
+        await scanner.stop();
+      }
+    } catch {
+      // ignore scanner shutdown errors
+    } finally {
+      stopMediaTracks();
+      try {
+        scanner.clear();
+      } catch {
+        // ignore
+      }
+    }
+  }, []);
+
+  const stopMediaTracks = () => {
+    const video = document.querySelector(`#${QR_READER_ID} video`);
+    if (!video?.srcObject) return;
+
+    video.srcObject.getTracks().forEach((track) => track.stop());
+    video.srcObject = null;
+  };
+
+  const navigateSafely = useCallback(
+    async (to) => {
+      await safeStopScanner();
+      if (to === "back") router.back();
+      else router.push(to);
+    },
+    [router, safeStopScanner]
+  );
+
   const parseQRData = (text) => {
     const clean = text.trim();
 
@@ -58,9 +85,7 @@ export default function ScanQRPage() {
 
     parts.forEach((part) => {
       const [key, value] = part.split("=");
-      if (key && value) {
-        data[key.trim().toUpperCase()] = value.trim();
-      }
+      if (key && value) data[key.trim().toUpperCase()] = value.trim();
     });
 
     return {
@@ -69,116 +94,85 @@ export default function ScanQRPage() {
     };
   };
 
-  /* -------------------------
-     START SCANNER
-  -------------------------- */
   const startScanner = useCallback(async () => {
     if (startedRef.current) return;
 
     const scanner = new Html5Qrcode(QR_READER_ID);
     scannerRef.current = scanner;
+    // Set this BEFORE starting the camera. QR callbacks can fire immediately
+    // after the scanner starts, before scanner.start() resolves.
+    startedRef.current = true;
 
     const container = document.getElementById(QR_READER_ID);
     const size = container?.clientWidth || 280;
 
-    const config = {
-      fps: 10,
-      qrbox: Math.floor(size * 0.7),
-      videoConstraints: {
-        facingMode: "environment",
-        aspectRatio: 1,
-      },
-    };
-
     try {
       await scanner.start(
         { facingMode: "environment" },
-        config,
+        {
+          fps: 10,
+          qrbox: Math.floor(size * 0.7),
+          videoConstraints: {
+            facingMode: "environment",
+            aspectRatio: 1,
+          },
+        },
         async (decodedText) => {
-          if (!startedRef.current) return;
+          if (!startedRef.current || processingRef.current) return;
+          processingRef.current = true;
 
-          await safeStopScanner();
+          try {
+            const parsed = parseQRData(decodedText);
 
-          const parsed = parseQRData(decodedText);
+            if (!parsed.restaurant_id || !parsed.table_number) {
+              alert("Invalid QR Code");
+              processingRef.current = false;
+              return;
+            }
 
-          if (!parsed.restaurant_id || !parsed.table_number) {
-            alert("Invalid QR Code");
-            return;
+            const response = await validateTable({
+              restaurant: parsed.restaurant_id,
+              table: parsed.table_number,
+            }).unwrap();
+
+            dispatch(
+              setDineInContext({
+                ...response,
+                guests: null,
+              })
+            );
+
+            await navigateSafely("/dine-in/guests");
+          } catch (err) {
+            console.error("QR validation failed:", err);
+            alert(
+              err?.data?.detail ||
+                "Unable to validate this table. Please try again."
+            );
+            processingRef.current = false;
           }
-
-          const response = await validateTable({
-            restaurant: parsed.restaurant_id,
-            table: parsed.table_number,
-          }).unwrap();
-
-          dispatch(
-            setDineInContext({
-              ...response,
-              guests: null,
-            })
-          );
-
-          // router.push("/dine-in/guests");
-
-          await navigateSafely("/dine-in/guests");
-
+        },
+        () => {
+          // Ignore normal frame-by-frame scan failures.
         }
       );
-
-      startedRef.current = true;
     } catch (err) {
+      startedRef.current = false;
+      scannerRef.current = null;
       console.error("QR Scanner Error:", err);
       alert("Unable to access camera");
     }
-  }, [dispatch, router, validateTable]);
+  }, [dispatch, navigateSafely, validateTable]);
 
-  const safeStopScanner = async () => {
-    if (!scannerRef.current) return;
-
-    try {
-      const state = scannerRef.current.getState();
-
-      if (state === 2 || state === 3) {
-        await scannerRef.current.stop();
-      }
-    } catch {
-      // ignore
-    } finally {
-      stopMediaTracks();   // 🔥 HARD CAMERA OFF
-      scannerRef.current.clear();
-      scannerRef.current = null;
-      startedRef.current = false;
-    }
-  };
-
-  const stopMediaTracks = () => {
-    const video = document.querySelector(`#${QR_READER_ID} video`);
-
-    if (!video || !video.srcObject) return;
-
-    const stream = video.srcObject;
-    const tracks = stream.getTracks();
-
-    tracks.forEach((track) => track.stop());
-
-    video.srcObject = null;
-  };
-
-
-  /* -------------------------
-     LIFECYCLE
-  -------------------------- */
   useEffect(() => {
     startScanner();
 
     return () => {
+      processingRef.current = false;
       safeStopScanner();
     };
-  }, [startScanner]);
+  }, [startScanner, safeStopScanner]);
 
-  /* -------------------------
-     UI
-  -------------------------- */
   return (
     <div className="min-h-screen flex items-center justify-center bg-muted/30 px-4">
       <Card className="w-full max-w-md rounded-2xl shadow-lg">
