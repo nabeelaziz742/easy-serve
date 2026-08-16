@@ -1,6 +1,5 @@
 import { publicApi } from ".";
 
-
 export const dineInApi = publicApi.injectEndpoints({
   endpoints: (builder) => ({
     validateTable: builder.mutation({
@@ -13,9 +12,25 @@ export const dineInApi = publicApi.injectEndpoints({
         },
       }),
     }),
+
+    startDineInSession: builder.mutation({
+      query: ({ restaurant, table, guests, name, phone, session_token }) => ({
+        url: "/restaurants/dine-in/start-session/",
+        method: "POST",
+        body: {
+          restaurant,
+          table,
+          guests,
+          name,
+          phone,
+          ...(session_token ? { session_token } : {}),
+        },
+      }),
+    }),
   }),
 });
 
 export const {
   useValidateTableMutation,
+  useStartDineInSessionMutation,
 } = dineInApi;
