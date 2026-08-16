@@ -1,5 +1,6 @@
 import qrcode
 from io import BytesIO
+from django.conf import settings
 from django.core.files import File
 from django.db import models
 
@@ -33,10 +34,8 @@ class Table(AbstractTimeStampModel):
     is_active = models.BooleanField(default=True)
 
     class Meta:
-        unique_together = ("restaurant", "table_number")  # Each table number must be unique per restaurant
+        unique_together = ("restaurant", "table_number")
 
-    # def __str__(self):
-    #     return f"Table {self.table_number} - {self.restaurant.name}"
     def __str__(self):
         return f"{self.table_name} - {self.restaurant}"
 
@@ -46,12 +45,22 @@ class Table(AbstractTimeStampModel):
 
     def save(self, *args, **kwargs):
         """
-        Auto-generate a QR code PNG for this table if not already set.
+        Auto-generate a customer-facing QR code for this table.
+
+        REACT_DOMAIN should point at the frontend (for example the deployed
+        Easy Serve frontend). During local development, localhost is used as
+        a safe fallback. The frontend can also parse the legacy payload
+        format, but real table QRs should open a browser URL directly.
         """
         if not self.qr_code:
-            qr_data = f"restaurant={self.restaurant.id}&table={self.table_number}"
-            if self.assigned_waiter:
-                qr_data += f"&waiter={self.assigned_waiter.id}"
+            frontend_domain = (getattr(settings, "REACT_DOMAIN", "") or "").rstrip("/")
+            if not frontend_domain:
+                frontend_domain = "http://localhost:3000"
+
+            qr_data = (
+                f"{frontend_domain}/restaurant/{self.restaurant.id}"
+                f"?mode=dine-in&table={self.table_number}"
+            )
 
             qr = qrcode.make(qr_data)
             buffer = BytesIO()
