@@ -23,7 +23,7 @@ class OrderSerializer(serializers.ModelSerializer):
 class WaiterTableSerializer(serializers.ModelSerializer):
     number = serializers.SerializerMethodField()
     status = serializers.SerializerMethodField()
-    customers = serializers.IntegerField(source="customer_count")
+    customers = serializers.SerializerMethodField()
     orderItems = serializers.SerializerMethodField()
     orderTime = serializers.SerializerMethodField()
     orderId = serializers.SerializerMethodField()
