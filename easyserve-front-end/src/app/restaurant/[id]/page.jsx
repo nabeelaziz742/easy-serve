@@ -18,6 +18,7 @@ function Restaurant() {
   const searchParams = useSearchParams();
   const dispatch = useDispatch();
   const dineIn = useSelector((state) => state.dineIn);
+  const [validateTable] = useValidateTableMutation();
   const [validatingQrTable, setValidatingQrTable] = useState(false);
   const [restoringDineIn, setRestoringDineIn] = useState(
     () =>
