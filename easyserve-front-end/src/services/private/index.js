@@ -3,9 +3,19 @@ import { createApi, fetchBaseQuery } from '@reduxjs/toolkit/query/react';
 
 const baseQuery = fetchBaseQuery({
   baseUrl: API_URL,
-  prepareHeaders: (headers) => {
-    const token = localStorage.getItem("token");
-    if (token) headers.set("Authorization", `Bearer ${token}`);
+  prepareHeaders: (headers, { getState }) => {
+    // Prefer persisted auth, but fall back to the Redux auth state so a
+    // private request is not sent anonymously when the token is already
+    // available in the current session.
+    const storedToken =
+      typeof window !== 'undefined' ? localStorage.getItem('token') : null;
+    const stateToken = getState()?.auth?.token;
+    const token = storedToken || stateToken;
+
+    if (token) {
+      headers.set('Authorization', `Bearer ${token}`);
+    }
+
     return headers;
   },
 });
@@ -14,19 +24,22 @@ const baseQueryWithReauth = async (args, api, extraOptions) => {
   let result = await baseQuery(args, api, extraOptions);
 
   if (result.error && result.error.status === 401) {
-    console.warn("⛔ Access token expired. Trying refresh...");
+    console.warn('⛔ Access token expired. Trying refresh...');
 
-    const refresh = localStorage.getItem("refresh_token");
+    const refresh =
+      typeof window !== 'undefined'
+        ? localStorage.getItem('refresh_token')
+        : null;
 
     if (!refresh) {
-      console.log("❌ No refresh token saved");
+      console.log('❌ No refresh token saved');
       return result;
     }
 
     const refreshResult = await baseQuery(
       {
-        url: "/user/token-refresh/",
-        method: "POST",
+        url: '/user/token-refresh/',
+        method: 'POST',
         body: { refresh },
       },
       api,
@@ -34,13 +47,13 @@ const baseQueryWithReauth = async (args, api, extraOptions) => {
     );
 
     if (refreshResult.data) {
-      console.log("✔ Token refreshed");
+      console.log('✔ Token refreshed');
 
-      localStorage.setItem("token", refreshResult.data.access);
-      localStorage.setItem("refresh_token", refreshResult.data.refresh);
+      localStorage.setItem('token', refreshResult.data.access);
+      localStorage.setItem('refresh_token', refreshResult.data.refresh || refresh);
 
       api.dispatch({
-        type: "auth/onLoggedIn",
+        type: 'auth/onLoggedIn',
         payload: {
           access: refreshResult.data.access,
           refresh: refreshResult.data.refresh || refresh,
@@ -50,8 +63,8 @@ const baseQueryWithReauth = async (args, api, extraOptions) => {
 
       result = await baseQuery(args, api, extraOptions);
     } else {
-      console.log("❌ Refresh token failed → logging out");
-      api.dispatch({ type: "auth/onLoggedOut" });
+      console.log('❌ Refresh token failed → logging out');
+      api.dispatch({ type: 'auth/onLoggedOut' });
     }
   }
 
@@ -69,16 +82,16 @@ export const privateAPi = createApi({
     'ManagerCashOrders',
     'reviews',
     'tables',
-    "getOrders",
-    "getOrder",
-    "PendingOrders",
-    "ReadyOrders",
-    "ChefOrders",
-    "TopAISuggestions",
-    "User",
-    "UserFiles",
-    "MenuItems",
-    "ManagerDashboard",
+    'getOrders',
+    'getOrder',
+    'PendingOrders',
+    'ReadyOrders',
+    'ChefOrders',
+    'TopAISuggestions',
+    'User',
+    'UserFiles',
+    'MenuItems',
+    'ManagerDashboard',
   ],
 
   baseQuery: baseQueryWithReauth,
