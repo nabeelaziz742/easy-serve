@@ -1,7 +1,6 @@
 import API_URL from '@/utilities/apiConfig';
 import { createApi, fetchBaseQuery } from '@reduxjs/toolkit/query/react';
 
-
 const baseQuery = fetchBaseQuery({
   baseUrl: API_URL,
   prepareHeaders: (headers) => {
@@ -66,6 +65,8 @@ export const privateAPi = createApi({
     'GetAuthorizedUser',
     'OrderStatus',
     'WaiterDashboard',
+    'WaiterCashOrders',
+    'ManagerCashOrders',
     'reviews',
     'tables',
     "getOrders",
