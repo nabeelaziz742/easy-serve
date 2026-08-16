@@ -18,7 +18,11 @@ function Restaurant() {
   const searchParams = useSearchParams();
   const dispatch = useDispatch();
   const dineIn = useSelector((state) => state.dineIn);
-  const [validateTable] = useValidateTableMutation();
+
+  // Keep the mutation name explicit so it cannot be confused with the
+  // mutation trigger used below during QR validation.
+  const [validateTableMutation] = useValidateTableMutation();
+
   const [validatingQrTable, setValidatingQrTable] = useState(false);
   const [restoringDineIn, setRestoringDineIn] = useState(
     () =>
@@ -30,8 +34,6 @@ function Restaurant() {
   const qrTable = searchParams.get("table");
   const isQrDineIn = searchParams.get("mode") === "dine-in" && !!qrTable;
 
-  // A customer-facing table QR opens this page directly. Validate the table
-  // and create the in-memory dine-in context before showing the guest form.
   useEffect(() => {
     if (!param?.id || !isQrDineIn) {
       setValidatingQrTable(false);
@@ -44,7 +46,7 @@ function Restaurant() {
       setValidatingQrTable(true);
 
       try {
-        const response = await validateTable({
+        const response = await validateTableMutation({
           restaurant: param.id,
           table: qrTable,
         }).unwrap();
@@ -76,11 +78,14 @@ function Restaurant() {
     return () => {
       cancelled = true;
     };
-  }, [dispatch, isQrDineIn, param?.id, qrTable, router, validateTable]);
+  }, [dispatch, isQrDineIn, param?.id, qrTable, router, validateTableMutation]);
 
-  // Existing dine-in sessions can be restored after a normal refresh.
   useEffect(() => {
-    if (!param?.id || !window.location.search.includes("mode=dine-in") || isQrDineIn) {
+    if (
+      !param?.id ||
+      !window.location.search.includes("mode=dine-in") ||
+      isQrDineIn
+    ) {
       setRestoringDineIn(false);
       return;
     }
@@ -117,10 +122,7 @@ function Restaurant() {
     skip: !param.id || (dineIn?.active && hasDineInMenus),
   });
 
-  const restaurant = dineIn?.active
-    ? dineIn.restaurant
-    : data?.restaurant;
-
+  const restaurant = dineIn?.active ? dineIn.restaurant : data?.restaurant;
   const menus = hasDineInMenus ? dineIn.menus : data?.menus;
 
   if (validatingQrTable || restoringDineIn) {
@@ -129,14 +131,15 @@ function Restaurant() {
         <div className="rounded-2xl border border-green-100 bg-white px-8 py-7 text-center shadow-lg">
           <div className="mx-auto mb-3 h-8 w-8 animate-spin rounded-full border-4 border-gray-200 border-t-green-700" />
           <p className="font-semibold text-gray-900">Opening your table...</p>
-          <p className="mt-1 text-sm text-gray-500">Preparing the dine-in menu.</p>
+          <p className="mt-1 text-sm text-gray-500">
+            Preparing the dine-in menu.
+          </p>
         </div>
       </div>
     );
   }
 
   if (!restaurant) return null;
-
   if (dineIn.active && !dineIn.guests) return null;
 
   return (
