@@ -13,8 +13,9 @@ from apps.restaurants.views import (
     StartPreparingAPIView, MarkPreparedAPIView, MarkServedAPIView,
     ManagerDashboardAPIView, ReadyOrdersAPIView,
     RequestCashPaymentAPIView, ReceiveCashPaymentAPIView, SettleCashPaymentAPIView,
-    WaiterCashOrdersAPIView, ManagerCashOrdersAPIView,
+    WaiterCashOrdersAPIView, ManagerCashOrdersAPIView, PayOrderAPIView,
 )
+from apps.restaurants.views.secure_checkout import SecureOrderCheckoutAPIView
 from apps.restaurants.views.ai import RestaurantTopSuggestionsView, RestaurantMenuSuggestionsView
 
 router = DefaultRouter()
@@ -38,9 +39,10 @@ urlpatterns = [
     path('cart/retrieve-cart/', RetrieveCartAPIView.as_view(), name='retrieve-cart'),
     path('cart/delete-cart-item/<int:pk>/', DeleteCartItemAPIView.as_view(), name='delete-cart-item'),
     path('cart/update-cart-item/<int:pk>/', UpdateCartItemAPIView.as_view(), name='update-cart-item'),
-    path('orders/checkout-order/', OrderCheckoutAPIView.as_view(), name='checkout-order'),
+    path('orders/checkout-order/', SecureOrderCheckoutAPIView.as_view(), name='checkout-order'),
     path('orders/', UserOrderHistoryAPIView.as_view(), name='user-order-history'),
     path('orders/<int:order_id>/', OrderDetailAPIView.as_view(), name='order-detail'),
+    path('orders/<int:order_id>/pay/', PayOrderAPIView.as_view(), name='pay-order'),
     path('orders/<int:order_id>/cash-request/', RequestCashPaymentAPIView.as_view(), name='cash-request'),
     path('orders/<int:order_id>/cash-receive/', ReceiveCashPaymentAPIView.as_view(), name='cash-receive'),
     path('orders/<int:order_id>/cash-settle/', SettleCashPaymentAPIView.as_view(), name='cash-settle'),
