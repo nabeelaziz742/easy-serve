@@ -1,6 +1,6 @@
 from rest_framework import serializers
 from apps.restaurants.models import Table, Orders, OrderItem, Review
-from apps.restaurants.constants import OrderStatus, PaymentStatus, TableState
+from apps.restaurants.constants import OrderStatus, PaymentStatus, TableState, ReviewBy
 from apps.userprofile.models import UserProfile
 
 
@@ -81,19 +81,16 @@ class WaiterTableSerializer(serializers.ModelSerializer):
 
     def get_review(self, obj):
         last_order = self._latest_order(obj)
-        if not last_order:
+        if not last_order or not hasattr(last_order, "review"):
             return None
 
-        if hasattr(last_order, "review"):
-            review = last_order.review
-            return {
-                "rate": review.rate,
-                "comment": review.comment,
-                "created_by": review.created_by,
-                "created_at": review.created_at,
-            }
-
-        return None
+        review = last_order.review
+        return {
+            "rate": review.rate,
+            "comment": review.comment,
+            "created_by": ReviewBy(review.review_by).name.lower(),
+            "created_at": review.created_at,
+        }
 
 
 class TableSerializer(serializers.ModelSerializer):
