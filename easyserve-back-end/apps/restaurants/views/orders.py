@@ -119,10 +119,12 @@ class OrderCheckoutAPIView(APIView):
 
 
 class PayOrderAPIView(APIView):
+    """Record a payment request without bypassing the restaurant cash-settlement workflow."""
     permission_classes = [IsAuthenticated]
 
+    @transaction.atomic
     def post(self, request, order_id):
-        order = get_object_or_404(Orders, id=order_id)
+        order = get_object_or_404(Orders.objects.select_for_update(), id=order_id)
         profile = request.user.profile
         is_owner = order.user_id == profile.id
         is_staff = getattr(request.user, "user_type", None) in ("waiter", "manager", "super_admin")
@@ -135,20 +137,44 @@ class PayOrderAPIView(APIView):
             return Response({"detail": "Cannot pay for a cancelled order."}, status=status.HTTP_400_BAD_REQUEST)
 
         method_key = request.data.get("payment_method", "cash")
-        method_value = PaymentMethod.TRANSFER.value if method_key == "transfer" else PaymentMethod.CATCH_ON_DELIVERY.value
 
-        with transaction.atomic():
+        # Cash must NEVER be directly confirmed here. It enters the existing
+        # waiter-receipt -> manager-settlement workflow so staff cannot
+        # accidentally mark an uncollected cash order as paid.
+        if method_key != "transfer":
             PaymentDetails.objects.update_or_create(
                 order=order,
                 defaults={
                     "user": order.user,
-                    "payment_method": method_value,
-                    "payment_status": PaymentStatus.CONFIRMED.value,
+                    "payment_method": PaymentMethod.CATCH_ON_DELIVERY.value,
+                    "payment_status": PaymentStatus.PENDING.value,
                     "receipt_image": request.FILES.get("receipt_image"),
                 },
             )
-            order.payment_status = PaymentStatus.CONFIRMED.value
-            order.save(update_fields=["payment_status"])
+            order.payment_status = PaymentStatus.PENDING.value
+            order.save(update_fields=["payment_status", "updated_at"])
+            return Response(
+                {
+                    "message": "Cash payment requested. Waiter must receive the cash and manager must settle it.",
+                    "payment_status": PaymentStatus.PENDING.value,
+                    "payment_method": PaymentMethod.CATCH_ON_DELIVERY.value,
+                    "order": OrderDetailSerializer(order).data,
+                },
+                status=status.HTTP_200_OK,
+            )
+
+        # Transfer confirmation remains a manual/staff-confirmed flow.
+        PaymentDetails.objects.update_or_create(
+            order=order,
+            defaults={
+                "user": order.user,
+                "payment_method": PaymentMethod.TRANSFER.value,
+                "payment_status": PaymentStatus.CONFIRMED.value,
+                "receipt_image": request.FILES.get("receipt_image"),
+            },
+        )
+        order.payment_status = PaymentStatus.CONFIRMED.value
+        order.save(update_fields=["payment_status", "updated_at"])
 
         return Response(OrderDetailSerializer(order).data, status=status.HTTP_200_OK)
 
@@ -202,7 +228,6 @@ class WaiterAcceptOrderAPIView(APIView):
 
     @transaction.atomic
     def post(self, request, order_id):
-        # Lock the order so two waiters cannot both win the acceptance race.
         order = get_object_or_404(Orders.objects.select_for_update(), id=order_id)
         profile = request.user.profile
         restaurant = profile.restaurant
