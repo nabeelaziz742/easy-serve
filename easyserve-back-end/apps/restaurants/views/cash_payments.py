@@ -60,12 +60,12 @@ class ReceiveCashPaymentAPIView(APIView):
         if not order.table or order.table.restaurant_id != waiter.restaurant_id:
             return Response({"detail": "This order does not belong to your restaurant."}, status=status.HTTP_403_FORBIDDEN)
 
+        if order.order_status != OrderStatus.SERVED:
+            return Response({"detail": "Cash can only be received after the order has been served."}, status=status.HTTP_400_BAD_REQUEST)
+
         if order.payment_status == PaymentStatus.CONFIRMED.value:
             return Response({"detail": "Payment is already settled."}, status=status.HTTP_400_BAD_REQUEST)
 
-        # A ready/served order can be collected by an active waiter of the
-        # same restaurant. This also repairs stale waiter assignments from
-        # earlier demo/test sessions.
         if order.waiter_id != waiter.id:
             order.waiter = waiter
             order.save(update_fields=["waiter", "updated_at"])
@@ -91,9 +91,8 @@ class ReceiveCashPaymentAPIView(APIView):
         payment.payment_status = PaymentStatus.PENDING.value
         payment.save(update_fields=["cash_received_by", "cash_received_at", "payment_status", "updated_at"])
 
-        if order.order_status == OrderStatus.SERVED and order.table_id:
-            order.table.table_state = TableState.PAYMENT_PENDING.value
-            order.table.save(update_fields=["table_state", "updated_at"])
+        order.table.table_state = TableState.PAYMENT_PENDING.value
+        order.table.save(update_fields=["table_state", "updated_at"])
 
         return Response({
             "message": "Cash received and recorded. Awaiting manager settlement.",
@@ -115,6 +114,8 @@ class SettleCashPaymentAPIView(APIView):
             return Response({"detail": "This order does not belong to your restaurant."}, status=status.HTTP_403_FORBIDDEN)
         if order.order_cancelled:
             return Response({"detail": "Cannot settle a cancelled order."}, status=status.HTTP_400_BAD_REQUEST)
+        if order.order_status != OrderStatus.SERVED:
+            return Response({"detail": "Cash can only be settled after the order has been served."}, status=status.HTTP_400_BAD_REQUEST)
         if order.payment_status == PaymentStatus.CONFIRMED.value:
             return Response({"detail": "Payment is already settled."}, status=status.HTTP_400_BAD_REQUEST)
 
@@ -132,9 +133,7 @@ class SettleCashPaymentAPIView(APIView):
         payment.save(update_fields=["cash_settled_by", "cash_settled_at", "payment_status", "updated_at"])
         order.payment_status = PaymentStatus.CONFIRMED.value
         order.save(update_fields=["payment_status"])
-
-        if order.order_status == OrderStatus.SERVED:
-            release_table_after_payment(order)
+        release_table_after_payment(order)
 
         return Response({
             "message": "Cash settled successfully.",
