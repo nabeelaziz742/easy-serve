@@ -1,10 +1,11 @@
 import logging
+from datetime import timedelta
 
 from django.db import transaction
 from django.shortcuts import get_object_or_404
+from rest_framework import serializers
 from rest_framework.generics import ListCreateAPIView, RetrieveAPIView
 from rest_framework.permissions import AllowAny, IsAuthenticated
-from rest_framework import serializers
 
 from apps.restaurants.constants import ReservationStatus
 from apps.restaurants.models import Reservation, Restaurant, Table
@@ -56,8 +57,8 @@ class ReservationListCreateAPIView(ListCreateAPIView):
 
         validated_table = serializer.validated_data["table"]
         reservation_time = serializer.validated_data["reservation_time"]
-        window_start = reservation_time - __import__("datetime").timedelta(minutes=90)
-        window_end = reservation_time + __import__("datetime").timedelta(minutes=90)
+        window_start = reservation_time - timedelta(minutes=90)
+        window_end = reservation_time + timedelta(minutes=90)
         active_statuses = [
             ReservationStatus.PENDING.value,
             ReservationStatus.CONFIRMED.value,
