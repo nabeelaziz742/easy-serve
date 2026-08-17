@@ -1,6 +1,6 @@
 from rest_framework import serializers
 
-from apps.restaurants.constants import ReviewBy
+from apps.restaurants.constants import OrderStatus, PaymentStatus, ReviewBy
 from apps.restaurants.models import Review
 
 
@@ -22,16 +22,32 @@ class CreateReviewSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError("Rate must be between 1 and 5.")
         return value
 
-    def create(self, validated_data):
+    def validate(self, attrs):
         request = self.context.get("request")
-        if request and hasattr(request, "user"):
-            validated_data["user"] = request.user.profile
-        return super().create(validated_data)
+        order = attrs["order"]
+        profile = getattr(request.user, "profile", None) if request else None
+
+        if profile is None or order.user_id != profile.id:
+            raise serializers.ValidationError("You can only review your own order.")
+        if order.order_status != OrderStatus.SERVED.value:
+            raise serializers.ValidationError("You can review an order only after it has been served.")
+        if order.payment_status != PaymentStatus.CONFIRMED.value:
+            raise serializers.ValidationError("You can review an order only after payment is confirmed.")
+        if hasattr(order, "review"):
+            raise serializers.ValidationError("Review already submitted for this order.")
+        return attrs
+
+    def create(self, validated_data):
+        order = validated_data["order"]
+        return Review.objects.create(
+            user=order.user,
+            waiter=order.waiter,
+            review_by=ReviewBy.CUSTOMER.value,
+            **validated_data,
+        )
 
 
 class ReviewCreateSerializer(serializers.ModelSerializer):
-    # Keep the existing frontend contract (created_by="customer"/"waiter")
-    # while persisting the current Review.review_by integer field.
     created_by = serializers.ChoiceField(
         choices=("customer", "waiter"),
         write_only=True,
@@ -54,20 +70,36 @@ class ReviewCreateSerializer(serializers.ModelSerializer):
 
     def validate(self, data):
         order = data["order"]
+        request = self.context.get("request")
+        profile = getattr(request.user, "profile", None) if request else None
+        created_by = data.get("created_by", "customer")
+
         if hasattr(order, "review"):
             raise serializers.ValidationError("Review already submitted for this order.")
+
+        if created_by == "customer":
+            if profile is None or order.user_id != profile.id:
+                raise serializers.ValidationError("You can only review your own order.")
+            if order.order_status != OrderStatus.SERVED.value:
+                raise serializers.ValidationError("You can review an order only after it has been served.")
+            if order.payment_status != PaymentStatus.CONFIRMED.value:
+                raise serializers.ValidationError("You can review an order only after payment is confirmed.")
+        elif profile is None or getattr(profile.user, "user_type", None) != "waiter":
+            raise serializers.ValidationError("Only a waiter can submit a waiter review.")
+
         return data
 
     def create(self, validated_data):
         created_by = validated_data.pop("created_by", "customer")
         order = validated_data["order"]
         request = self.context.get("request")
+        profile = request.user.profile
 
         if created_by == "waiter":
-            waiter = request.user.profile if request else getattr(order, "waiter", None)
+            waiter = profile
             review_by = ReviewBy.WAITER.value
         else:
-            waiter = getattr(order, "waiter", None)
+            waiter = order.waiter
             review_by = ReviewBy.CUSTOMER.value
 
         return Review.objects.create(
