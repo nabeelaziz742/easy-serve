@@ -1,3 +1,4 @@
+from django.core.exceptions import ValidationError
 from django.db import models
 
 from apps.restaurants.constants import ReservationStatus
@@ -35,11 +36,11 @@ class Reservation(AbstractTimeStampModel):
     notes = models.TextField(blank=True)
 
     status = models.PositiveSmallIntegerField(
-        choices= ReservationStatus.model_choices(),
+        choices=ReservationStatus.model_choices(),
         default=ReservationStatus.PENDING.value
     )
 
-    # 🔐 VALID STATE TRANSITIONS
+    # Valid state transitions
     VALID_TRANSITIONS = {
         ReservationStatus.PENDING: {
             ReservationStatus.CONFIRMED,
@@ -56,24 +57,23 @@ class Reservation(AbstractTimeStampModel):
     }
 
     def can_transition_to(self, new_status):
-        """
-        Check if status change is allowed
-        """
         if self.status == new_status:
-            return True  # no-op allowed
+            return True
 
         allowed = self.VALID_TRANSITIONS.get(self.status, set())
         return new_status in allowed
 
     def transition_to(self, new_status, *, save=True):
-        """
-        Safely change reservation status
-        """
         if not self.can_transition_to(new_status):
+            try:
+                current_label = ReservationStatus(self.status).label
+                new_label = ReservationStatus(new_status).label
+            except ValueError:
+                current_label = str(self.status)
+                new_label = str(new_status)
+
             raise ValidationError(
-                f"Invalid status transition from "
-                f"{ReservationStatus(self.status).label} → "
-                f"{ReservationStatus(new_status).label}"
+                f"Invalid status transition from {current_label} → {new_label}"
             )
 
         self.status = new_status
