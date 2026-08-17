@@ -575,8 +575,11 @@ class ManagerDashboardAPIView(APIView):
             | Q(items__menu_item__menu__restaurant_id__in=restaurant_ids)
         ).distinct()
 
+        # Revenue is only earned/recognized after payment is confirmed.
+        # A served order can still be awaiting cash collection/manager settlement.
         total_revenue = restaurant_orders.filter(
-            order_status=OrderStatus.SERVED
+            order_status=OrderStatus.SERVED,
+            payment_status=PaymentStatus.CONFIRMED.value,
         ).aggregate(
             revenue=Sum("total_price")
         )["revenue"] or 0
