@@ -5,6 +5,7 @@ from .ai import *
 from .carts import *
 from .orders import *
 from .orders_fixes import *
+from .ready_orders_override import ReadyOrdersAPIView
 from .payments import *
 from .reviews import *
 from .dine_in_validate import *
