@@ -46,23 +46,41 @@ class RequestCashPaymentAPIView(APIView):
 
 
 class ReceiveCashPaymentAPIView(APIView):
-    """Assigned waiter records that physical cash was received."""
+    """Waiter records physical cash receipt for a served restaurant order."""
     permission_classes = [IsWaiter]
 
     @transaction.atomic
     def post(self, request, order_id):
         order = get_object_or_404(Orders.objects.select_for_update(), id=order_id)
         waiter = request.user.profile
-        if order.waiter_id != waiter.id:
-            return Response({"detail": "Only the assigned waiter can receive this cash."}, status=status.HTTP_403_FORBIDDEN)
+
+        if waiter.restaurant_id is None:
+            return Response({"detail": "Your waiter account is not assigned to a restaurant."}, status=status.HTTP_400_BAD_REQUEST)
+
         if not order.table or order.table.restaurant_id != waiter.restaurant_id:
             return Response({"detail": "This order does not belong to your restaurant."}, status=status.HTTP_403_FORBIDDEN)
+
         if order.payment_status == PaymentStatus.CONFIRMED.value:
             return Response({"detail": "Payment is already settled."}, status=status.HTTP_400_BAD_REQUEST)
 
+        # A ready/served order can be collected by an active waiter of the
+        # same restaurant. This also repairs stale waiter assignments from
+        # earlier demo/test sessions.
+        if order.waiter_id != waiter.id:
+            order.waiter = waiter
+            order.save(update_fields=["waiter", "updated_at"])
+
         payment = PaymentDetails.objects.select_for_update().filter(order=order).first()
-        if not payment or payment.payment_method != PaymentMethod.CATCH_ON_DELIVERY.value:
-            return Response({"detail": "Cash payment has not been requested."}, status=status.HTTP_400_BAD_REQUEST)
+        if payment is None:
+            payment = PaymentDetails.objects.create(
+                user=order.user,
+                order=order,
+                payment_method=PaymentMethod.CATCH_ON_DELIVERY.value,
+                payment_status=PaymentStatus.PENDING.value,
+            )
+        elif payment.payment_method != PaymentMethod.CATCH_ON_DELIVERY.value:
+            return Response({"detail": "This order is not a cash payment."}, status=status.HTTP_400_BAD_REQUEST)
+
         if payment.cash_received_by_id:
             return Response({"detail": "Cash has already been received by a waiter."}, status=status.HTTP_400_BAD_REQUEST)
         if payment.cash_settled_by_id:
@@ -73,14 +91,16 @@ class ReceiveCashPaymentAPIView(APIView):
         payment.payment_status = PaymentStatus.PENDING.value
         payment.save(update_fields=["cash_received_by", "cash_received_at", "payment_status", "updated_at"])
 
-        # Receiving cash happens after the meal is served. Keep the table
-        # explicitly out of OCCUPIED while the manager still needs to settle
-        # the cash. Final settlement will release the table to EMPTY.
-        if order.order_status == OrderStatus.SERVED:
+        if order.order_status == OrderStatus.SERVED and order.table_id:
             order.table.table_state = TableState.PAYMENT_PENDING.value
             order.table.save(update_fields=["table_state", "updated_at"])
 
-        return Response({"message": "Cash received and recorded. Awaiting manager settlement.", "payment_status": "cash_received", "amount": str(order.total_price), "waiter": str(waiter)})
+        return Response({
+            "message": "Cash received and recorded. Awaiting manager settlement.",
+            "payment_status": "cash_received",
+            "amount": str(order.total_price),
+            "waiter": str(waiter),
+        })
 
 
 class SettleCashPaymentAPIView(APIView):
@@ -113,12 +133,16 @@ class SettleCashPaymentAPIView(APIView):
         order.payment_status = PaymentStatus.CONFIRMED.value
         order.save(update_fields=["payment_status"])
 
-        # Once the manager has actually settled the cash, the dine-in
-        # session is complete and the physical table becomes available.
         if order.order_status == OrderStatus.SERVED:
             release_table_after_payment(order)
 
-        return Response({"message": "Cash settled successfully.", "payment_status": "confirmed", "amount": str(order.total_price), "waiter": str(payment.cash_received_by), "manager": str(manager)})
+        return Response({
+            "message": "Cash settled successfully.",
+            "payment_status": "confirmed",
+            "amount": str(order.total_price),
+            "waiter": str(payment.cash_received_by),
+            "manager": str(manager),
+        })
 
 
 class WaiterCashOrdersAPIView(ListAPIView):

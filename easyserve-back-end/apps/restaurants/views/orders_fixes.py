@@ -133,7 +133,7 @@ class WaiterAcceptOrderAPIView(APIView):
 
 
 class ReadyOrdersAPIView(ListAPIView):
-    """Only prepared orders assigned to the logged-in waiter."""
+    """Prepared orders in the restaurant ready for a waiter to serve."""
 
     serializer_class = OrderSerializer
     permission_classes = [IsWaiter]
@@ -146,10 +146,7 @@ class ReadyOrdersAPIView(ListAPIView):
 
         return (
             Orders.objects
-            .filter(
-                order_status=OrderStatus.PREPARED,
-                waiter=profile,
-            )
+            .filter(order_status=OrderStatus.PREPARED)
             .filter(
                 Q(table__restaurant=restaurant)
                 | Q(items__menu_item__menu__restaurant=restaurant)
@@ -160,7 +157,7 @@ class ReadyOrdersAPIView(ListAPIView):
 
 
 class MarkServedAPIView(APIView):
-    """Mark a prepared order as served for its assigned waiter."""
+    """Mark a prepared restaurant order as served and repair stale waiter assignment."""
 
     permission_classes = [IsWaiter]
 
@@ -172,16 +169,17 @@ class MarkServedAPIView(APIView):
         )
         waiter = request.user.profile
 
-        if order.waiter_id != waiter.id:
+        if waiter.restaurant_id is None:
             return Response(
-                {"detail": "You are not the waiter assigned to this order."},
-                status=status.HTTP_403_FORBIDDEN,
+                {"detail": "Your waiter account is not assigned to a restaurant."},
+                status=status.HTTP_400_BAD_REQUEST,
             )
 
-        if waiter.restaurant_id is None or not (
+        belongs_to_restaurant = (
             (order.table_id and order.table.restaurant_id == waiter.restaurant_id)
             or order.items.filter(menu_item__menu__restaurant_id=waiter.restaurant_id).exists()
-        ):
+        )
+        if not belongs_to_restaurant:
             return Response(
                 {"detail": "This order does not belong to your restaurant."},
                 status=status.HTTP_403_FORBIDDEN,
@@ -193,7 +191,12 @@ class MarkServedAPIView(APIView):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
+        update_fields = ["order_status", "updated_at"]
+        if order.waiter_id != waiter.id:
+            order.waiter = waiter
+            update_fields.append("waiter")
+
         order.order_status = OrderStatus.SERVED
-        order.save(update_fields=["order_status", "updated_at"])
+        order.save(update_fields=update_fields)
 
         return Response({"message": "Order served successfully"}, status=status.HTTP_200_OK)
