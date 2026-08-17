@@ -1,21 +1,18 @@
-"use client";
+'use client';
 
-import { usePathname } from "next/navigation";
-import { Header } from "@/components/layout/Header";
-import { Footer } from "@/components/layout/Footer";
-import CartDrawer from "@/components/landingPage/CartDrawer";
+import { useEffect } from 'react';
+import { usePathname, useRouter } from 'next/navigation';
 
 export default function LayoutClient({ children }) {
   const pathname = usePathname();
-  
-  // Sirf /admin hide karo, /manager nahi
-const hideHeaderFooter = pathname.startsWith("/admin") || pathname.startsWith("/manager");
-  return (
-    <>
-      {!hideHeaderFooter && <Header />}
-      <main className="flex-grow bg-gray-50">{children}</main>
-      {!hideHeaderFooter && <Footer />}
-      <CartDrawer />
-    </>
-  );
+  const router = useRouter();
+  useEffect(() => {
+    const publicPaths = ['/','/auth/login','/auth/register'];
+    const isPublic = publicPaths.some((path) => pathname === path || pathname.startsWith(`${path}/`));
+    if (isPublic) return;
+    const token = localStorage.getItem('access_token') || localStorage.getItem('accessToken') || localStorage.getItem('token');
+    const userRaw = localStorage.getItem('user') || localStorage.getItem('currentUser');
+    if (!token && !userRaw) router.replace('/auth/login');
+  }, [pathname, router]);
+  return children;
 }
