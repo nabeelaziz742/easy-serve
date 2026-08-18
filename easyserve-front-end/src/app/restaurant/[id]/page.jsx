@@ -19,17 +19,13 @@ function Restaurant() {
   const dispatch = useDispatch();
   const dineIn = useSelector((state) => state.dineIn);
 
-  // Keep the mutation name explicit so it cannot be confused with the
-  // mutation trigger used below during QR validation.
   const [validateTableMutation] = useValidateTableMutation();
 
   const [validatingQrTable, setValidatingQrTable] = useState(false);
-  const [restoringDineIn, setRestoringDineIn] = useState(
-    () =>
-      param?.id &&
-      typeof window !== "undefined" &&
-      window.location.search.includes("mode=dine-in")
-  );
+  // Never read window/localStorage during the initial render. The previous
+  // initializer produced different server/client markup and caused hydration
+  // errors on QR dine-in pages.
+  const [restoringDineIn, setRestoringDineIn] = useState(false);
 
   const qrTable = searchParams.get("table");
   const isQrDineIn = searchParams.get("mode") === "dine-in" && !!qrTable;
@@ -94,6 +90,8 @@ function Restaurant() {
       setRestoringDineIn(false);
       return;
     }
+
+    setRestoringDineIn(true);
 
     try {
       const raw = window.localStorage.getItem(DINE_IN_STORAGE_KEY);
