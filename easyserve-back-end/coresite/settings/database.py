@@ -20,5 +20,12 @@ DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.sqlite3',
         'NAME': 'db.sqlite3',
+        # Multiple pages poll the API every few seconds (waiter/chef/manager
+        # dashboards). SQLite serializes writes, and without a timeout a
+        # concurrent read/write collision raises "database is locked"
+        # immediately instead of waiting briefly for the lock to clear.
+        'OPTIONS': {
+            'timeout': 20,
+        },
     }
 }
