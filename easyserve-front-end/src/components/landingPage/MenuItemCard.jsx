@@ -15,7 +15,7 @@ export const MenuItemCard = ({
   description,
   price,
   image,
-  rating = "4.5",
+  rating = 4.5,
   badge = "Recommended",
 }) => {
   const router = useRouter();

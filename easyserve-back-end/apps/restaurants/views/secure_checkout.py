@@ -12,11 +12,9 @@ class SecureOrderCheckoutAPIView(OrderCheckoutAPIView):
     """
     Hardened checkout entry point.
 
-    The existing checkout implementation is kept intact, but dine-in orders
-    must prove that they belong to the active QR/session before the order is
-    created. This prevents another authenticated customer from placing an
-    order against an already-occupied table by only knowing restaurant/table
-    identifiers.
+    Dine-in orders must prove that they belong to the active QR/session
+    before the order is created. The validated numeric guest count is also
+    normalized before handing the request to the existing checkout flow.
     """
 
     def post(self, request):
@@ -109,10 +107,21 @@ class SecureOrderCheckoutAPIView(OrderCheckoutAPIView):
 
         if invalid_item_exists:
             return Response(
-                {"detail": "One or more selected menu items are unavailable or do not belong to this restaurant."},
+                {
+                    "detail": (
+                        "One or more selected menu items are unavailable or "
+                        "do not belong to this restaurant."
+                    )
+                },
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        # The original checkout uses the same active session identified above.
-        # Pass the validated session token through unchanged.
+        # Request.data can be a QueryDict and cannot safely be mutated in place.
+        # Copy the payload so the original checkout receives the normalized
+        # integer guest count while retaining the validated session token.
+        normalized_data = data.copy()
+        normalized_data["guests"] = guests
+        normalized_data["session_token"] = session_token
+        request._full_data = normalized_data
+
         return super().post(request)

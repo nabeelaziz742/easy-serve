@@ -35,7 +35,7 @@ const ChefOrderCard = ({ order, onStart, onReady }) => (
 );
 
 export default function ChefPage() {
-  const { data, isLoading } = useGetChefOrdersQuery(undefined, { pollingInterval: 3000, refetchOnFocus: true });
+  const { data, isLoading } = useGetChefOrdersQuery(undefined, { pollingInterval: 3000, refetchOnFocus: true, refetchOnReconnect: true, refetchOnMountOrArgChange: true });
   const [startPreparing] = useStartPreparingMutation();
   const [markPrepared] = useMarkPreparedMutation();
   const orders = data?.results || data || [];

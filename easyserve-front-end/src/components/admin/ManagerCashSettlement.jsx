@@ -9,8 +9,10 @@ import {
 
 export default function ManagerCashSettlement() {
   const { data, isLoading } = useGetManagerCashOrdersQuery(undefined, {
-    pollingInterval: 10000,
+    pollingInterval: 5000,
     refetchOnFocus: true,
+    refetchOnReconnect: true,
+    refetchOnMountOrArgChange: true,
   });
   const [settleCash, { isLoading: settling }] = useSettleCashPaymentMutation();
 

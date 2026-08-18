@@ -5,13 +5,7 @@ import { useRouter } from "next/navigation";
 import { X, Plus, Minus, Trash2, ShoppingBag } from "lucide-react";
 import Image from "next/image";
 import { useSelector, useDispatch } from "react-redux";
-import {
-  removeItem,
-  increaseQty,
-  decreaseQty,
-  toggleCart,
-  clearCart,
-} from "@/store/slices/cartSlice";
+import { removeItem, increaseQty, decreaseQty, toggleCart, clearCart } from "@/store/slices/cartSlice";
 import MenuPic from "@/assets/menuImgs/menu-pic.jpg";
 import { useAddOrderMutation } from "@/services/private/orders";
 
@@ -22,43 +16,28 @@ export default function CartDrawer() {
   const { isOpen, items } = useSelector((state) => state.cart);
   const dineIn = useSelector((state) => state.dineIn);
 
-  const subtotal = items.reduce(
-    (acc, item) => acc + Number(item.price || 0) * Number(item.qty || 0),
-    0
-  );
+  const subtotal = items.reduce((acc, item) => acc + item.price * item.qty, 0);
   const discount = subtotal * 0.15;
   const tax = subtotal * 0.15;
   const deliveryFee = dineIn?.active ? 0 : 120;
   const total = subtotal + tax + deliveryFee - discount;
 
   const handleCheckout = async () => {
-    if (!items.length || isLoading) return;
-
     let body;
+
     if (dineIn?.active) {
-      const sessionToken = dineIn.sessionToken || dineIn.session?.token;
-
-      if (!dineIn.restaurant?.id || !dineIn.table?.number || !sessionToken) {
-        console.error("Checkout blocked: incomplete dine-in session", {
-          restaurant: dineIn.restaurant?.id,
-          table: dineIn.table?.number,
-          hasSessionToken: Boolean(sessionToken),
-        });
-        return;
-      }
-
       body = {
         order_type: "DINE_IN",
-        restaurant: dineIn.restaurant.id,
-        table: dineIn.table.number,
-        guests: Number(dineIn.guests || dineIn.session?.guests || 1),
-        name: dineIn.name || dineIn.session?.name || "",
-        phone: dineIn.phone || dineIn.session?.phone || "",
-        session_token: sessionToken,
-        items: items.map((item) => ({
-          menu_item: item.id,
-          quantity: Number(item.qty || 1),
-          comments: item.comment || "",
+        restaurant: dineIn.restaurant?.id,
+        table: dineIn.table?.number ?? dineIn.table,
+        guests: Number(dineIn.guests) || 1,
+        name: dineIn.name || "",
+        phone: dineIn.phone || "",
+        session_token: dineIn.sessionToken || dineIn.session?.token || "",
+        items: items.map((i) => ({
+          menu_item: i.id,
+          quantity: i.qty,
+          comments: i.comment || "",
         })),
       };
     } else {
@@ -66,42 +45,29 @@ export default function CartDrawer() {
         order_type: "DELIVERY",
         billing_address: "House 10, Street 5",
         shipping_address: "House 10, Street 5",
-        items: items.map((item) => ({
-          menu_item: item.id,
-          quantity: Number(item.qty || 1),
-          comments: item.comment || "",
+        items: items.map((i) => ({
+          menu_item: i.id,
+          quantity: i.qty,
+          comments: i.comment || "",
         })),
       };
     }
 
     try {
-      const response = await addOrder(body).unwrap();
+      const res = await addOrder(body).unwrap();
       dispatch(clearCart());
       dispatch(toggleCart());
-      console.log("Order created:", response);
+      console.log("Order created:", res);
       router.push("/orders");
     } catch (error) {
-      const detail =
-        error?.data?.detail ||
-        error?.data?.message ||
-        error?.error ||
-        "Unable to place the order. Please try again.";
-      console.error("Checkout failed:", {
-        status: error?.status,
-        data: error?.data,
-        error: error?.error,
-      });
-      window.alert(detail);
+      console.error("Checkout failed:", error);
     }
   };
 
   return (
     <>
       {isOpen && (
-        <div
-          onClick={() => dispatch(toggleCart())}
-          className="fixed inset-0 z-40 bg-black/50 backdrop-blur-sm"
-        />
+        <div onClick={() => dispatch(toggleCart())} className="fixed inset-0 z-40 bg-black/50 backdrop-blur-sm" />
       )}
 
       <motion.div
@@ -120,10 +86,7 @@ export default function CartDrawer() {
               <p className="text-xs text-green-200">{items.length} items added</p>
             </div>
           </div>
-          <button
-            onClick={() => dispatch(toggleCart())}
-            className="rounded-full p-2 transition hover:bg-white/10"
-          >
+          <button onClick={() => dispatch(toggleCart())} className="rounded-full p-2 transition hover:bg-white/10">
             <X className="h-5 w-5" />
           </button>
         </div>
@@ -139,53 +102,30 @@ export default function CartDrawer() {
             </div>
           ) : (
             items.map((item) => (
-              <motion.div
-                key={item.id}
-                initial={{ opacity: 0, y: 10 }}
-                animate={{ opacity: 1, y: 0 }}
-                className="rounded-3xl border border-gray-200 bg-white p-4 shadow-sm"
-              >
+              <motion.div key={item.id} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="rounded-3xl border border-gray-200 bg-white p-4 shadow-sm">
                 <div className="flex gap-4">
-                  <Image
-                    src={item.image || MenuPic}
-                    alt="Food"
-                    width={90}
-                    height={90}
-                    className="h-24 w-24 rounded-2xl object-cover"
-                  />
+                  <Image src={item.image || MenuPic} alt="Food" width={90} height={90} className="h-24 w-24 rounded-2xl object-cover" />
                   <div className="flex flex-1 flex-col">
                     <div className="flex items-start justify-between">
                       <div>
                         <h4 className="font-bold text-gray-900">{item.name}</h4>
                         <p className="mt-1 text-sm text-gray-500">Rs. {item.price}</p>
                       </div>
-                      <button
-                        onClick={() => dispatch(removeItem(item.id))}
-                        className="text-red-500 transition hover:scale-110"
-                      >
+                      <button onClick={() => dispatch(removeItem(item.id))} className="text-red-500 transition hover:scale-110">
                         <Trash2 className="h-5 w-5" />
                       </button>
                     </div>
-
                     <div className="mt-auto flex items-center justify-between">
                       <div className="flex items-center gap-3 rounded-full bg-gray-100 px-3 py-2">
-                        <button
-                          onClick={() => dispatch(decreaseQty(item.id))}
-                          className="rounded-full bg-white p-1 shadow"
-                        >
+                        <button onClick={() => dispatch(decreaseQty(item.id))} className="rounded-full bg-white p-1 shadow">
                           <Minus className="h-4 w-4" />
                         </button>
                         <span className="font-semibold">{item.qty}</span>
-                        <button
-                          onClick={() => dispatch(increaseQty(item.id))}
-                          className="rounded-full bg-white p-1 shadow"
-                        >
+                        <button onClick={() => dispatch(increaseQty(item.id))} className="rounded-full bg-white p-1 shadow">
                           <Plus className="h-4 w-4" />
                         </button>
                       </div>
-                      <p className="font-bold text-green-900">
-                        Rs. {Number(item.price || 0) * Number(item.qty || 0)}
-                      </p>
+                      <p className="font-bold text-green-900">Rs. {item.price * item.qty}</p>
                     </div>
                   </div>
                 </div>
@@ -199,34 +139,18 @@ export default function CartDrawer() {
             <div className="mb-5">
               {dineIn.active ? (
                 <div className="rounded-2xl bg-green-50 px-4 py-3 text-sm font-medium text-green-700">
-                  🍽️ Dine-In Order · Table #{dineIn.table.number}
+                  🍽️ Dine-In Order · Table #{dineIn.table?.number ?? dineIn.table}
                 </div>
               ) : (
-                <div className="rounded-2xl bg-blue-50 px-4 py-3 text-sm font-medium text-blue-700">
-                  🚚 Delivery Order
-                </div>
+                <div className="rounded-2xl bg-blue-50 px-4 py-3 text-sm font-medium text-blue-700">🚚 Delivery Order</div>
               )}
             </div>
 
             <div className="space-y-3 text-sm">
-              <div className="flex justify-between">
-                <span className="text-gray-500">Subtotal</span>
-                <span className="font-medium">Rs. {subtotal}</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-gray-500">Tax 15%</span>
-                <span className="font-medium">Rs. {tax}</span>
-              </div>
-              {!dineIn.active && (
-                <div className="flex justify-between">
-                  <span className="text-gray-500">Delivery Fee</span>
-                  <span className="font-medium">Rs. {deliveryFee}</span>
-                </div>
-              )}
-              <div className="flex justify-between text-green-600">
-                <span>Discount 15%</span>
-                <span>- Rs. {discount}</span>
-              </div>
+              <div className="flex justify-between"><span className="text-gray-500">Subtotal</span><span className="font-medium">Rs. {subtotal}</span></div>
+              <div className="flex justify-between"><span className="text-gray-500">Tax 15%</span><span className="font-medium">Rs. {tax}</span></div>
+              {!dineIn.active && <div className="flex justify-between"><span className="text-gray-500">Delivery Fee</span><span className="font-medium">Rs. {deliveryFee}</span></div>}
+              <div className="flex justify-between text-green-600"><span>Discount 15%</span><span>- Rs. {discount}</span></div>
             </div>
 
             <div className="mt-5 flex items-center justify-between border-t pt-4">

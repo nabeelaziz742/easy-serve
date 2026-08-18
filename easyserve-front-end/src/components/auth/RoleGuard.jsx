@@ -20,10 +20,21 @@ export default function RoleGuard({ allowedRoles, children }) {
   const {
     data: me,
     isLoading: isRestoring,
-    isError: restoreFailed,
+    isFetching: isRestoreFetching,
+    error: restoreError,
+    refetch: refetchMe,
   } = useGetMeQuery(undefined, {
     skip: isAuthenticated || !hasStoredToken,
   });
+
+  // Only a genuine "this token is not valid" response from the server
+  // should end the session. A missing/failed network request (backend
+  // still booting, dev-server hiccup, offline blip, etc.) must NOT log
+  // the user out — the baseQuery already retries via refresh token, and
+  // RTK Query will retry this query again shortly on its own.
+  const restoreFailed =
+    !!restoreError &&
+    (restoreError.status === 401 || restoreError.status === 403);
 
   useEffect(() => {
     if (!isAuthenticated && me) {
@@ -31,14 +42,39 @@ export default function RoleGuard({ allowedRoles, children }) {
     }
   }, [dispatch, isAuthenticated, me]);
 
+  // Transient failure (network blip, backend still starting, etc.) — don't
+  // log the user out, just quietly retry restoring the session shortly.
+  useEffect(() => {
+    if (
+      !isAuthenticated &&
+      hasStoredToken &&
+      !isRestoring &&
+      !isRestoreFetching &&
+      restoreError &&
+      restoreError.status !== 401 &&
+      restoreError.status !== 403
+    ) {
+      const timer = setTimeout(() => refetchMe(), 2000);
+      return () => clearTimeout(timer);
+    }
+    return undefined;
+  }, [
+    hasStoredToken,
+    isAuthenticated,
+    isRestoreFetching,
+    isRestoring,
+    refetchMe,
+    restoreError,
+  ]);
+
   useEffect(() => {
     // Do not redirect while persisted authentication is being restored.
     if (!isAuthenticated && hasStoredToken) {
-      if (isRestoring) return;
+      if (isRestoring || isRestoreFetching) return;
 
       // The API layer already attempts silent access-token renewal. Only
-      // clear the session when both the persisted credentials and restore
-      // request have actually failed.
+      // clear the session when the server explicitly rejected the token
+      // (not on a transient/network error).
       if (restoreFailed) {
         dispatch(onLoggedOut());
         router.replace("/auth/login");

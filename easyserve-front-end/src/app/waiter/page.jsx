@@ -36,10 +36,10 @@ const OrderCard = ({ order, ready = false, onAction }) => (
 );
 
 export default function WaiterPage() {
-  const { data, isLoading } = useGetPendingOrdersQuery(undefined, { pollingInterval: 3000, refetchOnFocus: true });
-  const { data: readyData } = useGetReadyOrdersQuery(undefined, { pollingInterval: 3000, refetchOnFocus: true });
-  const { data: dashboardData } = useGetWaiterDashboardQuery(undefined, { pollingInterval: 3000, refetchOnFocus: true });
-  const { data: cashData } = useGetWaiterCashOrdersQuery(undefined, { pollingInterval: 3000, refetchOnFocus: true });
+  const { data, isLoading } = useGetPendingOrdersQuery(undefined, { pollingInterval: 3000, refetchOnFocus: true, refetchOnReconnect: true, refetchOnMountOrArgChange: true });
+  const { data: readyData } = useGetReadyOrdersQuery(undefined, { pollingInterval: 3000, refetchOnFocus: true, refetchOnReconnect: true, refetchOnMountOrArgChange: true });
+  const { data: dashboardData } = useGetWaiterDashboardQuery(undefined, { pollingInterval: 3000, refetchOnFocus: true, refetchOnReconnect: true, refetchOnMountOrArgChange: true });
+  const { data: cashData } = useGetWaiterCashOrdersQuery(undefined, { pollingInterval: 3000, refetchOnFocus: true, refetchOnReconnect: true, refetchOnMountOrArgChange: true });
   const [acceptOrder] = useAcceptOrderMutation();
   const [markServed] = useMarkServedMutation();
   const [receiveCashPayment] = useReceiveCashPaymentMutation();

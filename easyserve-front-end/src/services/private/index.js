@@ -62,9 +62,19 @@ const baseQueryWithReauth = async (args, api, extraOptions) => {
       });
 
       result = await baseQuery(args, api, extraOptions);
-    } else {
-      console.log('❌ Refresh token failed → logging out');
+    } else if (
+      // Only treat this as a real "session is dead" case when the server
+      // itself rejected the refresh token (401/403). A missing response,
+      // a network hiccup, or the dev server still booting up should NOT
+      // wipe the user's session — just surface the error and let the
+      // caller retry.
+      refreshResult.error &&
+      (refreshResult.error.status === 401 || refreshResult.error.status === 403)
+    ) {
+      console.log('❌ Refresh token rejected by server → logging out');
       api.dispatch({ type: 'auth/onLoggedOut' });
+    } else {
+      console.warn('⚠️ Refresh attempt failed (network/server issue), keeping session for retry');
     }
   }
 
