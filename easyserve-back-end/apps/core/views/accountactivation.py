@@ -5,7 +5,7 @@ from rest_framework.views import APIView
 from rest_framework.response import Response
 from django.shortcuts import get_object_or_404
 from rest_framework.permissions import AllowAny
-from datetime import datetime, timedelta
+from datetime import timedelta
 from django.utils import timezone
 from rest_framework_simplejwt.tokens import RefreshToken
 
@@ -20,13 +20,11 @@ class AccountActivationAPIView(APIView):
             Parameters:
                 secret_key
 
-                """
+            """
             user_activation = get_object_or_404(
                 UserActivation, token=secret_key,)
-            print(user_activation.created_at + timedelta(minutes=3000000),"sdsdsds",timezone.now())
             if user_activation.created_at + timedelta(minutes=30) < timezone.now():
                 return Response({"message": "Your activation token is expired."})
-
 
             if user_activation:
                 if user_activation.user.is_active:

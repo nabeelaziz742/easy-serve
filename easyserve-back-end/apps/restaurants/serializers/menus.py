@@ -188,11 +188,16 @@ class MenuSerializer(serializers.ModelSerializer):
     """
     Serializer for Menu model.
     """
+    # Required for owner-menu creation; write-only keeps existing read responses unchanged.
+    restaurant = serializers.PrimaryKeyRelatedField(
+        queryset=Restaurant.objects.all(),
+        write_only=True,
+    )
     menu_items = MenuItemSerializer(many=True, read_only=True)
 
     class Meta:
         model = Menu
-        fields = ['id', 'name', 'description', 'menu_items']
+        fields = ['id', 'restaurant', 'name', 'description', 'menu_items']
         read_only_fields = ['id']
 
 class FullMenuSerializer(serializers.ModelSerializer):
