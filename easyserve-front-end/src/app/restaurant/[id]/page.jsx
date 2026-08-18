@@ -19,17 +19,13 @@ function Restaurant() {
   const dispatch = useDispatch();
   const dineIn = useSelector((state) => state.dineIn);
 
-  // Keep the mutation name explicit so it cannot be confused with the
-  // mutation trigger used below during QR validation.
   const [validateTableMutation] = useValidateTableMutation();
 
   const [validatingQrTable, setValidatingQrTable] = useState(false);
-  const [restoringDineIn, setRestoringDineIn] = useState(
-    () =>
-      param?.id &&
-      typeof window !== "undefined" &&
-      window.location.search.includes("mode=dine-in")
-  );
+  // Keep the initial value deterministic on server and client. Reading
+  // window.location during the state initializer causes an SSR hydration
+  // mismatch on the dine-in route.
+  const [restoringDineIn, setRestoringDineIn] = useState(false);
 
   const qrTable = searchParams.get("table");
   const isQrDineIn = searchParams.get("mode") === "dine-in" && !!qrTable;
@@ -95,6 +91,9 @@ function Restaurant() {
       return;
     }
 
+    let mounted = true;
+    setRestoringDineIn(true);
+
     try {
       const raw = window.localStorage.getItem(DINE_IN_STORAGE_KEY);
       const saved = raw ? JSON.parse(raw) : null;
@@ -110,8 +109,12 @@ function Restaurant() {
       console.error("Failed to restore dine-in context:", error);
       window.localStorage.removeItem(DINE_IN_STORAGE_KEY);
     } finally {
-      setRestoringDineIn(false);
+      if (mounted) setRestoringDineIn(false);
     }
+
+    return () => {
+      mounted = false;
+    };
   }, [dispatch, dineIn.active, isQrDineIn, param?.id]);
 
   const hasDineInMenus = (dineIn?.menus ?? []).some(
