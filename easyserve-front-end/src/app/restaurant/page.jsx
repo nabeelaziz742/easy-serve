@@ -1,10 +1,5 @@
-import RestaurantsList from "@/components/landingPage/ResturantsList";
+import { redirect } from "next/navigation";
 
-
-export default function RestaurantList() {
-  return (
-    <div>
-      <RestaurantsList />
-    </div>
-  );
+export default function RestaurantPage() {
+  redirect("/");
 }
