@@ -39,6 +39,10 @@ class MenuViewSet(ModelViewSet):
         if not allowed:
             raise PermissionDenied("You do not have access to this restaurant.")
 
+    def _notify(self, message):
+        profile = getattr(self.request.user, "profile", None)
+        create_notification(profile=profile, message=message)
+
     def get_queryset(self):
         restaurant_id = self.request.query_params.get('restaurant_id')
         queryset = super().get_queryset()
@@ -52,29 +56,31 @@ class MenuViewSet(ModelViewSet):
         restaurant = serializer.validated_data.get("restaurant")
         self._assert_restaurant_access(restaurant)
 
-        instance = serializer.save()
-        create_notification(
-            profile=self.request.user.profile,
-            message=f"New menu '{instance.name}' created for restaurant '{instance.restaurant.name}'."
-        )
+        with transaction.atomic():
+            instance = serializer.save()
+            self._notify(
+                f"New menu '{instance.name}' created for restaurant '{instance.restaurant.name}'."
+            )
 
     def perform_update(self, serializer):
         self._assert_restaurant_access(serializer.instance.restaurant)
-        instance = serializer.save()
-        create_notification(
-            profile=self.request.user.profile,
-            message=f"Menu '{instance.name}' updated for restaurant '{instance.restaurant.name}'."
-        )
+
+        with transaction.atomic():
+            instance = serializer.save()
+            self._notify(
+                f"Menu '{instance.name}' updated for restaurant '{instance.restaurant.name}'."
+            )
 
     def perform_destroy(self, instance):
         self._assert_restaurant_access(instance.restaurant)
         menu_name = instance.name
         restaurant_name = instance.restaurant.name
-        instance.delete()
-        create_notification(
-            profile=self.request.user.profile,
-            message=f"Menu '{menu_name}' deleted from restaurant '{restaurant_name}'."
-        )
+
+        with transaction.atomic():
+            instance.delete()
+            self._notify(
+                f"Menu '{menu_name}' deleted from restaurant '{restaurant_name}'."
+            )
 
     @action(detail=False, methods=['get'], url_path='have-menu', permission_classes=[AllowAny])
     def have_menu(self, request):
@@ -150,9 +156,8 @@ class MenuViewSet(ModelViewSet):
             items.append(item_serializer.data)
             i += 1
 
-        create_notification(
-            profile=request.user.profile,
-            message=f"Menu '{menu.name}' with {len(items)} items created for restaurant '{menu.restaurant.name}'."
+        self._notify(
+            f"Menu '{menu.name}' with {len(items)} items created for restaurant '{menu.restaurant.name}'."
         )
 
         return Response(FullMenuSerializer(menu).data, status=status.HTTP_201_CREATED)
