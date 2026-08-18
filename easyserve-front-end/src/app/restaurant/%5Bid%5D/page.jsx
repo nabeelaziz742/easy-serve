@@ -50,7 +50,6 @@ function RestaurantContent() {
       setError("This dine-in session is no longer valid. Please scan the table QR code again.")
       return
     }
-
     setCheckoutLoading(true)
     setError("")
     try {
@@ -67,15 +66,13 @@ function RestaurantContent() {
         payload.session_token = sessionToken
         payload.guests = 1
       }
-
       const order = await createOrder(payload)
       const orderId = order?.id ?? order?.order_id
       if (!orderId) throw new Error("Order was created but no order ID was returned.")
       router.push(`/orders/${orderId}`)
     } catch (err) {
       const data = err?.response?.data
-      const message = data?.detail || data?.message || (typeof data === "string" ? data : "Checkout failed. Please try again.")
-      setError(message)
+      setError(data?.detail || data?.message || (typeof data === "string" ? data : "Checkout failed. Please try again."))
       console.error("Checkout failed:", data || err)
     } finally {
       setCheckoutLoading(false)
@@ -84,7 +81,6 @@ function RestaurantContent() {
 
   if (loading) return <div className="flex min-h-[70vh] items-center justify-center">Loading restaurant...</div>
   if (!restaurant) return <div className="flex min-h-[70vh] items-center justify-center">{error || "Restaurant not found."}</div>
-
   return (
     <div className="min-h-[70vh]">
       {error ? <div className="mb-4 rounded-lg bg-red-50 p-3 text-sm text-red-700">{error}</div> : null}
