@@ -1,0 +1,164 @@
+diff --git a/easyserve-back-end/apps/dashboard/repositories/orders_repository.py b/easyserve-back-end/apps/dashboard/repositories/orders_repository.py
+index 3402126..4d5ed2c 100644
+--- a/easyserve-back-end/apps/dashboard/repositories/orders_repository.py
++++ b/easyserve-back-end/apps/dashboard/repositories/orders_repository.py
+@@ -6,6 +6,27 @@ class OrdersRepository:
+     def get_order(pk):
+         return Orders.objects.filter(pk=pk).first()
+ 
++    @staticmethod
++    def get_order_restaurant_id(order):
++        """Resolve the restaurant an order belongs to, whether it came in
++        via a table (dine-in walk-up) or a dine-in QR session."""
++        if order.table_id and order.table.restaurant_id:
++            return order.table.restaurant_id
++        if order.dine_in_session_id and order.dine_in_session.restaurant_id:
++            return order.dine_in_session.restaurant_id
++        return None
++
++    @staticmethod
++    def user_can_access_restaurant(profile, restaurant_id):
++        """A user can access an order's restaurant if they're staff
++        assigned to it (profile.restaurant) or an owner of it
++        (profile.owned_restaurants)."""
++        if restaurant_id is None:
++            return False
++        if profile.restaurant_id == restaurant_id:
++            return True
++        return profile.owned_restaurants.filter(id=restaurant_id).exists()
++
+     @staticmethod
+     def update_status(order, value):
+         order.order_status = value
+diff --git a/easyserve-back-end/apps/dashboard/views/order_update_status.py b/easyserve-back-end/apps/dashboard/views/order_update_status.py
+index 3e8da37..2caba54 100644
+--- a/easyserve-back-end/apps/dashboard/views/order_update_status.py
++++ b/easyserve-back-end/apps/dashboard/views/order_update_status.py
+@@ -2,6 +2,7 @@ from rest_framework import status
+ from rest_framework.response import Response
+ from rest_framework.generics import UpdateAPIView
+ from rest_framework.permissions import IsAuthenticated
++from rest_framework.exceptions import NotFound
+ 
+ from apps.dashboard.serializers import OrderStatusUpdateSerializer
+ from apps.dashboard.repositories import OrdersRepository
+@@ -13,7 +14,21 @@ class OrderStatusUpdateView(UpdateAPIView):
+     permission_classes = [IsAuthenticated]
+ 
+     def get_object(self):
+-        return OrdersRepository.get_order(self.kwargs["pk"])
++        order = OrdersRepository.get_order(self.kwargs["pk"])
++        if order is None:
++            raise NotFound()
++
++        # Tenant isolation: a logged-in user may only act on orders
++        # belonging to a restaurant they're staff of or own. Without this,
++        # any authenticated account could change any restaurant's order
++        # status by guessing/incrementing the numeric order ID.
++        profile = getattr(self.request.user, "profile", None)
++        restaurant_id = OrdersRepository.get_order_restaurant_id(order)
++        if profile is None or not OrdersRepository.user_can_access_restaurant(profile, restaurant_id):
++            # 404 rather than 403 so we don't leak that the order exists.
++            raise NotFound()
++
++        return order
+ 
+     def update(self, request, *args, **kwargs):
+         order = self.get_object()
+diff --git a/easyserve-back-end/apps/restaurants/views/cash_payments.py b/easyserve-back-end/apps/restaurants/views/cash_payments.py
+index 2b51ec8..d69237d 100644
+--- a/easyserve-back-end/apps/restaurants/views/cash_payments.py
++++ b/easyserve-back-end/apps/restaurants/views/cash_payments.py
+@@ -110,7 +110,18 @@ class SettleCashPaymentAPIView(APIView):
+     def post(self, request, order_id):
+         order = get_object_or_404(Orders.objects.select_for_update(), id=order_id)
+         manager = request.user.profile
+-        if not order.table or order.table.restaurant_id != manager.restaurant_id:
++        # Owners (no separate staff "manager" profile) relate to a
++        # restaurant via owned_restaurants, not profile.restaurant — which
++        # is only populated for staff explicitly assigned to a restaurant.
++        # Checking only manager.restaurant_id incorrectly blocked owners
++        # from ever settling cash for their own restaurant, permanently
++        # stranding the table in "Awaiting Payment".
++        order_restaurant_id = order.table.restaurant_id if order.table else None
++        has_access = order_restaurant_id is not None and (
++            manager.restaurant_id == order_restaurant_id
++            or manager.owned_restaurants.filter(id=order_restaurant_id).exists()
++        )
++        if not has_access:
+             return Response({"detail": "This order does not belong to your restaurant."}, status=status.HTTP_403_FORBIDDEN)
+         if order.order_cancelled:
+             return Response({"detail": "Cannot settle a cancelled order."}, status=status.HTTP_400_BAD_REQUEST)
+diff --git a/easyserve-front-end/src/components/layout/Header.jsx b/easyserve-front-end/src/components/layout/Header.jsx
+index af46418..f63a73b 100644
+--- a/easyserve-front-end/src/components/layout/Header.jsx
++++ b/easyserve-front-end/src/components/layout/Header.jsx
+@@ -20,13 +20,17 @@ import {
+ export function Header() {
+   const dispatch = useDispatch();
+   const items = useSelector((state) => state.cart.items);
+-  const token = useSelector((state) => state.auth.token);
++  const isAuthenticated = useSelector((state) => state.auth.isAuthenticated);
+   const user = useSelector((state) => state.auth.user);
+ 
+   const role = (user?.role || user?.user_type)?.toLowerCase?.() || null;
+   const isManager = role === "manager";
+ 
+-  const isLoggedIn = !!token;
++  // Use isAuthenticated (set by both the login flow and the reload-restore
++  // flow) as the single source of truth for "is this user logged in",
++  // instead of deriving it from the token field — the token was not always
++  // kept in sync with isAuthenticated after a page-reload session restore.
++  const isLoggedIn = isAuthenticated;
+ 
+   const [mobileOpen, setMobileOpen] = useState(false);
+   const [openProfileMenu, setOpenProfileMenu] = useState(false);
+@@ -40,7 +44,7 @@ export function Header() {
+     setMobileOpen(false);
+   };
+ 
+-  if (token && !user) return null;
++  if (isAuthenticated && !user) return null;
+ 
+   // ========================= MANAGER HEADER =========================
+   if (isManager) {
+diff --git a/easyserve-front-end/src/store/index.js b/easyserve-front-end/src/store/index.js
+index 5625536..eeb3bf5 100644
+--- a/easyserve-front-end/src/store/index.js
++++ b/easyserve-front-end/src/store/index.js
+@@ -1,4 +1,5 @@
+ import { configureStore } from '@reduxjs/toolkit';
++import { setupListeners } from '@reduxjs/toolkit/query';
+ import authSlice from './slices/authSlice';
+ import cartSlice from './slices/cartSlice';
+ import { serviceMiddlewares, serviceReducers } from '@/services';
+@@ -14,4 +15,11 @@ const store = configureStore({
+   middleware: getDefaultMiddleware => getDefaultMiddleware().concat(serviceMiddlewares),
+ });
+ 
++// Required for RTK Query's refetchOnFocus / refetchOnReconnect to work at
++// all. Without this call those options are silently inert — orders would
++// only ever update on the fixed polling interval, and never immediately
++// when a tab regains focus or the network reconnects (this was the root
++// cause of new orders not reliably appearing on the chef screen).
++setupListeners(store.dispatch);
++
+ export default store;
+diff --git a/easyserve-front-end/src/store/slices/authSlice.js b/easyserve-front-end/src/store/slices/authSlice.js
+index e52c93a..aab1ca0 100644
+--- a/easyserve-front-end/src/store/slices/authSlice.js
++++ b/easyserve-front-end/src/store/slices/authSlice.js
+@@ -16,6 +16,13 @@ const authSlice = createSlice({
+     onAuthorized: (state, { payload }) => {
+       state.isAuthenticated = true;
+       state.user = payload;
++      // Keep token in sync with localStorage on a reload-restore. Header.jsx
++      // (and anywhere else that derives "logged in" from !!token rather
++      // than isAuthenticated) would otherwise render as logged-out even
++      // though the user was successfully re-authenticated.
++      if (typeof window !== 'undefined') {
++        state.token = localStorage.getItem('token') || state.token;
++      }
+     },
+ 
+     onLoggedIn: (state, { payload }) => {

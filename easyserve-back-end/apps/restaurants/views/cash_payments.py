@@ -110,7 +110,18 @@ class SettleCashPaymentAPIView(APIView):
     def post(self, request, order_id):
         order = get_object_or_404(Orders.objects.select_for_update(), id=order_id)
         manager = request.user.profile
-        if not order.table or order.table.restaurant_id != manager.restaurant_id:
+        # Owners (no separate staff "manager" profile) relate to a
+        # restaurant via owned_restaurants, not profile.restaurant — which
+        # is only populated for staff explicitly assigned to a restaurant.
+        # Checking only manager.restaurant_id incorrectly blocked owners
+        # from ever settling cash for their own restaurant, permanently
+        # stranding the table in "Awaiting Payment".
+        order_restaurant_id = order.table.restaurant_id if order.table else None
+        has_access = order_restaurant_id is not None and (
+            manager.restaurant_id == order_restaurant_id
+            or manager.owned_restaurants.filter(id=order_restaurant_id).exists()
+        )
+        if not has_access:
             return Response({"detail": "This order does not belong to your restaurant."}, status=status.HTTP_403_FORBIDDEN)
         if order.order_cancelled:
             return Response({"detail": "Cannot settle a cancelled order."}, status=status.HTTP_400_BAD_REQUEST)

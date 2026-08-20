@@ -20,13 +20,17 @@ import {
 export function Header() {
   const dispatch = useDispatch();
   const items = useSelector((state) => state.cart.items);
-  const token = useSelector((state) => state.auth.token);
+  const isAuthenticated = useSelector((state) => state.auth.isAuthenticated);
   const user = useSelector((state) => state.auth.user);
 
   const role = (user?.role || user?.user_type)?.toLowerCase?.() || null;
   const isManager = role === "manager";
 
-  const isLoggedIn = !!token;
+  // Use isAuthenticated (set by both the login flow and the reload-restore
+  // flow) as the single source of truth for "is this user logged in",
+  // instead of deriving it from the token field — the token was not always
+  // kept in sync with isAuthenticated after a page-reload session restore.
+  const isLoggedIn = isAuthenticated;
 
   const [mobileOpen, setMobileOpen] = useState(false);
   const [openProfileMenu, setOpenProfileMenu] = useState(false);
@@ -40,7 +44,7 @@ export function Header() {
     setMobileOpen(false);
   };
 
-  if (token && !user) return null;
+  if (isAuthenticated && !user) return null;
 
   // ========================= MANAGER HEADER =========================
   if (isManager) {

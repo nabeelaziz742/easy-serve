@@ -16,6 +16,13 @@ const authSlice = createSlice({
     onAuthorized: (state, { payload }) => {
       state.isAuthenticated = true;
       state.user = payload;
+      // Keep token in sync with localStorage on a reload-restore. Header.jsx
+      // (and anywhere else that derives "logged in" from !!token rather
+      // than isAuthenticated) would otherwise render as logged-out even
+      // though the user was successfully re-authenticated.
+      if (typeof window !== 'undefined') {
+        state.token = localStorage.getItem('token') || state.token;
+      }
     },
 
     onLoggedIn: (state, { payload }) => {

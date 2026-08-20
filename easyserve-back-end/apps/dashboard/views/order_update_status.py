@@ -2,6 +2,7 @@ from rest_framework import status
 from rest_framework.response import Response
 from rest_framework.generics import UpdateAPIView
 from rest_framework.permissions import IsAuthenticated
+from rest_framework.exceptions import NotFound
 
 from apps.dashboard.serializers import OrderStatusUpdateSerializer
 from apps.dashboard.repositories import OrdersRepository
@@ -13,7 +14,21 @@ class OrderStatusUpdateView(UpdateAPIView):
     permission_classes = [IsAuthenticated]
 
     def get_object(self):
-        return OrdersRepository.get_order(self.kwargs["pk"])
+        order = OrdersRepository.get_order(self.kwargs["pk"])
+        if order is None:
+            raise NotFound()
+
+        # Tenant isolation: a logged-in user may only act on orders
+        # belonging to a restaurant they're staff of or own. Without this,
+        # any authenticated account could change any restaurant's order
+        # status by guessing/incrementing the numeric order ID.
+        profile = getattr(self.request.user, "profile", None)
+        restaurant_id = OrdersRepository.get_order_restaurant_id(order)
+        if profile is None or not OrdersRepository.user_can_access_restaurant(profile, restaurant_id):
+            # 404 rather than 403 so we don't leak that the order exists.
+            raise NotFound()
+
+        return order
 
     def update(self, request, *args, **kwargs):
         order = self.get_object()
