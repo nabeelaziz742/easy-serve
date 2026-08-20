@@ -4,6 +4,7 @@ from typing import List
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework import status
+from rest_framework.permissions import AllowAny
 
 from apps.restaurants.ai.utils import top_restaurant_ids, load_restaurant_ratings
 from apps.restaurants.serializers import MenuItemSerializer, TopRestaurantSerializer
@@ -19,6 +20,8 @@ class RestaurantTopSuggestionsView(APIView):
     - n: number of suggestions to return (default 10, max 100)
     - include_scores: if truthy, also include avg_rating alongside each restaurant
     """
+
+    permission_classes = [AllowAny]
 
     def get(self, request):
 
@@ -67,6 +70,8 @@ class RestaurantMenuSuggestionsView(APIView):
     Query params:
     - n: number of items (default 10, max 50)
     """
+
+    permission_classes = [AllowAny]
 
     def get(self, request, restaurant_id: int):
         try:
