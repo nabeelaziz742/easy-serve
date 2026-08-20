@@ -38,7 +38,9 @@ class AccountStatusViewTestCase(TestCase):
     def test_account_status_user_not_found(self):
         response = self.client.post(reverse(
             'account-status'), data={'email': 'nonexistentuser@gmail.com'})  # User does not exist
-        self.assertEqual(response.status_code,
-                         status.HTTP_500_INTERNAL_SERVER_ERROR)
-        self.assertEqual(
-            response.json()['message'], "No User matches the given query.")
+        # A routine "not registered" check is not a server error — it must
+        # return a normal 200 with message: False, not a 500. Returning 500
+        # here also used to leak the raw exception text in the response
+        # body and pollute error monitoring with false alarms.
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.json()['message'], False)

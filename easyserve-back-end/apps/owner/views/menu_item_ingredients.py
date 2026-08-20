@@ -1,3 +1,4 @@
+from rest_framework.exceptions import PermissionDenied
 from rest_framework.permissions import AllowAny
 from rest_framework.viewsets import ModelViewSet
 
@@ -22,7 +23,28 @@ class MenuItemIngredientViewSet(ModelViewSet):
             return MenuItemIngredient.objects.filter(menu_item_id=menu_item_id)
         return MenuItemIngredient.objects.none()
 
+    def _assert_menu_item_access(self, menu_item):
+        # Same ownership pattern used by MenuViewSet/MenuItemViewSet
+        # (via menu_item.menu.restaurant). The role-only IsRestaurantOwner
+        # permission does not verify which restaurant's menu the requester
+        # may touch, so without this check any owner/manager account could
+        # attach ingredients to another restaurant's menu items.
+        user = self.request.user
+        if not user.is_authenticated or menu_item is None:
+            raise PermissionDenied("You do not have access to this menu item.")
+
+        restaurant = menu_item.menu.restaurant
+        allowed = (
+            restaurant.owners.filter(user_id=user.id).exists()
+            or restaurant.waiters.filter(user_id=user.id).exists()
+        )
+        if not allowed:
+            raise PermissionDenied("You do not have access to this menu item.")
+
     def perform_create(self, serializer):
+        menu_item = serializer.validated_data.get("menu_item")
+        self._assert_menu_item_access(menu_item)
+
         instance = serializer.save()
         create_notification(
             profile=self.request.user.profile,
@@ -30,6 +52,7 @@ class MenuItemIngredientViewSet(ModelViewSet):
         )
 
     def perform_update(self, serializer):
+        self._assert_menu_item_access(serializer.instance.menu_item)
         instance = serializer.save()
         create_notification(
             profile=self.request.user.profile,
@@ -37,6 +60,7 @@ class MenuItemIngredientViewSet(ModelViewSet):
         )
 
     def perform_destroy(self, instance):
+        self._assert_menu_item_access(instance.menu_item)
         ingredient_name = instance.name
         menu_item_name = instance.menu_item.name
         instance.delete()
