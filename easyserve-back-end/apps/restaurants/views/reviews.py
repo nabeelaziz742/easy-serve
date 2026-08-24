@@ -17,7 +17,13 @@ class ReviewViewSet(ModelViewSet):
         return ReviewSerializer
 
     def perform_create(self, serializer):
-        serializer.save(user=self.request.user.profile)
+        # CreateReviewSerializer.create() already derives the correct user
+        # from the validated order (order.user) and sets waiter/review_by
+        # itself. Passing user= here as well caused Review.objects.create()
+        # to receive `user` twice (TypeError: got multiple values for
+        # keyword argument 'user'), crashing every review submission with a
+        # 500 error.
+        serializer.save()
 
     def get_queryset(self):
         user = self.request.user
