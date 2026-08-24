@@ -186,10 +186,38 @@ class OrderDetailAPIView(APIView):
         order = get_object_or_404(Orders, id=order_id)
         profile = request.user.profile
         user_type = getattr(request.user, "user_type", None)
+
         if order.user_id != profile.id:
-            allowed_staff_types = ("waiter", "chef", "manager", "restaurant_owner", "super_admin")
+            # Super admins can view any order.
+            if user_type == "super_admin":
+                return Response(OrderDetailSerializer(order).data)
+
+            allowed_staff_types = ("waiter", "chef", "manager", "restaurant_owner")
             if user_type not in allowed_staff_types:
                 return Response({"detail": "You are not allowed to view this order."}, status=status.HTTP_403_FORBIDDEN)
+
+            # Staff/owners must belong to the same restaurant as the order.
+            # Without this, any waiter/chef/manager at ANY restaurant could
+            # view another restaurant's order (customer name, phone,
+            # address, billing) just by guessing/incrementing the order id.
+            order_restaurant_id = (
+                order.table.restaurant_id if order.table_id
+                else order.items.filter(menu_item__menu__restaurant__isnull=False)
+                .values_list("menu_item__menu__restaurant_id", flat=True)
+                .first()
+            )
+
+            if order_restaurant_id is None:
+                return Response({"detail": "You are not allowed to view this order."}, status=status.HTTP_403_FORBIDDEN)
+
+            if user_type == "restaurant_owner":
+                has_access = profile.owned_restaurants.filter(id=order_restaurant_id).exists()
+            else:
+                has_access = profile.restaurant_id == order_restaurant_id
+
+            if not has_access:
+                return Response({"detail": "This order does not belong to your restaurant."}, status=status.HTTP_403_FORBIDDEN)
+
         return Response(OrderDetailSerializer(order).data)
 
 

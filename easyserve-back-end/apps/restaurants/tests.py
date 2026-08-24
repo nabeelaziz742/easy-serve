@@ -156,3 +156,88 @@ class OrderFlowTestCase(TestCase):
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         order_ids = [o["id"] for o in response.data["results"]] if "results" in response.data else [o["id"] for o in response.data]
         self.assertIn(self.order.id, order_ids)
+
+
+class OrderDetailTenantIsolationTestCase(TestCase):
+    """Regression tests for the cross-restaurant order-detail leak fix."""
+
+    def setUp(self):
+        self.client = APIClient()
+
+        self.restaurant = Restaurant.objects.create(name="Home Diner")
+        self.other_restaurant = Restaurant.objects.create(name="Away Diner")
+
+        self.waiter_user, self.waiter = make_user("home-waiter@test.com", "waiter", self.restaurant)
+        self.other_waiter_user, self.other_waiter = make_user("away-waiter@test.com", "waiter", self.other_restaurant)
+
+        self.customer_user, self.customer = make_user("customer@test.com", "customer")
+
+        self.menu = Menu.objects.create(restaurant=self.restaurant, name="Main Menu")
+        self.menu_item = MenuItem.objects.create(menu=self.menu, name="Burger", price=5)
+        self.table = Table.objects.create(restaurant=self.restaurant, table_number=1, capacity=4)
+
+        self.order = Orders.objects.create(
+            user=self.customer,
+            order_type=1,
+            table=self.table,
+            order_status=OrderStatus.TO_PREPARE,
+            total_price=5,
+        )
+        OrderItem.objects.create(order=self.order, menu_item=self.menu_item, quantity=1, price=5)
+
+    def test_staff_from_other_restaurant_cannot_view_order(self):
+        self.client.force_authenticate(user=self.other_waiter_user)
+        response = self.client.get(f"/api/restaurants/orders/{self.order.id}/")
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+
+    def test_staff_from_same_restaurant_can_view_order(self):
+        self.client.force_authenticate(user=self.waiter_user)
+        response = self.client.get(f"/api/restaurants/orders/{self.order.id}/")
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+    def test_order_owner_can_view_own_order(self):
+        self.client.force_authenticate(user=self.customer_user)
+        response = self.client.get(f"/api/restaurants/orders/{self.order.id}/")
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+
+class ManagerCashOrdersOwnerVisibilityTestCase(TestCase):
+    """Regression test: restaurant owners must see their own restaurant's
+    pending cash settlements, not just staff with profile.restaurant set."""
+
+    def setUp(self):
+        self.client = APIClient()
+
+        self.restaurant = Restaurant.objects.create(name="Owner Diner")
+
+        self.owner_user, self.owner = make_user("owner@test.com", "restaurant_owner")
+        self.restaurant.owners.add(self.owner)
+
+        self.waiter_user, self.waiter = make_user("cash-waiter@test.com", "waiter", self.restaurant)
+        self.customer_user, self.customer = make_user("cash-customer@test.com", "customer")
+
+        self.menu = Menu.objects.create(restaurant=self.restaurant, name="Main Menu")
+        self.menu_item = MenuItem.objects.create(menu=self.menu, name="Pizza", price=10)
+        self.table = Table.objects.create(restaurant=self.restaurant, table_number=1, capacity=4)
+
+        self.order = Orders.objects.create(
+            user=self.customer,
+            order_type=1,
+            table=self.table,
+            waiter=self.waiter,
+            order_status=OrderStatus.SERVED,
+            total_price=10,
+        )
+        OrderItem.objects.create(order=self.order, menu_item=self.menu_item, quantity=1, price=10)
+
+        self.client.force_authenticate(user=self.customer_user)
+        self.client.post(f"/api/restaurants/orders/{self.order.id}/cash-request/")
+        self.client.force_authenticate(user=self.waiter_user)
+        self.client.post(f"/api/restaurants/orders/{self.order.id}/cash-receive/")
+
+    def test_owner_sees_pending_cash_settlement_for_owned_restaurant(self):
+        self.client.force_authenticate(user=self.owner_user)
+        response = self.client.get("/api/restaurants/orders/manager/cash/")
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        order_ids = [o["id"] for o in response.data["results"]] if "results" in response.data else [o["id"] for o in response.data]
+        self.assertIn(self.order.id, order_ids)

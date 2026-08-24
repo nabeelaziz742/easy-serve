@@ -178,8 +178,22 @@ class ManagerCashOrdersAPIView(ListAPIView):
 
     def get_queryset(self):
         manager = self.request.user.profile
+        # Owners (no separate staff "manager" profile) relate to a
+        # restaurant via owned_restaurants, not profile.restaurant — which
+        # is only populated for staff explicitly assigned to a restaurant.
+        # Filtering only by manager.restaurant hid every pending
+        # settlement from an owner, even though they are allowed to
+        # settle cash via SettleCashPaymentAPIView. Mirror that view's
+        # access rule here so the list matches what they can act on.
+        restaurant_ids = list(manager.owned_restaurants.values_list("id", flat=True))
+        if manager.restaurant_id:
+            restaurant_ids.append(manager.restaurant_id)
+
+        if not restaurant_ids:
+            return Orders.objects.none()
+
         return Orders.objects.filter(
-            table__restaurant=manager.restaurant,
+            table__restaurant_id__in=restaurant_ids,
             paymentdetails__payment_method=PaymentMethod.CATCH_ON_DELIVERY.value,
             paymentdetails__payment_status=PaymentStatus.PENDING.value,
             paymentdetails__cash_received_by__isnull=False,
