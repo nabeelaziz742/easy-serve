@@ -23,7 +23,6 @@ class AccountActivationAPIView(APIView):
                 """
             user_activation = get_object_or_404(
                 UserActivation, token=secret_key,)
-            print(user_activation.created_at + timedelta(minutes=3000000),"sdsdsds",timezone.now())
             if user_activation.created_at + timedelta(minutes=30) < timezone.now():
                 return Response({"message": "Your activation token is expired."})
 

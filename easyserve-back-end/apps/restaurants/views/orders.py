@@ -138,6 +138,35 @@ class PayOrderAPIView(APIView):
 
         method_key = request.data.get("payment_method", "cash")
 
+        # A customer (not staff) can only ever submit a cash payment request,
+        # which stays pending until restaurant staff confirms it further down
+        # this method. They can never self-confirm a "transfer" payment.
+        if is_owner and not is_staff:
+            if method_key != "cash":
+                return Response(
+                    {"detail": "Customer payment requests are currently supported for cash only."},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
+            PaymentDetails.objects.update_or_create(
+                order=order,
+                defaults={
+                    "user": order.user,
+                    "payment_method": PaymentMethod.CATCH_ON_DELIVERY.value,
+                    "payment_status": PaymentStatus.PENDING.value,
+                    "receipt_image": request.FILES.get("receipt_image"),
+                },
+            )
+            order.payment_status = PaymentStatus.PENDING.value
+            order.save(update_fields=["payment_status", "updated_at"])
+            return Response(
+                {
+                    "message": "Cash payment request submitted. Waiting for restaurant confirmation.",
+                    "payment_pending": True,
+                },
+                status=status.HTTP_200_OK,
+            )
+
         # Cash must NEVER be directly confirmed here. It enters the existing
         # waiter-receipt -> manager-settlement workflow so staff cannot
         # accidentally mark an uncollected cash order as paid.

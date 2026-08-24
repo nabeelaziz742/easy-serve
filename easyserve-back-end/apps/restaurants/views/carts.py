@@ -73,6 +73,11 @@ class UpdateCartItemAPIView(UpdateAPIView):
     serializer_class = CartItemSerializer
     permission_classes = [IsAuthenticated]
 
+    def get_queryset(self):
+        # Scope lookups to the requesting user's own cart so nobody can
+        # edit another customer's cart item just by knowing its ID.
+        return CartItem.objects.filter(cart__user=self.request.user.profile)
+
     def update(self, request, *args, **kwargs):
         try:
             cart_item = self.get_object()
@@ -94,6 +99,10 @@ class DeleteCartItemAPIView(DestroyAPIView):
     queryset = CartItem.objects.all()
     serializer_class = CartItemSerializer
     permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        # Same ownership scoping as the update view.
+        return CartItem.objects.filter(cart__user=self.request.user.profile)
 
     def destroy(self, request, *args, **kwargs):
         try:

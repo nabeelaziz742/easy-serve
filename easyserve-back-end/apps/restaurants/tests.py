@@ -4,8 +4,10 @@ from rest_framework import status
 
 from apps.core.models.user import User
 from apps.userprofile.models import UserProfile
-from apps.restaurants.models import Restaurant, Menu, MenuItem, Table, Orders, OrderItem
-from apps.restaurants.constants import OrderStatus
+from apps.restaurants.models import (
+    Restaurant, Menu, MenuItem, Table, Orders, OrderItem, Cart, CartItem, PaymentDetails,
+)
+from apps.restaurants.constants import OrderStatus, PaymentStatus
 
 
 def make_user(email, user_type, restaurant=None):
@@ -241,3 +243,131 @@ class ManagerCashOrdersOwnerVisibilityTestCase(TestCase):
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         order_ids = [o["id"] for o in response.data["results"]] if "results" in response.data else [o["id"] for o in response.data]
         self.assertIn(self.order.id, order_ids)
+
+
+class CartItemOwnershipTestCase(TestCase):
+    """Regression tests for the cart-item IDOR fix: a customer must not be
+    able to view, edit, or delete another customer's cart item."""
+
+    def setUp(self):
+        self.client = APIClient()
+
+        self.restaurant = Restaurant.objects.create(name="Cart Diner")
+        self.menu = Menu.objects.create(restaurant=self.restaurant, name="Main Menu")
+        self.menu_item = MenuItem.objects.create(menu=self.menu, name="Fries", price=3)
+
+        self.customer1_user, self.customer1 = make_user("cart-cust1@test.com", "customer")
+        self.customer2_user, self.customer2 = make_user("cart-cust2@test.com", "customer")
+
+        self.cart1 = Cart.objects.create(user=self.customer1)
+        self.cart_item = CartItem.objects.create(
+            cart=self.cart1, menu_item=self.menu_item, quantity=1, price=3,
+        )
+
+    def test_other_customer_cannot_update_cart_item(self):
+        self.client.force_authenticate(user=self.customer2_user)
+        response = self.client.patch(
+            f"/api/restaurants/cart/update-cart-item/{self.cart_item.id}/",
+            {"quantity": 99, "comments": "HACKED BY OTHER USER"},
+            format="json",
+        )
+        # get_object() raises Http404 for another user's cart item, which
+        # this view's broad except-block turns into a 400 (not the security
+        # boundary itself -- the item is simply not reachable either way).
+        self.assertIn(response.status_code, (status.HTTP_404_NOT_FOUND, status.HTTP_400_BAD_REQUEST))
+
+        self.cart_item.refresh_from_db()
+        self.assertEqual(self.cart_item.quantity, 1)
+        self.assertNotEqual(self.cart_item.comments, "HACKED BY OTHER USER")
+
+    def test_other_customer_cannot_delete_cart_item(self):
+        self.client.force_authenticate(user=self.customer2_user)
+        response = self.client.delete(
+            f"/api/restaurants/cart/delete-cart-item/{self.cart_item.id}/"
+        )
+        self.assertIn(response.status_code, (status.HTTP_404_NOT_FOUND, status.HTTP_400_BAD_REQUEST))
+        self.assertTrue(CartItem.objects.filter(id=self.cart_item.id).exists())
+
+    def test_owner_can_update_own_cart_item(self):
+        self.client.force_authenticate(user=self.customer1_user)
+        response = self.client.patch(
+            f"/api/restaurants/cart/update-cart-item/{self.cart_item.id}/",
+            {"quantity": 2},
+            format="json",
+        )
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.cart_item.refresh_from_db()
+        self.assertEqual(self.cart_item.quantity, 2)
+
+    def test_owner_can_delete_own_cart_item(self):
+        self.client.force_authenticate(user=self.customer1_user)
+        response = self.client.delete(
+            f"/api/restaurants/cart/delete-cart-item/{self.cart_item.id}/"
+        )
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertFalse(CartItem.objects.filter(id=self.cart_item.id).exists())
+
+
+class PayOrderSelfConfirmationTestCase(TestCase):
+    """Regression test for the payment self-confirmation protection, now
+    merged directly into PayOrderAPIView instead of living in a separate
+    monkey-patch module."""
+
+    def setUp(self):
+        self.client = APIClient()
+
+        self.restaurant = Restaurant.objects.create(name="Pay Diner")
+        self.menu = Menu.objects.create(restaurant=self.restaurant, name="Main Menu")
+        self.menu_item = MenuItem.objects.create(menu=self.menu, name="Steak", price=20)
+        self.table = Table.objects.create(restaurant=self.restaurant, table_number=1, capacity=4)
+
+        self.customer_user, self.customer = make_user("pay-customer@test.com", "customer")
+        self.waiter_user, self.waiter = make_user("pay-waiter@test.com", "waiter", self.restaurant)
+
+        self.order = Orders.objects.create(
+            user=self.customer,
+            order_type=1,
+            table=self.table,
+            order_status=OrderStatus.SERVED,
+            total_price=20,
+        )
+        OrderItem.objects.create(order=self.order, menu_item=self.menu_item, quantity=1, price=20)
+
+    def test_customer_cannot_self_confirm_bank_transfer(self):
+        self.client.force_authenticate(user=self.customer_user)
+        response = self.client.post(
+            f"/api/restaurants/orders/{self.order.id}/pay/",
+            {"payment_method": "transfer"},
+        )
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+
+        self.order.refresh_from_db()
+        self.assertNotEqual(self.order.payment_status, PaymentStatus.CONFIRMED.value)
+        self.assertFalse(
+            PaymentDetails.objects.filter(
+                order=self.order, payment_status=PaymentStatus.CONFIRMED.value
+            ).exists()
+        )
+
+    def test_customer_cash_request_stays_pending(self):
+        self.client.force_authenticate(user=self.customer_user)
+        response = self.client.post(
+            f"/api/restaurants/orders/{self.order.id}/pay/",
+            {"payment_method": "cash"},
+        )
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertTrue(response.data.get("payment_pending"))
+
+        self.order.refresh_from_db()
+        self.assertEqual(self.order.payment_status, PaymentStatus.PENDING.value)
+
+    def test_staff_can_confirm_bank_transfer(self):
+        self.client.force_authenticate(user=self.waiter_user)
+        response = self.client.post(
+            f"/api/restaurants/orders/{self.order.id}/pay/",
+            {"payment_method": "transfer"},
+        )
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+        self.order.refresh_from_db()
+        self.assertEqual(self.order.payment_status, PaymentStatus.CONFIRMED.value)
