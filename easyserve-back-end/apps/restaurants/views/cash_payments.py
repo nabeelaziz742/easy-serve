@@ -1,4 +1,5 @@
 from django.db import transaction
+from django.db.models import Q
 from django.shortcuts import get_object_or_404
 from django.utils.timezone import now
 from rest_framework import status
@@ -156,18 +157,28 @@ class SettleCashPaymentAPIView(APIView):
 
 
 class WaiterCashOrdersAPIView(ListAPIView):
-    """Cash orders assigned to the logged-in waiter that have not yet been received."""
+    """Cash orders assigned to the logged-in waiter or their restaurant that have not yet been received."""
     permission_classes = [IsWaiter]
     serializer_class = OrderDetailSerializer
 
     def get_queryset(self):
         waiter = self.request.user.profile
-        return Orders.objects.filter(
-            waiter=waiter,
+        restaurant = waiter.restaurant
+
+        base_filter = Q(
             paymentdetails__payment_method=PaymentMethod.CATCH_ON_DELIVERY.value,
             paymentdetails__payment_status=PaymentStatus.PENDING.value,
             paymentdetails__cash_received_by__isnull=True,
             paymentdetails__cash_settled_by__isnull=True,
+        )
+
+        if restaurant:
+            ownership_filter = Q(waiter=waiter) | Q(table__restaurant=restaurant)
+        else:
+            ownership_filter = Q(waiter=waiter)
+
+        return Orders.objects.filter(
+            base_filter & ownership_filter
         ).select_related("table", "user", "waiter").prefetch_related("items__menu_item").distinct().order_by("-created_at")
 
 

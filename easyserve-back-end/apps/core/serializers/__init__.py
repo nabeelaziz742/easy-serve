@@ -5,4 +5,4 @@ from .forgetpassword import ForgetPasswordSerializer
 from .resend_email import ResendEmailSerializer
 from .resetpassword import ResetPasswordSerializer
 from .login import *
-from .userlist import UserListSerializer, StaffUpdateSerializer
+from .userlist import UserListSerializer, StaffUpdateSerializer, StaffCreateSerializer

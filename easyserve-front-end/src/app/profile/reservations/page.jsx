@@ -17,9 +17,9 @@ import {
 } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Separator } from "@/components/ui/separator";
 import { useRouter } from "next/navigation";
 import { useGetMyReservationsQuery } from "@/services/private/reservations";
+import RoleGuard from "@/components/auth/RoleGuard";
 
 export default function MyReservationsPage() {
   const router = useRouter();
@@ -35,7 +35,8 @@ export default function MyReservationsPage() {
   }
 
   return (
-    <div className="min-h-screen bg-muted/30 px-4 py-10">
+    <RoleGuard>
+      <div className="min-h-screen bg-muted/30 px-4 py-10">
       <div className="max-w-4xl mx-auto space-y-8">
         {/* Header */}
         <div>
@@ -146,6 +147,7 @@ export default function MyReservationsPage() {
         </div>
       </div>
     </div>
+    </RoleGuard>
   );
 }
 

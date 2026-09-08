@@ -1,19 +1,22 @@
 "use client";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { User, Mail, Lock, Phone, Calendar, ArrowLeft } from "lucide-react";
+import { User, Mail, Lock, Phone, ArrowLeft, Loader2 } from "lucide-react";
 import Link from "next/link";
-import { useSelector } from "react-redux";
+import { toast } from "sonner";
+import { useCreateStaffMutation } from "@/services/private/users";
 
 export default function AddWaiterPage() {
   const router = useRouter();
-  const token = useSelector((state) => state.auth.token);
+  const [createStaff, { isLoading: isSubmitting }] = useCreateStaffMutation();
+
   const [formData, setFormData] = useState({
-    full_name: "",
+    username: "",
+    first_name: "",
+    last_name: "",
     email: "",
     password: "",
     phone: "",
-    joining_date: "",
   });
 
   const handleChange = (e) => {
@@ -21,46 +24,34 @@ export default function AddWaiterPage() {
   };
 
   const handleSubmit = async (e) => {
-  e.preventDefault();
-  
-  try {
-    const response = await fetch("http://127.0.0.1:8000/api/user/register/", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${token}`,
-      },
-      body: JSON.stringify({
-        username: formData.full_name.replace(" ", "_").toLowerCase(),
-        email: formData.email,
-        password: formData.password,
-        user_type: "waiter",
-      }),
-    });
+    e.preventDefault();
 
-    // ✅ Fix: pehle text lo, phir parse karo
-    const text = await response.text();
-    let data;
+    const username = formData.username.trim() || `${formData.first_name}_${formData.last_name}`.trim().toLowerCase().replace(/\s+/g, "_");
+    if (!username) {
+      toast.error("Please provide a username or full name.");
+      return;
+    }
+
     try {
-      data = JSON.parse(text);
-    } catch {
-      data = { message: text };
-    }
-    
-    if (response.ok) {
-      alert("Waiter added! Verification email sent.");
+      await createStaff({
+        username,
+        email: formData.email.trim(),
+        password: formData.password,
+        first_name: formData.first_name.trim(),
+        last_name: formData.last_name.trim(),
+        phone: formData.phone.trim(),
+        user_type: "waiter",
+      }).unwrap();
+
+      toast.success("Waiter added successfully and linked to your restaurant!");
       router.push("/manager/waiters");
-    } else {
-      alert(JSON.stringify(data));
+    } catch (error) {
+      toast.error(error?.data?.detail || "Failed to create waiter.");
     }
-  } catch (error) {
-    console.error(error);
-  }
-};
+  };
 
   return (
     <div className="min-h-screen bg-zinc-50 p-8">
-      
       {/* Back Button */}
       <Link
         href="/manager/waiters"
@@ -71,34 +62,65 @@ export default function AddWaiterPage() {
       </Link>
 
       <div className="max-w-2xl mx-auto">
-        
         {/* Header */}
         <div className="mb-8">
           <h1 className="text-3xl font-black text-zinc-900">Add Waiter</h1>
-          <p className="text-zinc-500 mt-1">Fill in the details to add a new waiter</p>
+          <p className="text-zinc-500 mt-1">Add a new waiter to your restaurant team</p>
         </div>
 
         {/* Form Card */}
         <div className="bg-white rounded-3xl shadow-sm border border-zinc-200 p-8">
           <form onSubmit={handleSubmit} className="space-y-6">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              {/* First Name */}
+              <div>
+                <label className="block text-sm font-semibold text-zinc-700 mb-2">
+                  First Name
+                </label>
+                <div className="relative">
+                  <User size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-zinc-400" />
+                  <input
+                    type="text"
+                    name="first_name"
+                    value={formData.first_name}
+                    onChange={handleChange}
+                    placeholder="Muhammad"
+                    required
+                    className="w-full pl-11 pr-4 py-3 rounded-xl border border-zinc-200 bg-zinc-50 text-zinc-900 placeholder-zinc-400 focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent transition"
+                  />
+                </div>
+              </div>
 
-            {/* Full Name */}
-            <div>
-              <label className="block text-sm font-semibold text-zinc-700 mb-2">
-                Full Name
-              </label>
-              <div className="relative">
-                <User size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-zinc-400" />
+              {/* Last Name */}
+              <div>
+                <label className="block text-sm font-semibold text-zinc-700 mb-2">
+                  Last Name
+                </label>
                 <input
                   type="text"
-                  name="full_name"
-                  value={formData.full_name}
+                  name="last_name"
+                  value={formData.last_name}
                   onChange={handleChange}
-                  placeholder="Muhammad Ali"
-                  required
-                  className="w-full pl-11 pr-4 py-3 rounded-xl border border-zinc-200 bg-zinc-50 text-zinc-900 placeholder-zinc-400 focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent transition"
+                  placeholder="Ali"
+                  className="w-full px-4 py-3 rounded-xl border border-zinc-200 bg-zinc-50 text-zinc-900 placeholder-zinc-400 focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent transition"
                 />
               </div>
+            </div>
+
+            {/* Username */}
+            <div>
+              <label className="block text-sm font-semibold text-zinc-700 mb-2">
+                Username
+              </label>
+              <input
+                type="text"
+                name="username"
+                value={formData.username}
+                onChange={handleChange}
+                placeholder="m_ali_waiter"
+                required
+                className="w-full px-4 py-3 rounded-xl border border-zinc-200 bg-zinc-50 text-zinc-900 placeholder-zinc-400 focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent transition"
+              />
             </div>
 
             {/* Email */}
@@ -152,26 +174,7 @@ export default function AddWaiterPage() {
                   value={formData.phone}
                   onChange={handleChange}
                   placeholder="03001234567"
-                  required
                   className="w-full pl-11 pr-4 py-3 rounded-xl border border-zinc-200 bg-zinc-50 text-zinc-900 placeholder-zinc-400 focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent transition"
-                />
-              </div>
-            </div>
-
-            {/* Joining Date */}
-            <div>
-              <label className="block text-sm font-semibold text-zinc-700 mb-2">
-                Joining Date
-              </label>
-              <div className="relative">
-                <Calendar size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-zinc-400" />
-                <input
-                  type="date"
-                  name="joining_date"
-                  value={formData.joining_date}
-                  onChange={handleChange}
-                  required
-                  className="w-full pl-11 pr-4 py-3 rounded-xl border border-zinc-200 bg-zinc-50 text-zinc-900 focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent transition"
                 />
               </div>
             </div>
@@ -180,9 +183,11 @@ export default function AddWaiterPage() {
             <div className="flex gap-4 pt-2">
               <button
                 type="submit"
-                className="flex-1 bg-green-950 text-white py-3 rounded-xl font-semibold hover:bg-green-900 transition-all duration-200 shadow-sm"
+                disabled={isSubmitting}
+                className="flex-1 flex items-center justify-center gap-2 bg-green-950 text-white py-3 rounded-xl font-semibold hover:bg-green-900 transition-all duration-200 shadow-sm disabled:opacity-50"
               >
-                Add Waiter
+                {isSubmitting && <Loader2 className="h-4 w-4 animate-spin" />}
+                {isSubmitting ? "Adding..." : "Add Waiter"}
               </button>
               <Link
                 href="/manager/waiters"
@@ -191,11 +196,9 @@ export default function AddWaiterPage() {
                 Cancel
               </Link>
             </div>
-
           </form>
         </div>
-
       </div>
     </div>
   );
-}
+}

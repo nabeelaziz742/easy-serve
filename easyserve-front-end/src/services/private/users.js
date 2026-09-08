@@ -55,6 +55,41 @@ export const usersApi = privateAPi.injectEndpoints({
         body,
       }),
     }),
+
+    getStaff: build.query({
+      query: ({ type = 'waiter' } = {}) => ({
+        url: '/user/staff/',
+        method: 'GET',
+        params: { type },
+      }),
+      providesTags: ['Staff'],
+    }),
+
+    createStaff: build.mutation({
+      query: body => ({
+        url: '/user/staff/',
+        method: 'POST',
+        body,
+      }),
+      invalidatesTags: ['Staff', 'ManagerDashboard'],
+    }),
+
+    updateStaff: build.mutation({
+      query: ({ id, ...body }) => ({
+        url: `/user/staff/${id}/`,
+        method: 'PATCH',
+        body,
+      }),
+      invalidatesTags: ['Staff'],
+    }),
+
+    deleteStaff: build.mutation({
+      query: id => ({
+        url: `/user/staff/${id}/`,
+        method: 'DELETE',
+      }),
+      invalidatesTags: ['Staff', 'ManagerDashboard'],
+    }),
   }),
 });
 
@@ -66,4 +101,9 @@ export const {
   useGetUserLogsHistoryQuery,
   useAddUserProfileFilesMutation,
   useGetUserProfileFilesQuery,
+  useGetStaffQuery,
+  useCreateStaffMutation,
+  useUpdateStaffMutation,
+  useDeleteStaffMutation,
 } = usersApi;
+

@@ -9,7 +9,7 @@ from django.contrib.auth.models import (
 
 
 class UserManager(BaseUserManager):
-    def create_user(self, email, username, password=None, user_type='user'):
+    def create_user(self, email, username, password=None, user_type='user', **extra_fields):
         """
         Creates and saves a User with the given email, date of
         birth and password.
@@ -21,6 +21,7 @@ class UserManager(BaseUserManager):
             email=self.normalize_email(email),
             username=username,
             user_type=user_type,
+            **extra_fields
         )
 
         user.is_staff = True

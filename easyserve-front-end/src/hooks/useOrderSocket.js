@@ -1,27 +1,14 @@
 "use client";
 
-import { useEffect, useRef } from "react";
-import { connectOrderSocket } from "@/lib/websocket";
+import { useRef } from "react";
 
-export default function useOrderSocket(onMessage) {
+/**
+ * useOrderSocket
+ * Safe fallback hook. EasyServe uses RTK Query live polling (3s) for seamless
+ * synchronization across Customer, Waiter, Chef, and Manager interfaces.
+ */
+export default function useOrderSocket(_onMessage) {
   const socketRef = useRef(null);
-
-  useEffect(() => {
-    const token =
-      typeof window !== "undefined" ? localStorage.getItem("token") : null;
-
-    if (!token) return;
-
-    socketRef.current = connectOrderSocket(token, (payload) => {
-      if (onMessage) onMessage(payload);
-    });
-
-    return () => {
-      if (socketRef.current) {
-        socketRef.current.close();
-      }
-    };
-  }, [onMessage]);
-
   return socketRef;
 }
+

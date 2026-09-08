@@ -11,11 +11,33 @@ from apps.restaurants.services.table_lifecycle import (
 class OrderService:
     @staticmethod
     @transaction.atomic
-    def change_status(order, label):
-        try:
-            value = OrderStatus(label)
-        except ValueError:
-            raise ValueError(f"Invalid status '{label}'")
+    def change_status(order, status_input):
+        if isinstance(status_input, int):
+            try:
+                value = OrderStatus(status_input)
+            except ValueError:
+                raise ValueError(f"Invalid status '{status_input}'")
+        else:
+            val_str = str(status_input).strip()
+            if val_str.isdigit():
+                try:
+                    value = OrderStatus(int(val_str))
+                except ValueError:
+                    raise ValueError(f"Invalid status '{status_input}'")
+            else:
+                matched = None
+                for c_val, c_label in OrderStatus.choices:
+                    if val_str.lower() == c_label.lower():
+                        matched = OrderStatus(c_val)
+                        break
+                if not matched:
+                    for member in OrderStatus:
+                        if val_str.lower() == member.name.lower():
+                            matched = member
+                            break
+                if not matched:
+                    raise ValueError(f"Invalid status '{status_input}'")
+                value = matched
 
         updated_order = OrdersRepository.update_status(order, value)
 
@@ -28,3 +50,4 @@ class OrderService:
                 set_table_awaiting_payment(updated_order)
 
         return updated_order
+

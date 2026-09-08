@@ -426,3 +426,167 @@ class ReviewSubmissionTestCase(TestCase):
             format="json",
         )
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+
+
+class FullAcceptanceWorkflowTestCase(TestCase):
+    """
+    End-to-end test verifying the critical acceptance workflow:
+    Customer creates order
+    -> Waiter receives automatically in pending queue
+    -> Waiter accepts order (auto-assigning chef)
+    -> Chef receives in kitchen queue
+    -> Chef starts preparing
+    -> Chef marks ready
+    -> Waiter receives in ready queue
+    -> Waiter marks served
+    -> Customer requests cash payment
+    -> Waiter receives in cash collection queue
+    -> Waiter records cash receipt
+    -> Manager receives in settlement queue
+    -> Manager settles cash payment
+    -> Table released and payment confirmed.
+    """
+
+    def setUp(self):
+        self.client = APIClient()
+
+        self.restaurant = Restaurant.objects.create(name="Acceptance Diner")
+
+        self.manager_user, self.manager = make_user("mgr@test.com", "manager", self.restaurant)
+        self.waiter_user, self.waiter = make_user("wtr@test.com", "waiter", self.restaurant)
+        self.chef_user, self.chef = make_user("chf@test.com", "chef", self.restaurant)
+        self.customer_user, self.customer = make_user("cust@test.com", "user")
+
+        self.table = Table.objects.create(restaurant=self.restaurant, table_number=5, capacity=4)
+
+        self.menu = Menu.objects.create(name="Dinner Menu", restaurant=self.restaurant)
+        self.item1 = MenuItem.objects.create(name="Steak", price=25, menu=self.menu, is_available=True)
+        self.item2 = MenuItem.objects.create(name="Soda", price=5, menu=self.menu, is_available=True)
+
+    def test_complete_order_to_cash_settlement_lifecycle(self):
+        # Step 1: Customer creates order
+        order = Orders.objects.create(
+            user=self.customer,
+            table=self.table,
+            order_type=1,
+            order_status=OrderStatus.TO_PREPARE,
+            total_price=30,
+        )
+        OrderItem.objects.create(order=order, menu_item=self.item1, quantity=1, price=25)
+        OrderItem.objects.create(order=order, menu_item=self.item2, quantity=1, price=5)
+
+        # Step 2: Waiter polls pending orders and sees the new order
+        self.client.force_authenticate(user=self.waiter_user)
+        res = self.client.get("/api/restaurants/orders/pending/")
+        self.assertEqual(res.status_code, status.HTTP_200_OK)
+        ids = [o["id"] for o in (res.data.get("results") if isinstance(res.data, dict) else res.data)]
+        self.assertIn(order.id, ids)
+
+        # Step 3: Waiter accepts order -> Chef auto-assigned
+        res = self.client.post(f"/api/restaurants/orders/{order.id}/accept/")
+        self.assertEqual(res.status_code, status.HTTP_200_OK)
+        order.refresh_from_db()
+        self.assertTrue(order.accepted_by_waiter)
+        self.assertEqual(order.assigned_chef_id, self.chef.id)
+
+        # Step 4: Chef polls kitchen queue and sees the order
+        self.client.force_authenticate(user=self.chef_user)
+        res = self.client.get("/api/restaurants/orders/chef/")
+        self.assertEqual(res.status_code, status.HTTP_200_OK)
+        chef_ids = [o["id"] for o in (res.data.get("results") if isinstance(res.data, dict) else res.data)]
+        self.assertIn(order.id, chef_ids)
+
+        # Step 5: Chef starts preparing
+        res = self.client.post(f"/api/restaurants/orders/{order.id}/start-preparing/")
+        self.assertEqual(res.status_code, status.HTTP_200_OK)
+        order.refresh_from_db()
+        self.assertEqual(order.order_status, OrderStatus.PREPARING)
+
+        # Step 6: Chef marks ready
+        res = self.client.post(f"/api/restaurants/orders/{order.id}/mark-prepared/")
+        self.assertEqual(res.status_code, status.HTTP_200_OK)
+        order.refresh_from_db()
+        self.assertEqual(order.order_status, OrderStatus.PREPARED)
+
+        # Step 7: Waiter polls ready orders and sees it
+        self.client.force_authenticate(user=self.waiter_user)
+        res = self.client.get("/api/restaurants/orders/ready/")
+        self.assertEqual(res.status_code, status.HTTP_200_OK)
+        ready_ids = [o["id"] for o in (res.data.get("results") if isinstance(res.data, dict) else res.data)]
+        self.assertIn(order.id, ready_ids)
+
+        # Step 8: Waiter marks served
+        res = self.client.post(f"/api/restaurants/orders/{order.id}/mark-served/")
+        self.assertEqual(res.status_code, status.HTTP_200_OK)
+        order.refresh_from_db()
+        self.assertEqual(order.order_status, OrderStatus.SERVED)
+
+        # Step 9: Customer requests cash payment
+        self.client.force_authenticate(user=self.customer_user)
+        res = self.client.post(f"/api/restaurants/orders/{order.id}/cash-request/")
+        self.assertEqual(res.status_code, status.HTTP_200_OK)
+
+        # Step 10: Waiter sees order in cash collection list
+        self.client.force_authenticate(user=self.waiter_user)
+        res = self.client.get("/api/restaurants/orders/waiter/cash/")
+        self.assertEqual(res.status_code, status.HTTP_200_OK)
+        cash_ids = [o["id"] for o in (res.data.get("results") if isinstance(res.data, dict) else res.data)]
+        self.assertIn(order.id, cash_ids)
+
+        # Step 11: Waiter records cash received
+        res = self.client.post(f"/api/restaurants/orders/{order.id}/cash-receive/")
+        self.assertEqual(res.status_code, status.HTTP_200_OK)
+
+        # Step 12: Manager sees order in cash settlement list
+        self.client.force_authenticate(user=self.manager_user)
+        res = self.client.get("/api/restaurants/orders/manager/cash/")
+        self.assertEqual(res.status_code, status.HTTP_200_OK)
+        mgr_cash_ids = [o["id"] for o in (res.data.get("results") if isinstance(res.data, dict) else res.data)]
+        self.assertIn(order.id, mgr_cash_ids)
+
+        # Step 13: Manager settles cash
+        res = self.client.post(f"/api/restaurants/orders/{order.id}/cash-settle/")
+        self.assertEqual(res.status_code, status.HTTP_200_OK)
+        order.refresh_from_db()
+        self.assertEqual(order.payment_status, PaymentStatus.CONFIRMED.value)
+
+    def test_manager_staff_crud_lifecycle(self):
+        self.client.force_authenticate(user=self.manager_user)
+
+        # Create new waiter
+        res = self.client.post(
+            "/api/user/staff/",
+            {
+                "username": "new_waiter_99",
+                "email": "nw99@test.com",
+                "password": "securepass123",
+                "user_type": "waiter",
+                "first_name": "New",
+                "last_name": "Waiter",
+                "phone": "1234567890",
+            },
+            format="json",
+        )
+        self.assertEqual(res.status_code, status.HTTP_201_CREATED)
+        new_staff_id = res.data["id"]
+
+        # List waiters
+        res = self.client.get("/api/user/staff/?type=waiter")
+        self.assertEqual(res.status_code, status.HTTP_200_OK)
+        waiter_ids = [w["id"] for w in (res.data.get("results") if isinstance(res.data, dict) else res.data)]
+        self.assertIn(new_staff_id, waiter_ids)
+
+        # Update waiter
+        res = self.client.patch(
+            f"/api/user/staff/{new_staff_id}/",
+            {"first_name": "UpdatedName", "phone": "9999999999"},
+            format="json",
+        )
+        self.assertEqual(res.status_code, status.HTTP_200_OK)
+        self.assertEqual(res.data["first_name"], "UpdatedName")
+
+        # Delete waiter
+        res = self.client.delete(f"/api/user/staff/{new_staff_id}/")
+        self.assertEqual(res.status_code, status.HTTP_204_NO_CONTENT)
+        self.assertFalse(User.objects.filter(id=new_staff_id).exists())
+

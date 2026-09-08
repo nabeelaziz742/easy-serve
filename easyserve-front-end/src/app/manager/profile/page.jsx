@@ -1,31 +1,9 @@
 "use client";
-import { useEffect, useState } from "react";
-import { useSelector } from "react-redux";
-import { User, Mail, Phone, Shield, Camera } from "lucide-react";
-import API_URL from "@/utilities/apiConfig";
+import { User, Mail, Phone, Shield } from "lucide-react";
+import { useGetMeQuery } from "@/services/private/me";
 
 export default function ManagerProfilePage() {
-  const token = useSelector((state) => state.auth.token);
-  const [profile, setProfile] = useState(null);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    const fetchProfile = async () => {
-      try {
-       const res = await fetch(`${API_URL}/user/user/me/`, {
-         headers: { Authorization: `Bearer ${token}` },
-        });
-        const data = await res.json();
-        setProfile(data);
-      } catch (err) {
-        console.error(err);
-      } finally {
-        setLoading(false);
-      }
-    };
-    if (token) fetchProfile();
-    else setLoading(false); // ← yeh add karo
-  }, [token]);
+  const { data: profile, isLoading: loading } = useGetMeQuery();
 
   if (loading) {
     return (

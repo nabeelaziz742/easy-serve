@@ -102,6 +102,7 @@ export const privateAPi = createApi({
     'UserFiles',
     'MenuItems',
     'ManagerDashboard',
+    'Staff',
   ],
 
   baseQuery: baseQueryWithReauth,

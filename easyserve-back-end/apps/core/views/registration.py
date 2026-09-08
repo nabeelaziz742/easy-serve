@@ -46,7 +46,12 @@ class RegistrationView(APIView):
     )
     @transaction.atomic
     def post(self, request, *args, **kwargs):
-        serializer = CreateUserSerializer(data=request.data)
+        payload = request.data.copy() if hasattr(request.data, "copy") else dict(request.data)
+        # Security: Public registration is strictly restricted to the customer role ('user').
+        # Staff (waiter/chef/manager) must be created by authenticated managers via /api/user/staff/.
+        payload['user_type'] = 'user'
+
+        serializer = CreateUserSerializer(data=payload)
         serializer.is_valid(raise_exception=True)
         profile = serializer.validated_data.pop('profile', None)
         serializer.save()
@@ -57,21 +62,8 @@ class RegistrationView(APIView):
             profile_serializer.is_valid(raise_exception=True)
             profile_serializer.save(user=instance)
         else:
-            # No profile payload sent (e.g. manager "Add Waiter/Chef" form).
-            # Every User must have a UserProfile - endpoints like order
-            # accept/assign rely on request.user.profile and crash with a
-            # 500 if it doesn't exist.
             from apps.userprofile.models import UserProfile
             UserProfile.objects.get_or_create(user=instance)
-
-        # Manager-added staff (waiter/chef) - turant active, email verification skip
-        if instance.user_type in ['waiter', 'chef']:
-            instance.is_active = True
-            instance.save()
-
-            return Response({
-                "message": f"{instance.user_type.capitalize()} added successfully!"
-            }, status=status.HTTP_201_CREATED)
 
         secret_key = reset_email_token(50)
         UserActivation(user=instance, token=secret_key).save()

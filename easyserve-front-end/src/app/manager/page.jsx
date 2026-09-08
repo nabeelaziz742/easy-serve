@@ -83,7 +83,10 @@ function HeroCard({ value }) {
 }
 
 export default function ManagerPage() {
-  const { data, isLoading } = useGetManagerDashboardQuery();
+  const { data, isLoading } = useGetManagerDashboardQuery(undefined, {
+    pollingInterval: 3000,
+    refetchOnFocus: true,
+  });
 
   if (isLoading) {
     return (

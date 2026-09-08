@@ -7,6 +7,8 @@ import ProfileTabs from "@/components/profile/ProfileTabs";
 import { Skeleton } from "@/components/ui/skeleton";
 
 
+import RoleGuard from "@/components/auth/RoleGuard";
+
 export function ProfileSkeleton() {
   return (
     <div className="space-y-6">
@@ -22,9 +24,11 @@ export default function ProfilePage() {
   if (isLoading) return <ProfileSkeleton />;
 
   return (
-    <div className="max-w-7xl mx-auto px-4 py-6">
-      <ProfileHeader user={data} />
-      <ProfileTabs user={data} />
-    </div>
+    <RoleGuard>
+      <div className="max-w-7xl mx-auto px-4 py-6">
+        <ProfileHeader user={data} />
+        <ProfileTabs user={data} />
+      </div>
+    </RoleGuard>
   );
 }

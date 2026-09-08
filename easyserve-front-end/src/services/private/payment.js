@@ -16,7 +16,7 @@ export const paymentApi = privateAPi.injectEndpoints({
         method: "POST",
         body: { order_id: orderId },
       }),
-      invalidatesTags: ["getOrders"],
+      invalidatesTags: ["getOrders", "getOrder", "ManagerDashboard", "WaiterDashboard"],
     }),
   }),
 });

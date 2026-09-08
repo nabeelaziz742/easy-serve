@@ -1,34 +1,26 @@
 "use client";
-import { useEffect, useState } from "react";
-import { useSelector } from "react-redux";
+import { useState } from "react";
 import Link from "next/link";
 import { UserPlus, Loader2, Pencil, Trash2, X } from "lucide-react";
+import { toast } from "sonner";
+import {
+  useGetStaffQuery,
+  useUpdateStaffMutation,
+  useDeleteStaffMutation,
+} from "@/services/private/users";
 
 export default function WaitersPage() {
-  const token = useSelector((state) => state.auth.token);
-  const [waiters, setWaiters] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const { data: staffData, isLoading, isFetching, refetch } = useGetStaffQuery(
+    { type: "waiter" },
+    { refetchOnMountOrArgChange: true, refetchOnFocus: true }
+  );
+  const [updateStaff, { isLoading: saving }] = useUpdateStaffMutation();
+  const [deleteStaff, { isLoading: deleting }] = useDeleteStaffMutation();
+
   const [editingUser, setEditingUser] = useState(null);
   const [editForm, setEditForm] = useState({ first_name: "", last_name: "", phone: "", is_active: true });
-  const [saving, setSaving] = useState(false);
 
-  const fetchWaiters = async () => {
-    try {
-      const res = await fetch("http://127.0.0.1:8000/api/user/staff/?type=waiter", {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      const data = await res.json();
-      setWaiters(Array.isArray(data) ? data : data.results || []);
-    } catch (err) {
-      console.error(err);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    if (token) fetchWaiters();
-  }, [token]);
+  const waiters = Array.isArray(staffData) ? staffData : staffData?.results || [];
 
   const openEdit = (waiter) => {
     setEditingUser(waiter);
@@ -47,44 +39,25 @@ export default function WaitersPage() {
 
   const handleUpdate = async (e) => {
     e.preventDefault();
-    setSaving(true);
     try {
-      const res = await fetch(`http://127.0.0.1:8000/api/user/staff/${editingUser.id}/`, {
-        method: "PATCH",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify(editForm),
-      });
-      if (res.ok) {
-        setEditingUser(null);
-        fetchWaiters();
-      } else {
-        const data = await res.json();
-        alert(JSON.stringify(data));
-      }
+      await updateStaff({
+        id: editingUser.id,
+        ...editForm,
+      }).unwrap();
+      toast.success("Waiter updated successfully!");
+      setEditingUser(null);
     } catch (err) {
-      console.error(err);
-    } finally {
-      setSaving(false);
+      toast.error(err?.data?.detail || "Failed to update waiter.");
     }
   };
 
   const handleDelete = async (id) => {
     if (!confirm("Are you sure you want to delete this waiter?")) return;
     try {
-      const res = await fetch(`http://127.0.0.1:8000/api/user/staff/${id}/`, {
-        method: "DELETE",
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      if (res.ok || res.status === 204) {
-        fetchWaiters();
-      } else {
-        alert("Failed to delete");
-      }
+      await deleteStaff(id).unwrap();
+      toast.success("Waiter deleted successfully.");
     } catch (err) {
-      console.error(err);
+      toast.error(err?.data?.detail || "Failed to delete waiter.");
     }
   };
 
@@ -104,7 +77,7 @@ export default function WaitersPage() {
         </Link>
       </div>
 
-      {loading ? (
+      {isLoading ? (
         <div className="flex justify-center py-12">
           <Loader2 className="animate-spin text-zinc-400" size={28} />
         </div>
@@ -151,8 +124,9 @@ export default function WaitersPage() {
                         <Pencil size={16} />
                       </button>
                       <button
+                        disabled={deleting}
                         onClick={() => handleDelete(w.id)}
-                        className="p-2 rounded-lg hover:bg-red-50 text-zinc-500 hover:text-red-600 transition"
+                        className="p-2 rounded-lg hover:bg-red-50 text-zinc-500 hover:text-red-600 transition disabled:opacity-50"
                         title="Delete"
                       >
                         <Trash2 size={16} />
@@ -241,4 +215,4 @@ export default function WaitersPage() {
       )}
     </div>
   );
-}
+}

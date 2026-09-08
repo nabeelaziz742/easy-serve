@@ -2,6 +2,7 @@
 
 import { Banknote, CheckCircle2, Clock3, UserRound, Utensils } from "lucide-react";
 import { Card } from "@/components/ui/card";
+import { toast } from "sonner";
 import {
   useGetManagerCashOrdersQuery,
   useSettleCashPaymentMutation,
@@ -9,7 +10,7 @@ import {
 
 export default function ManagerCashSettlement() {
   const { data, isLoading } = useGetManagerCashOrdersQuery(undefined, {
-    pollingInterval: 5000,
+    pollingInterval: 3000,
     refetchOnFocus: true,
     refetchOnReconnect: true,
     refetchOnMountOrArgChange: true,
@@ -22,8 +23,9 @@ export default function ManagerCashSettlement() {
   const handleSettle = async (orderId) => {
     try {
       await settleCash(orderId).unwrap();
+      toast.success("Cash payment settled successfully.");
     } catch (error) {
-      window.alert(error?.data?.detail || "Unable to settle cash payment.");
+      toast.error(error?.data?.detail || "Unable to settle cash payment.");
     }
   };
 

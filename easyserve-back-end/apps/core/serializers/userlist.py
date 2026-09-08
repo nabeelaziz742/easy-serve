@@ -33,6 +33,9 @@ class StaffUpdateSerializer(serializers.ModelSerializer):
         model = User
         fields = ['id', 'username', 'email', 'is_active', 'first_name', 'last_name', 'phone']
 
+    def to_representation(self, instance):
+        return UserListSerializer(instance, context=self.context).data
+
     def update(self, instance, validated_data):
         phone = validated_data.pop('phone', None)
         first_name = validated_data.pop('first_name', None)
@@ -50,5 +53,16 @@ class StaffUpdateSerializer(serializers.ModelSerializer):
         if last_name is not None:
             profile.last_name = last_name
         profile.save()
+        instance.profile = profile
 
         return instance
+
+
+class StaffCreateSerializer(serializers.Serializer):
+    username = serializers.CharField(required=True)
+    email = serializers.EmailField(required=True)
+    password = serializers.CharField(write_only=True, required=True)
+    user_type = serializers.ChoiceField(choices=['waiter', 'chef', 'manager'], default='waiter')
+    first_name = serializers.CharField(required=False, allow_blank=True, default='')
+    last_name = serializers.CharField(required=False, allow_blank=True, default='')
+    phone = serializers.CharField(required=False, allow_blank=True, default='')
