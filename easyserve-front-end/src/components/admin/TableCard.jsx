@@ -2,11 +2,9 @@
 
 import { useState } from "react";
 import { motion } from "framer-motion";
-import { Users, Coffee, Clock, MessageSquare } from "lucide-react";
+import { Users, Clock, MessageSquare, Utensils, Star, Sparkles } from "lucide-react";
 import ReviewModal from "./ReviewModal";
 import { cn } from "@/lib/utils";
-
-
 
 export default function TableCard({ table }) {
   const { number, status, customers, orderItems, orderTime, orderId } = table;
@@ -15,115 +13,161 @@ export default function TableCard({ table }) {
   const minutesAgo =
     orderTime ? Math.floor((Date.now() - new Date(orderTime).getTime()) / 60000) : null;
 
-
-  const STATUS_COLORS = {
-    EMPTY: "bg-gray-100 border-gray-300",
-    RESERVED: "bg-purple-100 border-purple-300",
-    OCCUPIED: "bg-yellow-100 border-yellow-300",
-    ORDER_PLACED: "bg-orange-100 border-orange-300",
-    PREPARING: "bg-blue-100 border-blue-300",
-    READY: "bg-indigo-100 border-indigo-300",
-    SERVED: "bg-green-100 border-green-300",
-    PAYMENT_PENDING: "bg-amber-100 border-amber-300",
-    CLEANING: "bg-slate-100 border-slate-300",
-    UNAVAILABLE: "bg-red-100 border-red-300",
+  const STATUS_THEMES = {
+    EMPTY: {
+      card: "border-gray-200/80 bg-white",
+      pill: "bg-gray-100 text-gray-700 border-gray-200",
+      indicator: "bg-gray-400",
+    },
+    RESERVED: {
+      card: "border-purple-200/80 bg-purple-50/20",
+      pill: "bg-purple-100 text-purple-800 border-purple-200",
+      indicator: "bg-purple-500",
+    },
+    OCCUPIED: {
+      card: "border-yellow-300/80 bg-yellow-50/30",
+      pill: "bg-yellow-100 text-yellow-900 border-yellow-300",
+      indicator: "bg-yellow-500",
+    },
+    ORDER_PLACED: {
+      card: "border-amber-300/80 bg-amber-50/30",
+      pill: "bg-amber-100 text-amber-900 border-amber-300",
+      indicator: "bg-amber-500",
+    },
+    PREPARING: {
+      card: "border-blue-200/80 bg-blue-50/20",
+      pill: "bg-blue-100 text-blue-800 border-blue-200",
+      indicator: "bg-blue-500",
+    },
+    READY: {
+      card: "border-emerald-200/80 bg-emerald-50/20",
+      pill: "bg-emerald-100 text-emerald-900 border-emerald-300",
+      indicator: "bg-emerald-500",
+    },
+    SERVED: {
+      card: "border-green-300/80 bg-green-50/30",
+      pill: "bg-green-100 text-green-900 border-green-300",
+      indicator: "bg-green-500",
+    },
+    PAYMENT_PENDING: {
+      card: "border-orange-200/80 bg-orange-50/20",
+      pill: "bg-orange-100 text-orange-900 border-orange-200",
+      indicator: "bg-orange-500",
+    },
+    CLEANING: {
+      card: "border-slate-200/80 bg-slate-50/40",
+      pill: "bg-slate-100 text-slate-800 border-slate-200",
+      indicator: "bg-slate-400",
+    },
+    UNAVAILABLE: {
+      card: "border-red-200/80 bg-red-50/20",
+      pill: "bg-red-100 text-red-800 border-red-200",
+      indicator: "bg-red-500",
+    },
   };
 
-  const BADGE_COLORS = {
-    EMPTY: "bg-gray-200 text-gray-700",
-    RESERVED: "bg-purple-200 text-purple-800",
-    OCCUPIED: "bg-yellow-200 text-yellow-800",
-    ORDER_PLACED: "bg-orange-200 text-orange-800",
-    PREPARING: "bg-blue-200 text-blue-800",
-    READY: "bg-indigo-200 text-indigo-800",
-    SERVED: "bg-green-200 text-green-800",
-    PAYMENT_PENDING: "bg-amber-200 text-amber-800",
-    CLEANING: "bg-slate-200 text-slate-800",
-    UNAVAILABLE: "bg-red-200 text-red-800",
-  };
+  const theme = STATUS_THEMES[status] || STATUS_THEMES.EMPTY;
 
-  const color = STATUS_COLORS[status] || "bg-gray-100 border-gray-300";
-
-  let finalStatus = status.replace("_", " ")
-
-  if (finalStatus === 'PAYMENT PENDING') {
-    finalStatus = 'PAY PENDING'
+  let finalStatus = (status || "EMPTY").replace(/_/g, " ");
+  if (finalStatus === "PAYMENT PENDING") {
+    finalStatus = "PAY PENDING";
   }
 
   return (
     <>
       <motion.div
-        whileHover={{ scale: 1.02 }}
+        whileHover={{ y: -4 }}
+        transition={{ duration: 0.2 }}
         className={cn(
-          "rounded-2xl border shadow-sm p-5 flex flex-col gap-3 transition relative",
-          color
+          "smooth-card rounded-3xl border shadow-sm p-5 flex flex-col justify-between gap-4 transition-all relative overflow-hidden bg-white",
+          theme.card
         )}
       >
-        <div className="flex justify-between items-center">
-          <h3 className="text-lg font-semibold text-gray-800">Table #{number}</h3>
-          <span
-            className={cn(
-              "px-3 py-1 text-xs rounded-full font-medium capitalize",
-              BADGE_COLORS[status] || "bg-gray-200 text-gray-700"
-            )}
-          >
-            {finalStatus}
-          </span>
-
-        </div>
-
-        <div className="flex items-center gap-3 text-sm text-gray-600">
-          <Users className="w-4 h-4" /> {customers || 0} Customers
-          <Clock className="w-4 h-4 ml-2" /> {minutesAgo === null ? "No orders yet" : `${minutesAgo} mins ago`}
-        </div>
-
-        <div className="text-sm mt-2">
-          <p className="font-medium text-gray-700">🍜 Order:</p>
-          <ul className="list-disc ml-5 text-gray-600">
-            {(orderItems ?? []).map((item, i) => (
-              <li key={i}>
-                {item.item_name} — {item.quantity}x — Rs {item.price}
-                {item.comments && ` (${item.comments})`}
-              </li>
-            ))}
-          </ul>
-        </div>
-
-        {table.review ? (
-          <div className="mt-3 bg-white/70 p-3 rounded-xl border border-gray-300">
-            <p className="text-sm font-semibold text-gray-800">Customer Review:</p>
-
-            <div className="flex items-center gap-1 mt-1">
-              {[1,2,3,4,5].map((star) => (
-                <span
-                  key={star}
-                  className={cn(
-                    "text-yellow-500 text-lg",
-                    star <= table.review.rate ? "opacity-100" : "opacity-40"
-                  )}
-                >
-                  ★
-                </span>
-              ))}
+        <div className="space-y-3">
+          {/* Header */}
+          <div className="flex justify-between items-center">
+            <div className="flex items-center gap-2">
+              <span className={cn("h-2.5 w-2.5 rounded-full", theme.indicator)} />
+              <h3 className="text-lg font-black text-green-950 tracking-tight">
+                Table #{number}
+              </h3>
             </div>
-
-            <p className="text-gray-600 text-sm mt-1">
-              {table.review.comment || "No comment"}
-            </p>
+            <span
+              className={cn(
+                "px-2.5 py-0.5 text-[11px] font-bold rounded-full border capitalize",
+                theme.pill
+              )}
+            >
+              {finalStatus}
+            </span>
           </div>
-        ) : (
+
+          {/* Telemetry info */}
+          <div className="flex items-center gap-4 text-xs font-semibold text-gray-500">
+            <span className="flex items-center gap-1.5">
+              <Users className="w-3.5 h-3.5 text-yellow-600" /> {customers || 0} Guests
+            </span>
+            <span className="flex items-center gap-1.5">
+              <Clock className="w-3.5 h-3.5 text-yellow-600" />{" "}
+              {minutesAgo === null ? "No orders" : `${minutesAgo}m ago`}
+            </span>
+          </div>
+
+          {/* Active Orders List */}
+          {(orderItems ?? []).length > 0 && (
+            <div className="rounded-2xl border border-gray-100 bg-gray-50/70 p-3 text-xs space-y-1.5">
+              <p className="font-bold text-gray-700 flex items-center gap-1.5 uppercase tracking-wider text-[10px]">
+                <Utensils size={12} className="text-yellow-600" /> Current Order
+              </p>
+              <ul className="space-y-1 text-gray-600">
+                {(orderItems ?? []).map((item, i) => (
+                  <li key={i} className="flex justify-between items-center">
+                    <span className="truncate pr-2 font-medium">{item.item_name}</span>
+                    <span className="shrink-0 font-bold text-gray-900">
+                      {item.quantity}x · Rs {item.price}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+
+          {/* Review Box */}
+          {table.review && (
+            <div className="rounded-2xl border border-yellow-200/80 bg-yellow-50/50 p-3 text-xs">
+              <div className="flex items-center justify-between">
+                <span className="font-bold text-yellow-900">Guest Review</span>
+                <div className="flex items-center gap-0.5">
+                  {[1, 2, 3, 4, 5].map((star) => (
+                    <Star
+                      key={star}
+                      className={cn(
+                        "w-3 h-3",
+                        star <= table.review.rate
+                          ? "fill-yellow-400 text-yellow-400"
+                          : "text-gray-300"
+                      )}
+                    />
+                  ))}
+                </div>
+              </div>
+              <p className="text-gray-600 mt-1 line-clamp-2 italic">
+                &ldquo;{table.review.comment || "Great experience!"}&rdquo;
+              </p>
+            </div>
+          )}
+        </div>
+
+        {/* Action Button */}
+        {!table.review && (
           <button
             onClick={() => setOpenReview(true)}
-            className={cn(
-              "mt-auto flex items-center justify-center gap-2 py-2 px-4 rounded-xl text-sm font-medium",
-              "bg-yellow-500 hover:bg-yellow-600 text-white"
-            )}
+            className="mt-2 w-full flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl text-xs font-bold bg-green-950 text-yellow-400 shadow-md hover:bg-green-900 active:scale-[0.98] transition-all"
           >
-            <MessageSquare className="w-4 h-4" />
-            Add Customer Review
+            <MessageSquare className="w-3.5 h-3.5" />
+            Add Table Feedback
           </button>
         )}
-
       </motion.div>
 
       <ReviewModal

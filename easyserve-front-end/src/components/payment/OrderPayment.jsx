@@ -8,12 +8,12 @@ import {
   useStripe,
   useElements,
 } from "@stripe/react-stripe-js";
-
 import { Button } from "@/components/ui/button";
 import {
   useCreatePaymentIntentMutation,
   useConfirmPaymentMutation,
 } from "@/services/private/payment";
+import { CreditCard, Loader2, Lock, ShieldCheck, AlertCircle } from "lucide-react";
 
 let stripePromise = null;
 
@@ -47,7 +47,7 @@ function CheckoutForm({ orderId, onSuccess }) {
     });
 
     if (error) {
-      setErrorMsg(error.message || "Payment failed. Please try again.");
+      setErrorMsg(error.message || "Payment processing failed. Please check card details.");
       setSubmitting(false);
       return;
     }
@@ -58,7 +58,7 @@ function CheckoutForm({ orderId, onSuccess }) {
         onSuccess?.();
       } catch (err) {
         setErrorMsg(
-          "Payment went through, but we couldn't update your order. Please contact the restaurant."
+          "Payment processed successfully, but the server status update encountered an error. Please contact restaurant staff."
         );
       }
     }
@@ -67,32 +67,37 @@ function CheckoutForm({ orderId, onSuccess }) {
   };
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-4">
-      <PaymentElement />
+    <form onSubmit={handleSubmit} className="space-y-4 pt-2">
+      <div className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm">
+        <PaymentElement />
+      </div>
 
       {errorMsg && (
-        <p className="text-sm text-destructive">{errorMsg}</p>
+        <div className="flex items-center gap-2 rounded-xl border border-red-200 bg-red-50 p-3 text-xs font-semibold text-red-700">
+          <AlertCircle className="h-4 w-4 shrink-0" />
+          <span>{errorMsg}</span>
+        </div>
       )}
 
       <Button
         type="submit"
         disabled={!stripe || submitting}
-        className="w-full"
+        className="w-full h-11 rounded-2xl bg-green-950 text-yellow-400 hover:bg-green-900 font-bold text-xs shadow-lg transition active:scale-[0.98] disabled:opacity-50"
       >
-        {submitting ? "Processing..." : "Pay Now"}
+        {submitting ? (
+          <>
+            <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Processing Secure Payment...
+          </>
+        ) : (
+          <>
+            <ShieldCheck className="mr-2 h-4 w-4" /> Authorize & Pay Online
+          </>
+        )}
       </Button>
     </form>
   );
 }
 
-/**
- * Drop this in anywhere you need to collect payment for an order:
- *
- *   <OrderPayment orderId={order.id} onSuccess={() => ...} />
- *
- * It creates a Stripe PaymentIntent for the order, mounts Stripe Elements,
- * and calls /api/payment/confirm/ once the card payment succeeds.
- */
 export default function OrderPayment({ orderId, onSuccess }) {
   const [createPaymentIntent] = useCreatePaymentIntentMutation();
 
@@ -111,7 +116,7 @@ export default function OrderPayment({ orderId, onSuccess }) {
       setPublishableKey(res.publishable_key);
     } catch (err) {
       setError(
-        err?.data?.detail || "Could not start payment. Please try again."
+        err?.data?.detail || "Could not initialize card checkout. Please try again."
       );
     } finally {
       setLoading(false);
@@ -121,20 +126,54 @@ export default function OrderPayment({ orderId, onSuccess }) {
   if (!clientSecret) {
     return (
       <div className="space-y-3">
-        {error && <p className="text-sm text-destructive">{error}</p>}
-        <Button onClick={startCheckout} disabled={loading} className="w-full">
-          {loading ? "Loading..." : "Pay Online"}
+        {error && (
+          <div className="flex items-center gap-2 rounded-xl border border-red-200 bg-red-50 p-3 text-xs font-semibold text-red-700">
+            <AlertCircle className="h-4 w-4 shrink-0" />
+            <span>{error}</span>
+          </div>
+        )}
+        <Button
+          onClick={startCheckout}
+          disabled={loading}
+          className="w-full h-11 rounded-2xl bg-green-950 text-yellow-400 hover:bg-green-900 font-bold text-xs shadow-md transition active:scale-[0.98]"
+        >
+          {loading ? (
+            <>
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Initializing Gateway...
+            </>
+          ) : (
+            <>
+              <CreditCard className="mr-2 h-4 w-4" /> Initialize Secure Card Payment
+            </>
+          )}
         </Button>
       </div>
     );
   }
 
   return (
-    <Elements
-      stripe={getStripe(publishableKey)}
-      options={{ clientSecret }}
-    >
-      <CheckoutForm orderId={orderId} onSuccess={onSuccess} />
-    </Elements>
+    <div className="space-y-2">
+      <div className="flex items-center justify-between text-xs text-gray-500 pb-1 border-b border-gray-200">
+        <span className="flex items-center gap-1 font-semibold text-green-950">
+          <Lock className="h-3 w-3 text-yellow-600" /> 256-bit Encrypted Checkout
+        </span>
+        <span>Order #{orderId}</span>
+      </div>
+      <Elements
+        stripe={getStripe(publishableKey)}
+        options={{
+          clientSecret,
+          appearance: {
+            theme: "stripe",
+            variables: {
+              colorPrimary: "#052e16",
+              borderRadius: "12px",
+            },
+          },
+        }}
+      >
+        <CheckoutForm orderId={orderId} onSuccess={onSuccess} />
+      </Elements>
+    </div>
   );
 }

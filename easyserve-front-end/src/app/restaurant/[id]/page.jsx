@@ -3,6 +3,8 @@
 import React, { useEffect, useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
+import { motion } from "framer-motion";
+import { Utensils, MapPin, Users, Sparkles, Phone } from "lucide-react";
 
 import { MenuItemCard } from "@/components/landingPage/MenuItemCard";
 import AIChatbot from "@/components/Aichatbot";
@@ -126,11 +128,11 @@ function Restaurant() {
   if (validatingQrTable || restoringDineIn) {
     return (
       <div className="flex min-h-[70vh] items-center justify-center px-4">
-        <div className="rounded-2xl border border-green-100 bg-white px-8 py-7 text-center shadow-lg">
-          <div className="mx-auto mb-3 h-8 w-8 animate-spin rounded-full border-4 border-gray-200 border-t-green-700" />
-          <p className="font-semibold text-gray-900">Opening your table...</p>
-          <p className="mt-1 text-sm text-gray-500">
-            Preparing the dine-in menu.
+        <div className="rounded-3xl border border-yellow-400/20 bg-white px-8 py-7 text-center shadow-xl">
+          <div className="mx-auto mb-3 h-8 w-8 animate-spin rounded-full border-4 border-gray-200 border-t-yellow-500" />
+          <p className="font-bold text-gray-900">Opening your table...</p>
+          <p className="mt-1 text-xs text-gray-500">
+            Preparing your personalized digital menu.
           </p>
         </div>
       </div>
@@ -141,40 +143,61 @@ function Restaurant() {
   if (dineIn.active && !dineIn.guests) return null;
 
   return (
-    <section className="min-h-96 bg-gray-50 py-12">
-      <div className="mx-auto max-w-7xl px-4">
-        <h1 className="mb-2 text-center text-3xl font-bold text-blue-700">
-          {restaurant.name}
-        </h1>
+    <section className="min-h-screen bg-gradient-to-b from-gray-50 via-white to-gray-50 py-10">
+      <div className="mx-auto max-w-7xl px-4 sm:px-6">
+        {/* Header Hero */}
+        <motion.div
+          initial={{ opacity: 0, y: 15 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="mb-10 rounded-3xl border border-gray-200/80 bg-white p-6 shadow-sm sm:p-8"
+        >
+          <div className="flex flex-col gap-6 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <div className="flex flex-wrap items-center gap-2 mb-2">
+                <span className="inline-flex items-center gap-1 rounded-full bg-yellow-400/10 px-3 py-1 text-xs font-bold text-yellow-800 border border-yellow-400/30">
+                  <Sparkles className="h-3 w-3 text-yellow-600" /> Featured Restaurant
+                </span>
+                {dineIn.active ? (
+                  <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-50 px-3 py-1 text-xs font-bold text-emerald-800 border border-emerald-200">
+                    🍽️ Dine-In · Table #{dineIn.table.number} ({dineIn.guests || 1} Guests)
+                  </span>
+                ) : (
+                  <span className="inline-flex items-center gap-1.5 rounded-full bg-green-50 px-3 py-1 text-xs font-bold text-green-800 border border-green-200">
+                    🚚 Online Ordering
+                  </span>
+                )}
+              </div>
 
-        <p className="mb-10 text-center text-gray-500">
-          {restaurant.description ||
-            "Enjoy our exquisite cuisine from the comfort of your table"}
-        </p>
+              <h1 className="text-3xl font-black tracking-tight text-green-950 sm:text-4xl">
+                {restaurant.name}
+              </h1>
 
-        {dineIn.active ? (
-          <div className="mb-6 rounded-xl border border-green-200 bg-green-50 p-4">
-            <p className="font-semibold text-green-900">🍽️ Dine-In Order</p>
-            <p className="text-sm text-green-700">
-              Table #{dineIn.table.number} · Capacity {dineIn.table.capacity}
-            </p>
-            <p className="text-sm text-green-700">
-              Guests: {dineIn.guests || "Not set"}
-            </p>
+              <p className="mt-2 text-sm leading-relaxed text-gray-600 max-w-2xl">
+                {restaurant.description ||
+                  "Enjoy our exquisite cuisine freshly made to order."}
+              </p>
+
+              {restaurant.address && (
+                <div className="mt-3 flex items-center gap-2 text-xs text-gray-500">
+                  <MapPin className="h-3.5 w-3.5 text-yellow-600" />
+                  <span>{restaurant.address}</span>
+                </div>
+              )}
+            </div>
           </div>
-        ) : (
-          <div className="mb-6 rounded-xl border border-green-200 bg-green-50 p-4">
-            <p className="font-semibold text-green-900">🍽️ Online Order</p>
-          </div>
-        )}
+        </motion.div>
 
+        {/* Menu Sections */}
         {menus?.map((menu) => (
-          <div key={menu.id}>
-            <h2 className="mb-6 text-2xl font-bold text-green-900">
-              {menu.name}
-            </h2>
+          <div key={menu.id} className="mb-12">
+            <div className="mb-6 flex items-center gap-2 border-b border-gray-200 pb-3">
+              <Utensils className="h-5 w-5 text-yellow-600" />
+              <h2 className="text-2xl font-extrabold tracking-tight text-green-950">
+                {menu.name}
+              </h2>
+            </div>
 
-            <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
+            <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
               {menu.menu_items?.map((item) => (
                 <MenuItemCard key={item.id} {...item} />
               ))}
@@ -183,9 +206,11 @@ function Restaurant() {
         ))}
 
         {!menus?.length && (
-          <p className="py-10 text-center text-gray-500">
-            Menu is currently unavailable.
-          </p>
+          <div className="rounded-3xl border border-dashed border-gray-300 bg-white py-16 text-center shadow-sm">
+            <Utensils className="mx-auto mb-3 h-10 w-10 text-gray-300" />
+            <p className="text-base font-bold text-gray-700">Menu is currently unavailable</p>
+            <p className="mt-1 text-xs text-gray-400">Please check back shortly or consult your waiter.</p>
+          </div>
         )}
       </div>
 

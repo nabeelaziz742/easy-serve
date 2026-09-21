@@ -1,13 +1,25 @@
 "use client";
+
 import { useState } from "react";
 import Link from "next/link";
-import { UserPlus, Loader2, Pencil, Trash2, X } from "lucide-react";
+import { motion, AnimatePresence } from "framer-motion";
+import { UserPlus, Loader2, Pencil, Trash2, X, ChefHat, Mail, Phone, ShieldCheck } from "lucide-react";
 import { toast } from "sonner";
 import {
   useGetStaffQuery,
   useUpdateStaffMutation,
   useDeleteStaffMutation,
 } from "@/services/private/users";
+
+const containerVariants = {
+  hidden: { opacity: 0 },
+  show: { opacity: 1, transition: { staggerChildren: 0.05 } }
+};
+
+const itemVariants = {
+  hidden: { opacity: 0, y: 8 },
+  show: { opacity: 1, y: 0, transition: { duration: 0.2 } }
+};
 
 export default function ChefsPage() {
   const { data: staffData, isLoading, isFetching } = useGetStaffQuery(
@@ -44,7 +56,7 @@ export default function ChefsPage() {
         id: editingUser.id,
         ...editForm,
       }).unwrap();
-      toast.success("Chef updated successfully!");
+      toast.success("Chef profile updated successfully!");
       setEditingUser(null);
     } catch (err) {
       toast.error(err?.data?.detail || "Failed to update chef.");
@@ -52,167 +64,200 @@ export default function ChefsPage() {
   };
 
   const handleDelete = async (id) => {
-    if (!confirm("Are you sure you want to delete this chef?")) return;
+    if (!confirm("Are you sure you want to remove this chef?")) return;
     try {
       await deleteStaff(id).unwrap();
-      toast.success("Chef deleted successfully.");
+      toast.success("Chef removed successfully.");
     } catch (err) {
-      toast.error(err?.data?.detail || "Failed to delete chef.");
+      toast.error(err?.data?.detail || "Failed to remove chef.");
     }
   };
 
   return (
-    <div className="p-8">
-      <div className="flex items-center justify-between mb-8">
+    <div className="p-4 sm:p-8">
+      {/* Header */}
+      <div className="mb-8 flex flex-col justify-between gap-4 sm:flex-row sm:items-center">
         <div>
-          <h1 className="text-3xl font-black text-zinc-900">Chefs</h1>
-          <p className="text-zinc-500 mt-1">Manage your restaurant chefs</p>
+          <div className="flex items-center gap-2">
+            <span className="flex h-10 w-10 items-center justify-center rounded-2xl bg-green-950 text-amber-400 shadow-sm">
+              <ChefHat className="h-5 w-5" />
+            </span>
+            <h1 className="text-3xl font-black tracking-tight text-zinc-900">
+              Kitchen Chefs
+            </h1>
+          </div>
+          <p className="mt-1 text-sm text-zinc-500">
+            Manage your kitchen staff accounts, shift access and roles.
+          </p>
         </div>
         <Link
           href="/manager/chefs/add"
-          className="flex items-center gap-2 bg-green-950 text-white px-5 py-2.5 rounded-xl font-semibold hover:bg-green-900 transition"
+          className="inline-flex items-center gap-2 rounded-xl bg-green-950 px-5 py-3 text-xs font-bold text-white shadow-sm shadow-green-950/20 transition hover:bg-green-900 active:scale-[0.98]"
         >
-          <UserPlus size={18} />
-          Add Chef
+          <UserPlus size={16} className="text-amber-400" />
+          Add New Chef
         </Link>
       </div>
 
       {isLoading ? (
-        <div className="flex justify-center py-12">
-          <Loader2 className="animate-spin text-zinc-400" size={28} />
+        <div className="flex justify-center py-16">
+          <Loader2 className="h-8 w-8 animate-spin text-zinc-400" />
         </div>
       ) : chefs.length === 0 ? (
-        <div className="bg-white rounded-3xl border border-zinc-200 p-8 text-center text-zinc-400">
-          No chefs added yet.
+        <div className="flex flex-col items-center justify-center rounded-3xl border border-dashed border-zinc-200 bg-white p-12 text-center shadow-xs">
+          <ChefHat className="mx-auto h-10 w-10 text-zinc-300" />
+          <h3 className="mt-3 text-base font-bold text-zinc-800">No chefs registered yet</h3>
+          <p className="mt-1 text-sm text-zinc-500">Add chefs to assign kitchen ticket preparation.</p>
+          <Link
+            href="/manager/chefs/add"
+            className="mt-4 rounded-xl bg-zinc-100 px-4 py-2 text-xs font-bold text-zinc-700 hover:bg-zinc-200"
+          >
+            Add First Chef
+          </Link>
         </div>
       ) : (
-        <div className="bg-white rounded-3xl border border-zinc-200 overflow-hidden">
-          <table className="w-full text-left">
-            <thead className="bg-zinc-50 border-b border-zinc-200">
-              <tr>
-                <th className="px-6 py-3 text-sm font-semibold text-zinc-600">Name</th>
-                <th className="px-6 py-3 text-sm font-semibold text-zinc-600">Username</th>
-                <th className="px-6 py-3 text-sm font-semibold text-zinc-600">Email</th>
-                <th className="px-6 py-3 text-sm font-semibold text-zinc-600">Phone</th>
-                <th className="px-6 py-3 text-sm font-semibold text-zinc-600">Status</th>
-                <th className="px-6 py-3 text-sm font-semibold text-zinc-600 text-right">Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {chefs.map((c) => (
-                <tr key={c.id} className="border-b border-zinc-100 last:border-0">
-                  <td className="px-6 py-4 font-medium text-zinc-800">
-                    {c.first_name || c.last_name ? `${c.first_name} ${c.last_name}`.trim() : "-"}
-                  </td>
-                  <td className="px-6 py-4 text-zinc-500">{c.username}</td>
-                  <td className="px-6 py-4 text-zinc-500">{c.email}</td>
-                  <td className="px-6 py-4 text-zinc-500">{c.phone || "-"}</td>
-                  <td className="px-6 py-4">
-                    <span className={`text-xs font-semibold px-3 py-1 rounded-full ${
-                      c.is_active ? "bg-green-100 text-green-700" : "bg-zinc-100 text-zinc-500"
-                    }`}>
-                      {c.is_active ? "Active" : "Inactive"}
-                    </span>
-                  </td>
-                  <td className="px-6 py-4">
-                    <div className="flex items-center justify-end gap-2">
-                      <button
-                        onClick={() => openEdit(c)}
-                        className="p-2 rounded-lg hover:bg-zinc-100 text-zinc-500 hover:text-green-700 transition"
-                        title="Edit"
-                      >
-                        <Pencil size={16} />
-                      </button>
-                      <button
-                        disabled={deleting}
-                        onClick={() => handleDelete(c.id)}
-                        className="p-2 rounded-lg hover:bg-red-50 text-zinc-500 hover:text-red-600 transition disabled:opacity-50"
-                        title="Delete"
-                      >
-                        <Trash2 size={16} />
-                      </button>
-                    </div>
-                  </td>
+        <div className="overflow-hidden rounded-3xl border border-zinc-200/80 bg-white shadow-xs">
+          <div className="overflow-x-auto">
+            <table className="w-full text-left">
+              <thead className="border-b border-zinc-100 bg-zinc-50/70">
+                <tr>
+                  <th className="px-6 py-3.5 text-xs font-bold uppercase tracking-wider text-zinc-500">Name</th>
+                  <th className="px-6 py-3.5 text-xs font-bold uppercase tracking-wider text-zinc-500">Username</th>
+                  <th className="px-6 py-3.5 text-xs font-bold uppercase tracking-wider text-zinc-500">Email</th>
+                  <th className="px-6 py-3.5 text-xs font-bold uppercase tracking-wider text-zinc-500">Phone</th>
+                  <th className="px-6 py-3.5 text-xs font-bold uppercase tracking-wider text-zinc-500">Status</th>
+                  <th className="px-6 py-3.5 text-right text-xs font-bold uppercase tracking-wider text-zinc-500">Actions</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody className="divide-y divide-zinc-100">
+                {chefs.map((c) => (
+                  <tr key={c.id} className="transition-colors hover:bg-zinc-50/50">
+                    <td className="px-6 py-4">
+                      <p className="font-bold text-zinc-900">
+                        {c.first_name || c.last_name ? `${c.first_name} ${c.last_name}`.trim() : "Chef"}
+                      </p>
+                    </td>
+                    <td className="px-6 py-4 text-xs font-medium text-zinc-600">@{c.username}</td>
+                    <td className="px-6 py-4 text-xs text-zinc-500">{c.email || "—"}</td>
+                    <td className="px-6 py-4 text-xs text-zinc-500">{c.phone || "—"}</td>
+                    <td className="px-6 py-4">
+                      <span className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[11px] font-bold ${
+                        c.is_active ? "bg-emerald-50 text-emerald-800 ring-1 ring-emerald-200" : "bg-zinc-100 text-zinc-600 ring-1 ring-zinc-200"
+                      }`}>
+                        <span className={`h-1.5 w-1.5 rounded-full ${c.is_active ? "bg-emerald-500" : "bg-zinc-400"}`} />
+                        {c.is_active ? "Active" : "Inactive"}
+                      </span>
+                    </td>
+                    <td className="px-6 py-4 text-right">
+                      <div className="flex items-center justify-end gap-1.5">
+                        <button
+                          onClick={() => openEdit(c)}
+                          className="rounded-xl border border-zinc-100 bg-zinc-50 p-2 text-zinc-600 transition hover:bg-zinc-100 hover:text-green-950 active:scale-95"
+                          title="Edit"
+                        >
+                          <Pencil size={15} />
+                        </button>
+                        <button
+                          disabled={deleting}
+                          onClick={() => handleDelete(c.id)}
+                          className="rounded-xl border border-zinc-100 bg-zinc-50 p-2 text-zinc-600 transition hover:bg-red-50 hover:text-red-600 active:scale-95 disabled:opacity-50"
+                          title="Delete"
+                        >
+                          <Trash2 size={15} />
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </div>
       )}
 
       {/* Edit Modal */}
-      {editingUser && (
-        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl w-full max-w-md p-6 relative">
-            <button
-              onClick={() => setEditingUser(null)}
-              className="absolute top-4 right-4 text-zinc-400 hover:text-zinc-700"
+      <AnimatePresence>
+        {editingUser && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-xs">
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              className="relative w-full max-w-md rounded-3xl border border-zinc-200 bg-white p-6 shadow-2xl"
             >
-              <X size={20} />
-            </button>
-            <h2 className="text-xl font-bold text-zinc-900 mb-4">Edit Chef</h2>
-            <form onSubmit={handleUpdate} className="space-y-4">
-              <div>
-                <label className="block text-sm font-semibold text-zinc-700 mb-1">First Name</label>
-                <input
-                  type="text"
-                  name="first_name"
-                  value={editForm.first_name}
-                  onChange={handleEditChange}
-                  className="w-full px-3 py-2 rounded-lg border border-zinc-200 bg-zinc-50 focus:outline-none focus:ring-2 focus:ring-green-500"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-semibold text-zinc-700 mb-1">Last Name</label>
-                <input
-                  type="text"
-                  name="last_name"
-                  value={editForm.last_name}
-                  onChange={handleEditChange}
-                  className="w-full px-3 py-2 rounded-lg border border-zinc-200 bg-zinc-50 focus:outline-none focus:ring-2 focus:ring-green-500"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-semibold text-zinc-700 mb-1">Phone</label>
-                <input
-                  type="text"
-                  name="phone"
-                  value={editForm.phone}
-                  onChange={handleEditChange}
-                  className="w-full px-3 py-2 rounded-lg border border-zinc-200 bg-zinc-50 focus:outline-none focus:ring-2 focus:ring-green-500"
-                />
-              </div>
-              <div className="flex items-center gap-2">
-                <input
-                  type="checkbox"
-                  id="is_active"
-                  name="is_active"
-                  checked={editForm.is_active}
-                  onChange={handleEditChange}
-                  className="h-4 w-4"
-                />
-                <label htmlFor="is_active" className="text-sm font-semibold text-zinc-700">Active</label>
-              </div>
-              <div className="flex gap-3 pt-2">
-                <button
-                  type="submit"
-                  disabled={saving}
-                  className="flex-1 bg-green-950 text-white py-2.5 rounded-xl font-semibold hover:bg-green-900 transition disabled:opacity-50"
-                >
-                  {saving ? "Saving..." : "Save Changes"}
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setEditingUser(null)}
-                  className="flex-1 bg-zinc-100 text-zinc-700 py-2.5 rounded-xl font-semibold hover:bg-zinc-200 transition"
-                >
-                  Cancel
-                </button>
-              </div>
-            </form>
+              <button
+                onClick={() => setEditingUser(null)}
+                className="absolute right-5 top-5 rounded-full p-1 text-zinc-400 transition hover:bg-zinc-100 hover:text-zinc-700"
+              >
+                <X size={18} />
+              </button>
+              <h2 className="text-xl font-black text-zinc-900">Edit Chef</h2>
+              <p className="mt-0.5 text-xs text-zinc-500">Update contact and employment status.</p>
+
+              <form onSubmit={handleUpdate} className="mt-5 space-y-4">
+                <div>
+                  <label className="mb-1 block text-xs font-bold uppercase tracking-wider text-zinc-500">First Name</label>
+                  <input
+                    type="text"
+                    name="first_name"
+                    value={editForm.first_name}
+                    onChange={handleEditChange}
+                    className="w-full rounded-xl border border-zinc-200 bg-zinc-50/50 px-3.5 py-2.5 text-sm text-zinc-900 outline-none transition focus:border-green-900 focus:bg-white focus:ring-2 focus:ring-green-950/10"
+                  />
+                </div>
+                <div>
+                  <label className="mb-1 block text-xs font-bold uppercase tracking-wider text-zinc-500">Last Name</label>
+                  <input
+                    type="text"
+                    name="last_name"
+                    value={editForm.last_name}
+                    onChange={handleEditChange}
+                    className="w-full rounded-xl border border-zinc-200 bg-zinc-50/50 px-3.5 py-2.5 text-sm text-zinc-900 outline-none transition focus:border-green-900 focus:bg-white focus:ring-2 focus:ring-green-950/10"
+                  />
+                </div>
+                <div>
+                  <label className="mb-1 block text-xs font-bold uppercase tracking-wider text-zinc-500">Phone</label>
+                  <input
+                    type="text"
+                    name="phone"
+                    value={editForm.phone}
+                    onChange={handleEditChange}
+                    className="w-full rounded-xl border border-zinc-200 bg-zinc-50/50 px-3.5 py-2.5 text-sm text-zinc-900 outline-none transition focus:border-green-900 focus:bg-white focus:ring-2 focus:ring-green-950/10"
+                  />
+                </div>
+                <div className="flex items-center gap-2 pt-1">
+                  <input
+                    type="checkbox"
+                    id="is_active"
+                    name="is_active"
+                    checked={editForm.is_active}
+                    onChange={handleEditChange}
+                    className="h-4 w-4 rounded-sm border-zinc-300 text-green-950 focus:ring-green-950"
+                  />
+                  <label htmlFor="is_active" className="text-xs font-bold text-zinc-700">Active Staff Member</label>
+                </div>
+                <div className="flex gap-3 pt-3">
+                  <button
+                    type="submit"
+                    disabled={saving}
+                    className="flex-1 rounded-xl bg-green-950 py-3 text-xs font-bold text-white shadow-sm transition hover:bg-green-900 active:scale-[0.98] disabled:opacity-50"
+                  >
+                    {saving ? "Saving..." : "Save Changes"}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setEditingUser(null)}
+                    className="flex-1 rounded-xl border border-zinc-200 bg-zinc-50 py-3 text-xs font-bold text-zinc-700 transition hover:bg-zinc-100 active:scale-[0.98]"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </form>
+            </motion.div>
           </div>
-        </div>
-      )}
+        )}
+      </AnimatePresence>
     </div>
   );
-}
+}
+

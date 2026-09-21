@@ -319,7 +319,7 @@ function RestaurantsListContent() {
   const restaurants = allRestaurants || [];
 
   return (
-    <section className="bg-gradient-to-b from-gray-50 to-white py-24">
+    <section id="restaurants" className="bg-gradient-to-b from-gray-50 to-white py-24 scroll-mt-12">
 
       <div className="mx-auto max-w-7xl px-5">
 

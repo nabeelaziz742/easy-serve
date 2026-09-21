@@ -2,10 +2,15 @@
 
 import { useGetManagerCashOrdersQuery, useSettleCashPaymentMutation } from "@/services/private/orders";
 import RoleGuard from "@/components/auth/RoleGuard";
-import { Banknote, CheckCircle2 } from "lucide-react";
+import { Banknote, CheckCircle2, Clock3, Utensils, UserRound, Sparkles, Loader2 } from "lucide-react";
+import { toast } from "sonner";
+import { motion } from "framer-motion";
 
 export default function ManagerCashPage() {
-  const { data: ordersResponse, isLoading } = useGetManagerCashOrdersQuery(undefined, { pollingInterval: 15000 });
+  const { data: ordersResponse, isLoading } = useGetManagerCashOrdersQuery(undefined, {
+    pollingInterval: 5000,
+    refetchOnFocus: true,
+  });
   const [settleCash, { isLoading: settling }] = useSettleCashPaymentMutation();
   const orders = Array.isArray(ordersResponse)
     ? ordersResponse
@@ -14,41 +19,96 @@ export default function ManagerCashPage() {
   const handleSettle = async (id) => {
     try {
       await settleCash(id).unwrap();
+      toast.success("Cash payment settled successfully! 💰");
     } catch (error) {
-      alert(error?.data?.detail || "Unable to settle cash.");
+      toast.error(error?.data?.detail || "Unable to settle cash payment.");
     }
   };
 
+  const total = orders.reduce((sum, o) => sum + Number(o.total_price || 0), 0);
+
   return (
     <RoleGuard allowedRoles={["manager", "restaurant_owner", "super_admin"]}>
-      <div className="max-w-6xl mx-auto p-6 space-y-6">
-        <div className="flex items-center justify-between bg-white border border-emerald-100 rounded-2xl p-6 shadow-sm">
+      <div className="space-y-6">
+        {/* Header Banner */}
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <div>
-            <h1 className="text-2xl font-bold text-emerald-900 flex items-center gap-2"><Banknote className="w-6 h-6" /> Cash Settlement</h1>
-            <p className="text-sm text-gray-500 mt-1">Confirm physical cash received from waiters.</p>
+            <span className="mb-2 inline-flex items-center gap-1.5 rounded-full border border-yellow-400/30 bg-yellow-50 px-3.5 py-1 text-xs font-bold uppercase tracking-wider text-yellow-800">
+              <Sparkles className="h-3 w-3 text-yellow-600" /> Cash Reconciliation
+            </span>
+            <h1 className="text-2xl sm:text-3xl font-black tracking-tight text-green-950 flex items-center gap-2">
+              <Banknote className="h-7 w-7 text-yellow-600" /> Cash Settlement
+            </h1>
+            <p className="text-xs sm:text-sm text-gray-500 mt-0.5">
+              Reconcile and confirm physical currency collected by table waiters.
+            </p>
           </div>
-          <span className="bg-orange-50 text-orange-700 px-3 py-1 rounded-full text-sm font-bold">{orders.length} awaiting</span>
+
+          <div className="flex items-center gap-2 text-xs font-bold">
+            <span className="rounded-2xl border border-orange-200 bg-orange-50 px-3.5 py-2 text-orange-900 shadow-xs">
+              {orders.length} Awaiting Settlement
+            </span>
+            <span className="rounded-2xl border border-emerald-200 bg-emerald-50 px-3.5 py-2 text-emerald-900 shadow-xs">
+              Total Rs {total.toFixed(2)}
+            </span>
+          </div>
         </div>
 
-        {isLoading ? <p className="text-gray-400">Loading cash queue...</p> : orders.length === 0 ? (
-          <div className="bg-white border rounded-2xl p-10 text-center text-gray-400">No cash payments awaiting settlement.</div>
+        {isLoading ? (
+          <div className="rounded-3xl border border-gray-200 bg-white p-12 text-center text-sm text-gray-400">
+            <Loader2 className="mx-auto mb-2 h-6 w-6 animate-spin text-yellow-600" />
+            Loading cash settlement queue...
+          </div>
+        ) : orders.length === 0 ? (
+          <div className="rounded-3xl border border-dashed border-gray-200 bg-white p-12 text-center">
+            <CheckCircle2 className="mx-auto h-8 w-8 text-emerald-600" />
+            <p className="font-bold text-sm text-gray-800 mt-2">All cash payments settled</p>
+            <p className="text-xs text-gray-400 mt-1">No pending cash collections awaiting manager reconciliation.</p>
+          </div>
         ) : (
           <div className="grid md:grid-cols-2 xl:grid-cols-3 gap-5">
             {orders.map((order) => (
-              <div key={order.id} className="bg-white border border-orange-100 rounded-2xl p-5 shadow-sm">
-                <div className="flex justify-between gap-3">
-                  <div><p className="font-bold text-gray-800">Order #{order.id}</p><p className="text-sm text-gray-500">Table #{order.table_number || "—"}</p></div>
-                  <p className="text-lg font-black text-emerald-700">Rs {order.total_price}</p>
+              <motion.div
+                key={order.id}
+                whileHover={{ y: -2 }}
+                className="rounded-3xl border border-orange-200/80 bg-white p-5 shadow-sm space-y-4"
+              >
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <span className="font-mono text-xs font-bold text-yellow-600">
+                      #{order.id}
+                    </span>
+                    <p className="font-black text-base text-green-950 mt-0.5 flex items-center gap-1.5">
+                      <Utensils className="h-3.5 w-3.5 text-yellow-600" />
+                      Table #{order.table_number || "—"}
+                    </p>
+                  </div>
+                  <span className="text-xl font-black text-green-950">
+                    Rs {order.total_price}
+                  </span>
                 </div>
-                <div className="mt-4 space-y-1 text-sm text-gray-600">
-                  <p>Customer: {order.billing_first_name} {order.billing_last_name}</p>
-                  <p>Waiter: {order.waiter_name || "Not assigned"}</p>
-                  <p className="text-orange-700 font-semibold">Cash received by waiter — awaiting settlement</p>
+
+                <div className="space-y-1.5 rounded-2xl bg-orange-50/50 p-3 text-xs text-gray-700 border border-orange-100">
+                  <p className="font-semibold text-gray-900">
+                    Customer: {order.billing_first_name} {order.billing_last_name}
+                  </p>
+                  <p className="flex items-center gap-1.5 text-gray-600">
+                    <UserRound className="h-3.5 w-3.5 text-yellow-600" /> Waiter: {order.waiter_name || "Unassigned"}
+                  </p>
+                  <p className="flex items-center gap-1.5 font-bold text-orange-800 text-[11px]">
+                    <Clock3 className="h-3.5 w-3.5" /> Cash collected · Awaiting manager verification
+                  </p>
                 </div>
-                <button disabled={settling} onClick={() => handleSettle(order.id)} className="w-full mt-5 px-4 py-2.5 rounded-lg bg-emerald-600 text-white font-semibold hover:bg-emerald-700 disabled:opacity-50 transition flex items-center justify-center gap-2">
-                  <CheckCircle2 className="w-4 h-4" />{settling ? "Settling..." : "Settle Cash"}
+
+                <button
+                  disabled={settling}
+                  onClick={() => handleSettle(order.id)}
+                  className="w-full flex items-center justify-center gap-2 rounded-2xl bg-green-950 py-3 text-xs font-bold text-yellow-400 shadow-md hover:bg-green-900 active:scale-[0.98] transition disabled:opacity-50"
+                >
+                  <CheckCircle2 className="w-4 h-4" />
+                  {settling ? "Confirming..." : "Confirm & Settle Cash"}
                 </button>
-              </div>
+              </motion.div>
             ))}
           </div>
         )}

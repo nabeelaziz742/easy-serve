@@ -21,7 +21,7 @@ export default function DashboardLayout({ children }) {
 
   return (
     <RoleGuard allowedRoles={["manager", "restaurant_owner", "super_admin", "waiter", "chef"]}>
-      <div className="flex min-h-screen bg-gradient-to-br from-orange-50 via-white to-yellow-50 text-gray-900">
+      <div className="flex min-h-screen bg-gradient-to-b from-gray-50 via-white to-gray-50 text-gray-900">
         <Sidebar open={sidebarOpen} setOpen={setSidebarOpen} />
 
         <div className="flex-1 flex flex-col">

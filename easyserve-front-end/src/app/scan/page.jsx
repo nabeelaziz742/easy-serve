@@ -3,6 +3,9 @@
 import { useEffect, useRef, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { Html5Qrcode } from "html5-qrcode";
+import { motion } from "framer-motion";
+import { QrCode, Camera, ArrowLeft, Sparkles } from "lucide-react";
+import { toast } from "sonner";
 import {
   Card,
   CardHeader,
@@ -125,7 +128,7 @@ export default function ScanQRPage() {
             const parsed = parseQRData(decodedText);
 
             if (!parsed.restaurant_id || !parsed.table_number) {
-              alert("Invalid QR Code");
+              toast.error("Invalid QR Code. Please scan an EasyServe table QR.");
               processingRef.current = false;
               return;
             }
@@ -142,10 +145,11 @@ export default function ScanQRPage() {
               })
             );
 
+            toast.success("Table connected! 🎉");
             await navigateSafely("/dine-in/guests");
           } catch (err) {
             console.error("QR validation failed:", err);
-            alert(
+            toast.error(
               err?.data?.detail ||
                 "Unable to validate this table. Please try again."
             );
@@ -160,7 +164,7 @@ export default function ScanQRPage() {
       startedRef.current = false;
       scannerRef.current = null;
       console.error("QR Scanner Error:", err);
-      alert("Unable to access camera");
+      toast.error("Camera access denied or unavailable. Please check camera permissions.");
     }
   }, [dispatch, navigateSafely, validateTable]);
 
@@ -174,32 +178,49 @@ export default function ScanQRPage() {
   }, [startScanner, safeStopScanner]);
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-muted/30 px-4">
-      <Card className="w-full max-w-md rounded-2xl shadow-lg">
-        <CardHeader className="text-center">
-          <CardTitle className="text-xl">Scan Table QR Code</CardTitle>
-          <CardDescription>
-            Point your camera at the QR code on your table
-          </CardDescription>
-        </CardHeader>
+    <div className="min-h-[85vh] flex items-center justify-center bg-gradient-to-b from-gray-50 via-white to-gray-50 px-4 py-12">
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.4 }}
+        className="w-full max-w-md"
+      >
+        <Card className="rounded-3xl border border-gray-200/80 bg-white shadow-xl overflow-hidden">
+          <CardHeader className="text-center p-6 sm:p-8 bg-green-950 text-white">
+            <div className="mx-auto mb-3 flex h-14 w-14 items-center justify-center rounded-2xl bg-yellow-400 text-black shadow-lg">
+              <QrCode className="h-7 w-7" />
+            </div>
+            <CardTitle className="text-2xl font-black tracking-tight text-white">
+              Scan Table QR Code
+            </CardTitle>
+            <CardDescription className="text-xs text-green-200 mt-1">
+              Point your camera at the QR code on your table to open the dine-in menu
+            </CardDescription>
+          </CardHeader>
 
-        <CardContent className="space-y-4">
-          <div className="flex justify-center">
-            <div
-              id={QR_READER_ID}
-              className="w-full max-w-75 aspect-square rounded-xl overflow-hidden border"
-            />
-          </div>
+          <CardContent className="p-6 sm:p-8 space-y-5">
+            <div className="flex justify-center">
+              <div
+                id={QR_READER_ID}
+                className="w-full max-w-[280px] aspect-square rounded-2xl overflow-hidden border-2 border-dashed border-yellow-400/80 bg-gray-900 shadow-inner"
+              />
+            </div>
 
-          <Button
-            variant="outline"
-            className="w-full"
-            onClick={() => navigateSafely("back")}
-          >
-            Cancel
-          </Button>
-        </CardContent>
-      </Card>
+            <div className="flex items-center justify-center gap-2 text-xs text-gray-500 font-medium">
+              <Camera className="h-4 w-4 text-yellow-600" />
+              <span>Align QR code within the frame</span>
+            </div>
+
+            <Button
+              variant="outline"
+              className="w-full h-11 rounded-2xl border-gray-200 font-bold hover:bg-gray-100 active:scale-[0.98]"
+              onClick={() => navigateSafely("back")}
+            >
+              <ArrowLeft className="mr-1.5 h-4 w-4" /> Cancel & Return
+            </Button>
+          </CardContent>
+        </Card>
+      </motion.div>
     </div>
   );
 }

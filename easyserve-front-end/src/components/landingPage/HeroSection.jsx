@@ -155,7 +155,7 @@ export default function HeroSection() {
           {/* Reservation Button */}
           <Button
             onClick={() =>
-              router.push('/restaurant?mode=reservation')
+              router.push('/#restaurants?mode=reservation')
             }
             className="
               w-full

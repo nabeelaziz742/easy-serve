@@ -1,7 +1,9 @@
 "use client";
+
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { User, Mail, Lock, Phone, ChefHat, ArrowLeft, Loader2 } from "lucide-react";
+import { motion } from "framer-motion";
+import { User, Mail, Lock, Phone, ChefHat, ArrowLeft, Loader2, Sparkles } from "lucide-react";
 import Link from "next/link";
 import { toast } from "sonner";
 import { useCreateStaffMutation } from "@/services/private/users";
@@ -49,7 +51,7 @@ export default function AddChefPage() {
         user_type: "chef",
       }).unwrap();
 
-      toast.success("Chef added successfully and linked to your restaurant!");
+      toast.success("Chef created successfully and linked to your kitchen!");
       router.push("/manager/chefs");
     } catch (error) {
       toast.error(error?.data?.detail || "Failed to create chef.");
@@ -57,34 +59,47 @@ export default function AddChefPage() {
   };
 
   return (
-    <div className="min-h-screen bg-zinc-50 p-8">
-      {/* Back Button */}
-      <Link
-        href="/manager/chefs"
-        className="flex items-center gap-2 text-sm text-zinc-500 hover:text-zinc-800 transition mb-6"
-      >
-        <ArrowLeft size={16} />
-        Back to Chefs
-      </Link>
+    <div className="min-h-screen bg-zinc-50/50 p-4 font-sans sm:p-8">
+      <div className="mx-auto max-w-2xl">
+        {/* Back Link */}
+        <Link
+          href="/manager/chefs"
+          className="mb-6 inline-flex items-center gap-2 rounded-xl border border-zinc-200 bg-white px-3.5 py-2 text-xs font-bold text-zinc-600 shadow-xs transition hover:bg-zinc-50 active:scale-95"
+        >
+          <ArrowLeft size={14} />
+          Back to Kitchen Chefs
+        </Link>
 
-      <div className="max-w-2xl mx-auto">
         {/* Header */}
         <div className="mb-8">
-          <h1 className="text-3xl font-black text-zinc-900">Add Chef</h1>
-          <p className="text-zinc-500 mt-1">Add a new chef to your kitchen staff</p>
+          <div className="flex items-center gap-2">
+            <span className="flex h-10 w-10 items-center justify-center rounded-2xl bg-green-950 text-amber-400 shadow-sm">
+              <ChefHat className="h-5 w-5" />
+            </span>
+            <h1 className="text-3xl font-black tracking-tight text-zinc-900">
+              Add Kitchen Chef
+            </h1>
+          </div>
+          <p className="mt-1 text-sm text-zinc-500">
+            Create an active chef account with credentials to access the kitchen dashboard.
+          </p>
         </div>
 
         {/* Form Card */}
-        <div className="bg-white rounded-3xl shadow-sm border border-zinc-200 p-8">
-          <form onSubmit={handleSubmit} className="space-y-6">
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <motion.div
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="rounded-3xl border border-zinc-200/80 bg-white p-6 shadow-sm sm:p-8"
+        >
+          <form onSubmit={handleSubmit} className="space-y-5">
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               {/* First Name */}
               <div>
-                <label className="block text-sm font-semibold text-zinc-700 mb-2">
+                <label className="mb-1.5 block text-xs font-bold uppercase tracking-wider text-zinc-500">
                   First Name
                 </label>
                 <div className="relative">
-                  <User size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-zinc-400" />
+                  <User size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-zinc-400" />
                   <input
                     type="text"
                     name="first_name"
@@ -92,14 +107,14 @@ export default function AddChefPage() {
                     onChange={handleChange}
                     placeholder="Muhammad"
                     required
-                    className="w-full pl-11 pr-4 py-3 rounded-xl border border-zinc-200 bg-zinc-50 text-zinc-900 placeholder-zinc-400 focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent transition"
+                    className="w-full rounded-xl border border-zinc-200 bg-zinc-50/50 py-3 pl-10 pr-4 text-sm text-zinc-900 placeholder-zinc-400 outline-none transition focus:border-green-900 focus:bg-white focus:ring-2 focus:ring-green-950/10"
                   />
                 </div>
               </div>
 
               {/* Last Name */}
               <div>
-                <label className="block text-sm font-semibold text-zinc-700 mb-2">
+                <label className="mb-1.5 block text-xs font-bold uppercase tracking-wider text-zinc-500">
                   Last Name
                 </label>
                 <input
@@ -108,15 +123,15 @@ export default function AddChefPage() {
                   value={formData.last_name}
                   onChange={handleChange}
                   placeholder="Ali"
-                  className="w-full px-4 py-3 rounded-xl border border-zinc-200 bg-zinc-50 text-zinc-900 placeholder-zinc-400 focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent transition"
+                  className="w-full rounded-xl border border-zinc-200 bg-zinc-50/50 px-4 py-3 text-sm text-zinc-900 placeholder-zinc-400 outline-none transition focus:border-green-900 focus:bg-white focus:ring-2 focus:ring-green-950/10"
                 />
               </div>
             </div>
 
             {/* Username */}
             <div>
-              <label className="block text-sm font-semibold text-zinc-700 mb-2">
-                Username
+              <label className="mb-1.5 block text-xs font-bold uppercase tracking-wider text-zinc-500">
+                Staff Username
               </label>
               <input
                 type="text"
@@ -125,36 +140,36 @@ export default function AddChefPage() {
                 onChange={handleChange}
                 placeholder="chef_ali"
                 required
-                className="w-full px-4 py-3 rounded-xl border border-zinc-200 bg-zinc-50 text-zinc-900 placeholder-zinc-400 focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent transition"
+                className="w-full rounded-xl border border-zinc-200 bg-zinc-50/50 px-4 py-3 text-sm text-zinc-900 placeholder-zinc-400 outline-none transition focus:border-green-900 focus:bg-white focus:ring-2 focus:ring-green-950/10"
               />
             </div>
 
             {/* Email */}
             <div>
-              <label className="block text-sm font-semibold text-zinc-700 mb-2">
+              <label className="mb-1.5 block text-xs font-bold uppercase tracking-wider text-zinc-500">
                 Email Address
               </label>
               <div className="relative">
-                <Mail size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-zinc-400" />
+                <Mail size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-zinc-400" />
                 <input
                   type="email"
                   name="email"
                   value={formData.email}
                   onChange={handleChange}
-                  placeholder="ali@example.com"
+                  placeholder="ali@easyserve.pk"
                   required
-                  className="w-full pl-11 pr-4 py-3 rounded-xl border border-zinc-200 bg-zinc-50 text-zinc-900 placeholder-zinc-400 focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent transition"
+                  className="w-full rounded-xl border border-zinc-200 bg-zinc-50/50 py-3 pl-10 pr-4 text-sm text-zinc-900 placeholder-zinc-400 outline-none transition focus:border-green-900 focus:bg-white focus:ring-2 focus:ring-green-950/10"
                 />
               </div>
             </div>
 
             {/* Password */}
             <div>
-              <label className="block text-sm font-semibold text-zinc-700 mb-2">
-                Password
+              <label className="mb-1.5 block text-xs font-bold uppercase tracking-wider text-zinc-500">
+                Temporary Password
               </label>
               <div className="relative">
-                <Lock size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-zinc-400" />
+                <Lock size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-zinc-400" />
                 <input
                   type="password"
                   name="password"
@@ -162,49 +177,50 @@ export default function AddChefPage() {
                   onChange={handleChange}
                   placeholder="••••••••"
                   required
-                  className="w-full pl-11 pr-4 py-3 rounded-xl border border-zinc-200 bg-zinc-50 text-zinc-900 placeholder-zinc-400 focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent transition"
+                  className="w-full rounded-xl border border-zinc-200 bg-zinc-50/50 py-3 pl-10 pr-4 text-sm text-zinc-900 placeholder-zinc-400 outline-none transition focus:border-green-900 focus:bg-white focus:ring-2 focus:ring-green-950/10"
                 />
               </div>
             </div>
 
             {/* Phone */}
             <div>
-              <label className="block text-sm font-semibold text-zinc-700 mb-2">
-                Phone Number
+              <label className="mb-1.5 block text-xs font-bold uppercase tracking-wider text-zinc-500">
+                Contact Phone
               </label>
               <div className="relative">
-                <Phone size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-zinc-400" />
+                <Phone size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-zinc-400" />
                 <input
                   type="tel"
                   name="phone"
                   value={formData.phone}
                   onChange={handleChange}
-                  placeholder="03001234567"
-                  className="w-full pl-11 pr-4 py-3 rounded-xl border border-zinc-200 bg-zinc-50 text-zinc-900 placeholder-zinc-400 focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent transition"
+                  placeholder="0300 1234567"
+                  className="w-full rounded-xl border border-zinc-200 bg-zinc-50/50 py-3 pl-10 pr-4 text-sm text-zinc-900 placeholder-zinc-400 outline-none transition focus:border-green-900 focus:bg-white focus:ring-2 focus:ring-green-950/10"
                 />
               </div>
             </div>
 
             {/* Buttons */}
-            <div className="flex gap-4 pt-2">
+            <div className="flex flex-col gap-3 pt-4 sm:flex-row">
               <button
                 type="submit"
                 disabled={isSubmitting}
-                className="flex-1 flex items-center justify-center gap-2 bg-green-950 text-white py-3 rounded-xl font-semibold hover:bg-green-900 transition-all duration-200 shadow-sm disabled:opacity-50"
+                className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-green-950 py-3.5 text-sm font-bold text-white shadow-md shadow-green-950/20 transition hover:bg-green-900 active:scale-[0.98] disabled:opacity-50"
               >
-                {isSubmitting && <Loader2 className="h-4 w-4 animate-spin" />}
-                {isSubmitting ? "Adding..." : "Add Chef"}
+                {isSubmitting && <Loader2 className="h-4 w-4 animate-spin text-amber-400" />}
+                {isSubmitting ? "Creating Chef Account..." : "Create Chef Account"}
               </button>
               <Link
                 href="/manager/chefs"
-                className="flex-1 text-center bg-zinc-100 text-zinc-700 py-3 rounded-xl font-semibold hover:bg-zinc-200 transition-all duration-200"
+                className="flex flex-1 items-center justify-center rounded-xl border border-zinc-200 bg-zinc-50 py-3.5 text-sm font-bold text-zinc-700 transition hover:bg-zinc-100 active:scale-[0.98]"
               >
                 Cancel
               </Link>
             </div>
           </form>
-        </div>
+        </motion.div>
       </div>
     </div>
   );
-}
+}
+
