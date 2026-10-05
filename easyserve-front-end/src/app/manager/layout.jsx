@@ -70,10 +70,10 @@ export default function ManagerLayout({ children }) {
 
   return (
     <RoleGuard allowedRoles={["manager", "restaurant_owner", "super_admin"]}>
-      <div className="flex flex-col min-h-screen font-sans">
+      <div className="flex flex-col h-screen h-[100dvh] overflow-hidden font-sans">
 
         {/* TOPBAR */}
-        <header className="h-16 bg-[#063B2E] text-white flex items-center justify-between px-6 shadow-xl sticky top-0 z-50">
+        <header className="h-16 shrink-0 bg-[#063B2E] text-white flex items-center justify-between px-6 shadow-xl z-50">
           <div className="flex items-center gap-4">
             <button
               onClick={() => setCollapsed(!collapsed)}
@@ -104,21 +104,20 @@ export default function ManagerLayout({ children }) {
         </header>
 
         {/* BODY */}
-        <div className="flex flex-1 items-stretch">
+        <div className="flex flex-1 min-h-0 overflow-hidden">
 
           {/* SIDEBAR */}
           <aside
             className={`
               ${collapsed ? "w-[68px]" : "w-60"}
               bg-[#063B2E] text-white flex flex-col
-              sticky top-16 self-stretch
-              min-h-[calc(100vh-64px)]
-              shadow-2xl shrink-0
+              h-full shrink-0
+              shadow-2xl
               transition-all duration-300 ease-in-out
               overflow-hidden
             `}
           >
-            <nav className="flex-1 px-2.5 py-4 space-y-4 overflow-y-auto overflow-x-hidden">
+            <nav className="flex-1 min-h-0 px-2.5 py-4 space-y-4 overflow-y-auto overflow-x-hidden">
               {navigationSections.map((section, sectionIdx) => (
                 <div key={section.title} className="space-y-1">
                   {/* Section Title */}
@@ -162,7 +161,7 @@ export default function ManagerLayout({ children }) {
             </nav>
 
             {/* Profile + Logout */}
-            <div className="px-2.5 pb-5 border-t border-white/10 pt-4 space-y-1">
+            <div className="px-2.5 pb-5 border-t border-white/10 pt-4 space-y-1 shrink-0">
               <Link
                 href="/manager/profile"
                 title={collapsed ? "Profile" : undefined}
@@ -196,7 +195,7 @@ export default function ManagerLayout({ children }) {
           </aside>
 
           {/* MAIN CONTENT */}
-          <main className="flex-1 bg-[#F7F7F4] overflow-y-auto">
+          <main className="flex-1 h-full min-h-0 bg-[#F7F7F4] overflow-y-auto overflow-x-hidden focus:outline-none" tabIndex={-1}>
             {children}
           </main>
 
