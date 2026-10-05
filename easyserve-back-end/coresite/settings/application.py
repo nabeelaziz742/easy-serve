@@ -18,6 +18,11 @@ CUSTOM_APPLICATIONS = [
     'apps.ratings',
     'apps.payment',
     'apps.recommendation',
+    'apps.inventory',
+    'apps.purchases',
+    'apps.recipes',
+    'apps.expenses',
+    'apps.financial',
 
 ]
 

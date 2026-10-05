@@ -108,8 +108,9 @@ STATIC_ROOT = os.path.join(
 
 STATIC_URL = "/static/"
 
-STATICFILES_STORAGE = (
-    "whitenoise.storage.CompressedManifestStaticFilesStorage"
+STATICFILES_STORAGE = env(
+    "STATICFILES_STORAGE",
+    default="django.contrib.staticfiles.storage.StaticFilesStorage"
 )
 
 # ==================================================
@@ -221,6 +222,14 @@ SECURE_BROWSER_XSS_FILTER = True
 SECURE_CONTENT_TYPE_NOSNIFF = True
 
 X_FRAME_OPTIONS = "DENY"
+
+SECURE_SSL_REDIRECT = env.bool("SECURE_SSL_REDIRECT", default=False)
+
+if not DEBUG and env.bool("SECURE_HSTS_ENABLED", default=False):
+    SECURE_HSTS_SECONDS = env.int("SECURE_HSTS_SECONDS", default=31536000)  # 1 year
+    SECURE_HSTS_INCLUDE_SUBDOMAINS = env.bool("SECURE_HSTS_INCLUDE_SUBDOMAINS", default=True)
+    SECURE_HSTS_PRELOAD = env.bool("SECURE_HSTS_PRELOAD", default=True)
+
 
 # ==================================================
 # LOGGING

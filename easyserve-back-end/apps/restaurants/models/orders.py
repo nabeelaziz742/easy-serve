@@ -1,3 +1,4 @@
+from decimal import Decimal
 from django.db import models
 from django.db.models import Sum
 
@@ -22,6 +23,12 @@ class OrderItem(AbstractTimeStampModel):
     quantity = models.PositiveIntegerField(default=1)
     comments = models.TextField(blank=True, null=True)
     price = models.DecimalField(max_digits=10, decimal_places=2)
+    unit_cost_at_order = models.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        default=Decimal('0.00'),
+        help_text="COGS per unit at the time order was prepared."
+    )
 
     def __str__(self):
         return f"{self.menu_item.name} - {self.quantity} pcs"
@@ -133,6 +140,18 @@ class Orders(AbstractTimeStampModel):
     payment_status = models.PositiveSmallIntegerField(
         choices=PaymentStatus.model_choices(),
         default=PaymentStatus.PENDING.value
+    )
+
+    inventory_deducted = models.BooleanField(
+        default=False,
+        help_text="Idempotency flag: True if recipe inventory consumption has been deducted for this order."
+    )
+
+    total_cogs = models.DecimalField(
+        max_digits=12,
+        decimal_places=2,
+        default=Decimal('0.00'),
+        help_text="Total Cost of Goods Sold (COGS) for all prepared recipe items in this order."
     )
 
     @property

@@ -98,7 +98,9 @@ notebook==7.5.0
 notebook_shim==0.2.4
 numpy==2.3.5
 overrides==7.7.0
+openpyxl==3.1.5
 packaging==25.0
+
 pandas==2.3.3
 pandas-stubs==2.3.3.251201
 pandocfilters==1.5.1

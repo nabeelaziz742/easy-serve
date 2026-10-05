@@ -15,31 +15,65 @@ import {
   User,
   Menu,
   Banknote,
+  Boxes,
+  ShoppingCart,
+  ScrollText,
+  Receipt,
 } from "lucide-react";
-
-const navItems = [
-  { href: "/manager",           label: "Dashboard", icon: LayoutDashboard },
-  { href: "/manager/menu",      label: "Menu",       icon: UtensilsCrossed },
-  { href: "/manager/waiters",   label: "Waiters",    icon: Users },
-  { href: "/manager/chefs",     label: "Chefs",      icon: ChefHat },
-  { href: "/manager/reviews",   label: "Reviews",    icon: Star },
-  { href: "/manager/analytics", label: "Analytics",  icon: BarChart3 },
-  { href: "/manager/cash",      label: "Cash",       icon: Banknote },
-];
-
 import RoleGuard from "@/components/auth/RoleGuard";
+
+// Clean, modular section architecture prepared for commercial SaaS scalability
+const navigationSections = [
+  {
+    title: "Command Center",
+    items: [
+      { href: "/manager", label: "Dashboard", icon: LayoutDashboard },
+    ],
+  },
+  {
+    title: "Inventory & Supply",
+    items: [
+      { href: "/manager/inventory", label: "Inventory", icon: Boxes },
+      { href: "/manager/purchases", label: "Purchases / Stock In", icon: ShoppingCart },
+      { href: "/manager/recipes", label: "Recipes / BOM", icon: ScrollText },
+    ],
+  },
+  {
+    title: "Finance",
+    items: [
+      { href: "/manager/expenses", label: "Expenses", icon: Receipt },
+      { href: "/manager/reports", label: "Financial Reports", icon: BarChart3 },
+    ],
+  },
+  {
+    title: "Operations",
+    items: [
+      { href: "/manager/menu", label: "Menu Items", icon: UtensilsCrossed },
+      { href: "/manager/cash", label: "Cash Settlement", icon: Banknote },
+      { href: "/manager/analytics", label: "Analytics", icon: BarChart3 },
+    ],
+  },
+  {
+    title: "Staff & Service",
+    items: [
+      { href: "/manager/waiters", label: "Waiters", icon: Users },
+      { href: "/manager/chefs", label: "Chefs", icon: ChefHat },
+      { href: "/manager/reviews", label: "Reviews", icon: Star },
+    ],
+  },
+];
 
 export default function ManagerLayout({ children }) {
   const pathname = usePathname();
   const dispatch = useDispatch();
-  const [collapsed, setCollapsed] = useState(true);
+  const [collapsed, setCollapsed] = useState(false);
 
   return (
     <RoleGuard allowedRoles={["manager", "restaurant_owner", "super_admin"]}>
-      <div className="flex flex-col min-h-screen">
+      <div className="flex flex-col min-h-screen font-sans">
 
         {/* TOPBAR */}
-        <header className="h-16 bg-green-950 text-white flex items-center justify-between px-6 shadow-xl sticky top-0 z-50">
+        <header className="h-16 bg-[#063B2E] text-white flex items-center justify-between px-6 shadow-xl sticky top-0 z-50">
           <div className="flex items-center gap-4">
             <button
               onClick={() => setCollapsed(!collapsed)}
@@ -50,11 +84,11 @@ export default function ManagerLayout({ children }) {
             </button>
             <div className="flex items-center gap-3">
               <div className="w-9 h-9 rounded-xl bg-yellow-400 flex items-center justify-center shadow-md">
-                <UtensilsCrossed size={18} className="text-green-950" />
+                <UtensilsCrossed size={18} className="text-[#063B2E]" />
               </div>
               <div className="leading-tight">
                 <p className="font-black text-white text-base tracking-tight">Easy Serve</p>
-                <p className="text-green-400 text-xs font-medium">Manager Panel</p>
+                <p className="text-emerald-300 text-xs font-medium">Manager Panel</p>
               </div>
             </div>
           </div>
@@ -75,8 +109,8 @@ export default function ManagerLayout({ children }) {
           {/* SIDEBAR */}
           <aside
             className={`
-              ${collapsed ? "w-[68px]" : "w-56"}
-              bg-green-950 text-white flex flex-col
+              ${collapsed ? "w-[68px]" : "w-60"}
+              bg-[#063B2E] text-white flex flex-col
               sticky top-16 self-stretch
               min-h-[calc(100vh-64px)]
               shadow-2xl shrink-0
@@ -84,37 +118,51 @@ export default function ManagerLayout({ children }) {
               overflow-hidden
             `}
           >
-            <nav className="flex-1 px-2 py-4 space-y-1 overflow-y-auto overflow-x-hidden">
-              {navItems.map(({ href, label, icon: Icon }) => {
-                const isActive =
-                  href === "/manager"
-                    ? pathname === "/manager"
-                    : pathname.startsWith(href);
+            <nav className="flex-1 px-2.5 py-4 space-y-4 overflow-y-auto overflow-x-hidden">
+              {navigationSections.map((section, sectionIdx) => (
+                <div key={section.title} className="space-y-1">
+                  {/* Section Title */}
+                  {!collapsed ? (
+                    <p className="text-[10px] font-bold uppercase tracking-wider text-emerald-300/60 px-3 pt-1 pb-1">
+                      {section.title}
+                    </p>
+                  ) : sectionIdx > 0 ? (
+                    <div className="border-t border-white/10 my-2 mx-1" />
+                  ) : null}
 
-                return (
-                  <Link
-                    key={href}
-                    href={href}
-                    title={collapsed ? label : undefined}
-                    className={`
-                      flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium
-                      transition-all duration-200 whitespace-nowrap
-                      ${collapsed ? "justify-center" : ""}
-                      ${isActive
-                        ? "bg-yellow-400 text-black shadow-md"
-                        : "text-green-100 hover:bg-white/10 hover:text-white"
-                      }
-                    `}
-                  >
-                    <Icon size={18} className="shrink-0" />
-                    {!collapsed && <span>{label}</span>}
-                  </Link>
-                );
-              })}
+                  {/* Section Navigation Items */}
+                  {section.items.map(({ href, label, icon: Icon }) => {
+                    const isActive =
+                      href === "/manager"
+                        ? pathname === "/manager"
+                        : pathname.startsWith(href);
+
+                    return (
+                      <Link
+                        key={href}
+                        href={href}
+                        title={collapsed ? label : undefined}
+                        className={`
+                          flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium
+                          transition-all duration-200 whitespace-nowrap
+                          ${collapsed ? "justify-center" : ""}
+                          ${isActive
+                            ? "bg-yellow-400 text-black shadow-md font-bold"
+                            : "text-emerald-100 hover:bg-white/10 hover:text-white"
+                          }
+                        `}
+                      >
+                        <Icon size={18} className="shrink-0" />
+                        {!collapsed && <span>{label}</span>}
+                      </Link>
+                    );
+                  })}
+                </div>
+              ))}
             </nav>
 
             {/* Profile + Logout */}
-            <div className="px-2 pb-5 border-t border-white/10 pt-4 space-y-1">
+            <div className="px-2.5 pb-5 border-t border-white/10 pt-4 space-y-1">
               <Link
                 href="/manager/profile"
                 title={collapsed ? "Profile" : undefined}
@@ -123,8 +171,8 @@ export default function ManagerLayout({ children }) {
                   transition-all duration-200 whitespace-nowrap
                   ${collapsed ? "justify-center" : ""}
                   ${pathname === "/manager/profile"
-                    ? "bg-yellow-400 text-black"
-                    : "text-green-100 hover:bg-white/10"
+                    ? "bg-yellow-400 text-black font-bold"
+                    : "text-emerald-100 hover:bg-white/10"
                   }
                 `}
               >
@@ -148,7 +196,7 @@ export default function ManagerLayout({ children }) {
           </aside>
 
           {/* MAIN CONTENT */}
-          <main className="flex-1 bg-zinc-50 dark:bg-zinc-950 overflow-y-auto">
+          <main className="flex-1 bg-[#F7F7F4] overflow-y-auto">
             {children}
           </main>
 
@@ -157,4 +205,3 @@ export default function ManagerLayout({ children }) {
     </RoleGuard>
   );
 }
-

@@ -121,6 +121,51 @@ urlpatterns = [
     ),
 
     # ==============================================
+    # INVENTORY
+    # ==============================================
+
+    path(
+        "api/manager/inventory/",
+        include("apps.inventory.urls")
+    ),
+
+    # ==============================================
+    # PURCHASES & SUPPLIERS
+    # ==============================================
+
+    path(
+        "api/manager/purchases/",
+        include("apps.purchases.urls")
+    ),
+
+    # ==============================================
+    # RECIPES / BOM
+    # ==============================================
+
+    path(
+        "api/manager/recipes/",
+        include("apps.recipes.urls")
+    ),
+
+    # ==============================================
+    # OPERATING EXPENSES
+    # ==============================================
+
+    path(
+        "api/manager/expenses/",
+        include("apps.expenses.urls")
+    ),
+
+    # ==============================================
+    # FINANCIAL INTELLIGENCE & P&L
+    # ==============================================
+
+    path(
+        "api/manager/financial/",
+        include("apps.financial.urls")
+    ),
+
+    # ==============================================
     # RATINGS
     # ==============================================
 

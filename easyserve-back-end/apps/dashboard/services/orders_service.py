@@ -41,6 +41,11 @@ class OrderService:
 
         updated_order = OrdersRepository.update_status(order, value)
 
+        # Automatic BOM / Recipe Stock Consumption upon PREPARED
+        if value == OrderStatus.PREPARED:
+            from apps.recipes.services.consumption_service import RecipeConsumptionService
+            RecipeConsumptionService.consume_order_inventory(updated_order)
+
         # A served dine-in order is no longer an occupied table. Keep it
         # visible as awaiting payment until the payment is actually settled.
         if value == OrderStatus.SERVED:
