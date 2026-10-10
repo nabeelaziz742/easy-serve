@@ -51,7 +51,9 @@ class CommandCenterService:
 
         # 3. Live Operational Order Pipeline & Telemetry (Filtered to selected period or today)
         orders_qs = Orders.objects.filter(
-            Q(table__restaurant=restaurant) | Q(items__menu_item__menu__restaurant=restaurant)
+            Q(table__restaurant=restaurant)
+            | Q(dine_in_session__restaurant=restaurant)
+            | Q(items__menu_item__menu__restaurant=restaurant)
         ).distinct()
 
         period_orders = orders_qs.filter(

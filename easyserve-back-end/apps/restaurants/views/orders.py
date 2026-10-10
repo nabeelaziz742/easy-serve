@@ -275,13 +275,18 @@ class PendingOrderListAPIView(ListAPIView):
     def get_queryset(self):
         profile = self.request.user.profile
         restaurant = profile.restaurant
-        if restaurant is None:
+        restaurant_id = profile.restaurant_id or getattr(profile, "selected_restaurant", None)
+        if not restaurant and not restaurant_id:
             return Orders.objects.none()
+
+        target_id = restaurant.id if restaurant else restaurant_id
         return Orders.objects.filter(
             accepted_by_waiter=False,
             order_status=OrderStatus.TO_PREPARE,
         ).filter(
-            Q(table__restaurant=restaurant) | Q(items__menu_item__menu__restaurant=restaurant)
+            Q(table__restaurant_id=target_id)
+            | Q(dine_in_session__restaurant_id=target_id)
+            | Q(items__menu_item__menu__restaurant_id=target_id)
         ).distinct().order_by("-created_at")
 
 
@@ -407,7 +412,14 @@ class ChefOrderListAPIView(ListAPIView):
     permission_classes = [IsChef]
 
     def get_queryset(self):
-        return Orders.objects.filter(assigned_chef=self.request.user.profile).order_by("-created_at")
+        return Orders.objects.filter(
+            assigned_chef=self.request.user.profile,
+            order_status__in=[
+                OrderStatus.TO_PREPARE,
+                OrderStatus.PREPARING,
+                OrderStatus.PREPARED,
+            ],
+        ).order_by("-created_at")
 
 
 class ReadyOrdersAPIView(ListAPIView):
@@ -438,6 +450,7 @@ class ReadyOrdersAPIView(ListAPIView):
             .filter(
                 Q(waiter=profile)
                 | Q(table__restaurant_id=restaurant_id)
+                | Q(dine_in_session__restaurant_id=restaurant_id)
                 | Q(items__menu_item__menu__restaurant_id=restaurant_id)
             )
             .distinct()
@@ -532,14 +545,20 @@ class ManagerDashboardAPIView(APIView):
     def get(self, request):
         profile = request.user.profile
         if request.user.user_type == "restaurant_owner":
-            restaurant_ids = profile.owned_restaurants.values_list("id", flat=True)
+            restaurant_ids = list(profile.owned_restaurants.values_list("id", flat=True))
         else:
-            if not profile.restaurant:
+            restaurant_ids = []
+            if profile.restaurant_id:
+                restaurant_ids.append(profile.restaurant_id)
+            if getattr(profile, "selected_restaurant", None):
+                restaurant_ids.append(profile.selected_restaurant)
+            if not restaurant_ids:
                 return Response({"total_orders": 0, "pending_orders": 0, "preparing_orders": 0, "prepared_orders": 0, "served_orders": 0, "total_waiters": 0, "total_chefs": 0, "total_revenue": 0})
-            restaurant_ids = [profile.restaurant_id]
 
         restaurant_orders = Orders.objects.filter(
-            Q(table__restaurant_id__in=restaurant_ids) | Q(items__menu_item__menu__restaurant_id__in=restaurant_ids)
+            Q(table__restaurant_id__in=restaurant_ids)
+            | Q(dine_in_session__restaurant_id__in=restaurant_ids)
+            | Q(items__menu_item__menu__restaurant_id__in=restaurant_ids)
         ).distinct()
         total_revenue = restaurant_orders.filter(
             order_status=OrderStatus.SERVED,

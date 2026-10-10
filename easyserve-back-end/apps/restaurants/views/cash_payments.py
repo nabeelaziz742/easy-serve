@@ -164,6 +164,7 @@ class WaiterCashOrdersAPIView(ListAPIView):
     def get_queryset(self):
         waiter = self.request.user.profile
         restaurant = waiter.restaurant
+        restaurant_id = waiter.restaurant_id or getattr(waiter, "selected_restaurant", None)
 
         base_filter = Q(
             paymentdetails__payment_method=PaymentMethod.CATCH_ON_DELIVERY.value,
@@ -172,8 +173,14 @@ class WaiterCashOrdersAPIView(ListAPIView):
             paymentdetails__cash_settled_by__isnull=True,
         )
 
-        if restaurant:
-            ownership_filter = Q(waiter=waiter) | Q(table__restaurant=restaurant)
+        target_id = restaurant.id if restaurant else restaurant_id
+        if target_id:
+            ownership_filter = (
+                Q(waiter=waiter)
+                | Q(table__restaurant_id=target_id)
+                | Q(dine_in_session__restaurant_id=target_id)
+                | Q(items__menu_item__menu__restaurant_id=target_id)
+            )
         else:
             ownership_filter = Q(waiter=waiter)
 
@@ -189,24 +196,22 @@ class ManagerCashOrdersAPIView(ListAPIView):
 
     def get_queryset(self):
         manager = self.request.user.profile
-        # Owners (no separate staff "manager" profile) relate to a
-        # restaurant via owned_restaurants, not profile.restaurant — which
-        # is only populated for staff explicitly assigned to a restaurant.
-        # Filtering only by manager.restaurant hid every pending
-        # settlement from an owner, even though they are allowed to
-        # settle cash via SettleCashPaymentAPIView. Mirror that view's
-        # access rule here so the list matches what they can act on.
         restaurant_ids = list(manager.owned_restaurants.values_list("id", flat=True))
         if manager.restaurant_id:
             restaurant_ids.append(manager.restaurant_id)
+        if getattr(manager, "selected_restaurant", None):
+            restaurant_ids.append(manager.selected_restaurant)
 
         if not restaurant_ids:
             return Orders.objects.none()
 
         return Orders.objects.filter(
-            table__restaurant_id__in=restaurant_ids,
+            Q(table__restaurant_id__in=restaurant_ids)
+            | Q(dine_in_session__restaurant_id__in=restaurant_ids)
+            | Q(items__menu_item__menu__restaurant_id__in=restaurant_ids),
             paymentdetails__payment_method=PaymentMethod.CATCH_ON_DELIVERY.value,
             paymentdetails__payment_status=PaymentStatus.PENDING.value,
             paymentdetails__cash_received_by__isnull=False,
             paymentdetails__cash_settled_by__isnull=True,
         ).select_related("table", "user", "waiter").prefetch_related("items__menu_item").distinct().order_by("-created_at")
+

@@ -6,6 +6,7 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from apps.restaurants.constants import DineInSessionStatus, TableState
+from apps.restaurants.services.table_lifecycle import clean_and_get_active_session
 from apps.restaurants.models import DineInSession, Restaurant, Table
 
 
@@ -62,15 +63,10 @@ class DineInStartSessionAPIView(APIView):
                     status=status.HTTP_400_BAD_REQUEST,
                 )
 
-            active_session = (
-                DineInSession.objects
-                .select_for_update()
-                .filter(
-                    restaurant=restaurant,
-                    table=table,
-                    status=DineInSessionStatus.ACTIVE.value,
-                )
-                .first()
+            active_session = clean_and_get_active_session(
+                table,
+                restaurant=restaurant,
+                lock=True,
             )
 
             # Allow the same browser/session to safely retry the request.

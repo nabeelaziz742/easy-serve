@@ -12,7 +12,7 @@ export const orderApi = privateAPi.injectEndpoints({
     }),
     addOrder: build.mutation({
       query: (body) => ({ url: "/restaurants/orders/checkout-order/", method: "POST", body }),
-      invalidatesTags: ["getOrders", "PendingOrders"],
+      invalidatesTags: ["getOrders", "PendingOrders", "WaiterDashboard", "ManagerDashboard", "CommandCenter"],
     }),
     payOrder: build.mutation({
       query: ({ orderId, paymentMethod }) => ({
@@ -20,15 +20,49 @@ export const orderApi = privateAPi.injectEndpoints({
         method: "POST",
         body: { payment_method: paymentMethod || "cash" },
       }),
-      invalidatesTags: ["getOrders", "getOrder", "ManagerDashboard"],
+      invalidatesTags: [
+        "getOrders",
+        "getOrder",
+        "ManagerDashboard",
+        "WaiterDashboard",
+        "FinancialOverview",
+        "FinancialTrends",
+        "FinancialBreakdown",
+        "FinancialReconciliation",
+        "FinancialProductPerformance",
+        "CommandCenter",
+        "FinancialReports",
+      ],
     }),
     requestCashPayment: build.mutation({
       query: (orderId) => ({ url: `/restaurants/orders/${orderId}/cash-request/`, method: "POST" }),
-      invalidatesTags: ["getOrders", "getOrder", "WaiterCashOrders", "ManagerCashOrders"],
+      invalidatesTags: [
+        "getOrders",
+        "getOrder",
+        "WaiterCashOrders",
+        "ManagerCashOrders",
+        "WaiterDashboard",
+        "ManagerDashboard",
+        "CommandCenter",
+      ],
     }),
     settleCashPayment: build.mutation({
       query: (orderId) => ({ url: `/restaurants/orders/${orderId}/cash-settle/`, method: "POST" }),
-      invalidatesTags: ["ManagerCashOrders", "getOrders", "getOrder", "ManagerDashboard"],
+      invalidatesTags: [
+        "ManagerCashOrders",
+        "WaiterCashOrders",
+        "WaiterDashboard",
+        "getOrders",
+        "getOrder",
+        "ManagerDashboard",
+        "FinancialOverview",
+        "FinancialTrends",
+        "FinancialBreakdown",
+        "FinancialReconciliation",
+        "FinancialProductPerformance",
+        "CommandCenter",
+        "FinancialReports",
+      ],
     }),
     getManagerCashOrders: build.query({
       query: () => ({ url: "/restaurants/orders/manager/cash/", method: "GET" }),
@@ -36,7 +70,7 @@ export const orderApi = privateAPi.injectEndpoints({
     }),
     updateOrder: build.mutation({
       query: (body) => ({ url: `/dashboard/orders/${body?.orderNumber}/`, method: "PATCH", body }),
-      invalidatesTags: ["getOrders", "getOrder"],
+      invalidatesTags: ["getOrders", "getOrder", "ManagerDashboard", "CommandCenter"],
     }),
     getOrderStatus: build.query({
       query: () => ({ url: "/dashboard/orders/status/", method: "GET" }),
@@ -48,7 +82,7 @@ export const orderApi = privateAPi.injectEndpoints({
         method: "PATCH",
         body: { status },
       }),
-      invalidatesTags: ["OrderStatus", "getOrders"],
+      invalidatesTags: ["OrderStatus", "getOrders", "ManagerDashboard", "CommandCenter"],
     }),
     getPendingOrders: build.query({
       query: () => ({ url: "/restaurants/orders/pending/", method: "GET" }),
@@ -60,7 +94,7 @@ export const orderApi = privateAPi.injectEndpoints({
     }),
     acceptOrder: build.mutation({
       query: (orderId) => ({ url: `/restaurants/orders/${orderId}/accept/`, method: "POST" }),
-      invalidatesTags: ["PendingOrders", "getOrders", "ChefOrders"],
+      invalidatesTags: ["PendingOrders", "getOrders", "ChefOrders", "WaiterDashboard", "ManagerDashboard", "CommandCenter"],
     }),
     assignChef: build.mutation({
       query: ({ orderId, chefId }) => ({
@@ -68,7 +102,7 @@ export const orderApi = privateAPi.injectEndpoints({
         method: "POST",
         body: { chef_id: chefId },
       }),
-      invalidatesTags: ["PendingOrders", "getOrders", "ChefOrders"],
+      invalidatesTags: ["PendingOrders", "getOrders", "ChefOrders", "WaiterDashboard"],
     }),
     getChefOrders: build.query({
       query: () => ({ url: "/restaurants/orders/chef/", method: "GET" }),
@@ -76,15 +110,15 @@ export const orderApi = privateAPi.injectEndpoints({
     }),
     startPreparing: build.mutation({
       query: (orderId) => ({ url: `/restaurants/orders/${orderId}/start-preparing/`, method: "POST" }),
-      invalidatesTags: ["ChefOrders"],
+      invalidatesTags: ["ChefOrders", "ManagerDashboard", "CommandCenter"],
     }),
     markPrepared: build.mutation({
       query: (orderId) => ({ url: `/restaurants/orders/${orderId}/mark-prepared/`, method: "POST" }),
-      invalidatesTags: ["ChefOrders", "ReadyOrders"],
+      invalidatesTags: ["ChefOrders", "ReadyOrders", "WaiterDashboard", "ManagerDashboard", "CommandCenter"],
     }),
     markServed: build.mutation({
       query: (orderId) => ({ url: `/restaurants/orders/${orderId}/mark-served/`, method: "POST" }),
-      invalidatesTags: ["PendingOrders", "ReadyOrders", "ChefOrders", "getOrders"],
+      invalidatesTags: ["PendingOrders", "ReadyOrders", "ChefOrders", "getOrders", "WaiterDashboard", "WaiterCashOrders", "ManagerDashboard", "CommandCenter"],
     }),
     getManagerDashboard: build.query({
       query: () => ({ url: "/restaurants/manager/dashboard/", method: "GET" }),

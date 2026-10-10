@@ -6,6 +6,7 @@ from rest_framework import status
 from django.shortcuts import get_object_or_404
 
 from apps.restaurants.constants import DineInSessionStatus
+from apps.restaurants.services.table_lifecycle import clean_and_get_active_session
 from apps.restaurants.models import (
     Restaurant,
     Table,
@@ -68,16 +69,7 @@ class DineInValidateAPIView(APIView):
                 {"detail": "Invalid table"},
             )
 
-        active_session = (
-            DineInSession.objects
-            .filter(
-                restaurant=restaurant,
-                table=table,
-                status=DineInSessionStatus.ACTIVE.value
-            )
-            .only("id", "guests")
-            .first()
-        )
+        active_session = clean_and_get_active_session(table, restaurant=restaurant)
 
         # Fetch menu
         menus = (

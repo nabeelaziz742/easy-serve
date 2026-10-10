@@ -83,7 +83,20 @@ const ChefOrderCard = ({ order, onStart, onReady }) => {
 };
 
 export default function ChefPage() {
-  const { data, isLoading } = useGetChefOrdersQuery(undefined, { pollingInterval: 3000, refetchOnFocus: true, refetchOnReconnect: true, refetchOnMountOrArgChange: true });
+  return (
+    <RoleGuard allowedRoles={["chef"]}>
+      <ChefContent />
+    </RoleGuard>
+  );
+}
+
+function ChefContent() {
+  const { data, isLoading } = useGetChefOrdersQuery(undefined, {
+    pollingInterval: 3000,
+    refetchOnFocus: true,
+    refetchOnReconnect: true,
+    refetchOnMountOrArgChange: true,
+  });
   const [startPreparing] = useStartPreparingMutation();
   const [markPrepared] = useMarkPreparedMutation();
 
@@ -111,23 +124,20 @@ export default function ChefPage() {
 
   if (isLoading) {
     return (
-      <RoleGuard allowedRoles={["chef"]}>
-        <div className="mx-auto max-w-7xl space-y-6 px-4 py-8">
-          <Skeleton className="h-10 w-1/3 rounded-2xl" />
-          <div className="grid grid-cols-3 gap-3">
-            {[1, 2, 3].map((i) => (
-              <Skeleton key={i} className="h-24 rounded-2xl" />
-            ))}
-          </div>
-          <Skeleton className="h-80 rounded-3xl" />
+      <div className="mx-auto max-w-7xl space-y-6 px-4 py-8">
+        <Skeleton className="h-10 w-1/3 rounded-2xl" />
+        <div className="grid grid-cols-3 gap-3">
+          {[1, 2, 3].map((i) => (
+            <Skeleton key={i} className="h-24 rounded-2xl" />
+          ))}
         </div>
-      </RoleGuard>
+        <Skeleton className="h-80 rounded-3xl" />
+      </div>
     );
   }
 
   return (
-    <RoleGuard allowedRoles={["chef"]}>
-      <div className="mx-auto max-w-7xl space-y-6 px-4 py-6">
+    <div className="mx-auto max-w-7xl space-y-6 px-4 py-6">
         {/* Header */}
         <div className="flex flex-col justify-between gap-3 md:flex-row md:items-center">
           <div>
@@ -186,7 +196,6 @@ export default function ChefPage() {
           )}
         </section>
       </div>
-    </RoleGuard>
-  );
-}
+    );
+  }
 

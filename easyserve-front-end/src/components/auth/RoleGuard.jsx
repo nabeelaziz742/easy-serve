@@ -22,11 +22,10 @@ export default function RoleGuard({ allowedRoles, children }) {
   const {
     data: me,
     isLoading: isRestoring,
-    isFetching: isRestoreFetching,
     error: restoreError,
     refetch: refetchMe,
   } = useGetMeQuery(undefined, {
-    skip: !mounted || isAuthenticated || !hasStoredToken,
+    skip: !mounted || !hasStoredToken,
   });
 
   const restoreFailed =
@@ -34,55 +33,45 @@ export default function RoleGuard({ allowedRoles, children }) {
     (restoreError.status === 401 || restoreError.status === 403);
 
   useEffect(() => {
-    if (!isAuthenticated && me) {
+    if (me) {
       dispatch(onAuthorized(me));
     }
-  }, [dispatch, isAuthenticated, me]);
+  }, [dispatch, me]);
 
   useEffect(() => {
     if (
       mounted &&
-      !isAuthenticated &&
       hasStoredToken &&
       !isRestoring &&
-      !isRestoreFetching &&
       restoreError &&
       restoreError.status !== 401 &&
       restoreError.status !== 403
     ) {
-      const timer = setTimeout(() => refetchMe(), 2000);
+      const timer = setTimeout(() => refetchMe(), 3000);
       return () => clearTimeout(timer);
     }
     return undefined;
-  }, [
-    hasStoredToken,
-    isAuthenticated,
-    isRestoreFetching,
-    isRestoring,
-    mounted,
-    refetchMe,
-    restoreError,
-  ]);
+  }, [hasStoredToken, isRestoring, mounted, refetchMe, restoreError]);
 
   useEffect(() => {
     if (!mounted) return;
 
-    if (!isAuthenticated && hasStoredToken) {
-      if (isRestoring || isRestoreFetching || !me) return;
-
-      if (restoreFailed) {
-        dispatch(onLoggedOut());
-        router.replace("/auth/login");
-      }
-      return;
-    }
-
-    if (!isAuthenticated && !hasStoredToken) {
+    // No stored token and not authenticated
+    if (!hasStoredToken && !isAuthenticated) {
       router.replace("/auth/login");
       return;
     }
 
-    if (user?.user_type && allowedRoles && !allowedRoles.includes(user.user_type)) {
+    // Explicit permanent session expiration
+    if (restoreFailed) {
+      dispatch(onLoggedOut());
+      router.replace("/auth/login");
+      return;
+    }
+
+    // Role check once user role is available
+    const activeRole = user?.user_type || me?.user_type;
+    if (activeRole && allowedRoles && !allowedRoles.includes(activeRole)) {
       router.replace("/");
     }
   }, [
@@ -90,17 +79,15 @@ export default function RoleGuard({ allowedRoles, children }) {
     dispatch,
     hasStoredToken,
     isAuthenticated,
-    isRestoreFetching,
-    isRestoring,
-    me,
+    me?.user_type,
     mounted,
     restoreFailed,
     router,
     user?.user_type,
   ]);
 
-  // While verifying or restoring authentication session on client reload
-  if (!mounted || (!isAuthenticated && hasStoredToken)) {
+  // Loading state while restoring session on initial reload if no user profile is in state
+  if (!mounted || (hasStoredToken && !user && !me && isRestoring)) {
     return (
       <div className="flex min-h-[70vh] flex-col items-center justify-center space-y-4 p-8">
         <div className="h-8 w-8 animate-spin rounded-full border-4 border-amber-500 border-t-transparent" />
@@ -109,14 +96,16 @@ export default function RoleGuard({ allowedRoles, children }) {
     );
   }
 
-  if (!isAuthenticated) {
+  if (!hasStoredToken && !isAuthenticated) {
     return null;
   }
 
-  if (user?.user_type && allowedRoles && !allowedRoles.includes(user.user_type)) {
+  const activeRole = user?.user_type || me?.user_type;
+  if (activeRole && allowedRoles && !allowedRoles.includes(activeRole)) {
     return null;
   }
 
   return children;
 }
+
 

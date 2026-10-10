@@ -12,7 +12,21 @@ export const waiterApi = privateAPi.injectEndpoints({
     }),
     receiveCashPayment: build.mutation({
       query: (orderId) => ({ url: `/restaurants/orders/${orderId}/cash-receive/`, method: "POST" }),
-      invalidatesTags: ["WaiterCashOrders", "WaiterDashboard", "ManagerCashOrders", "ManagerDashboard", "getOrders", "getOrder"],
+      invalidatesTags: [
+        "WaiterCashOrders",
+        "WaiterDashboard",
+        "ManagerCashOrders",
+        "ManagerDashboard",
+        "getOrders",
+        "getOrder",
+        "FinancialOverview",
+        "FinancialTrends",
+        "FinancialBreakdown",
+        "FinancialReconciliation",
+        "FinancialProductPerformance",
+        "CommandCenter",
+        "FinancialReports",
+      ],
     }),
     addReview: build.mutation({
       query: (data) => ({ url: "/dashboard/tables/review/", method: "POST", body: data }),

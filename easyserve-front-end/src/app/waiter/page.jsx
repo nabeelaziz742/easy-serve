@@ -66,6 +66,14 @@ const OrderCard = ({ order, ready = false, onAction }) => (
 );
 
 export default function WaiterPage() {
+  return (
+    <RoleGuard allowedRoles={["waiter"]}>
+      <WaiterContent />
+    </RoleGuard>
+  );
+}
+
+function WaiterContent() {
   const { data, isLoading } = useGetPendingOrdersQuery(undefined, { pollingInterval: 3000, refetchOnFocus: true, refetchOnReconnect: true, refetchOnMountOrArgChange: true });
   const { data: readyData } = useGetReadyOrdersQuery(undefined, { pollingInterval: 3000, refetchOnFocus: true, refetchOnReconnect: true, refetchOnMountOrArgChange: true });
   const { data: dashboardData } = useGetWaiterDashboardQuery(undefined, { pollingInterval: 3000, refetchOnFocus: true, refetchOnReconnect: true, refetchOnMountOrArgChange: true });
@@ -108,23 +116,20 @@ export default function WaiterPage() {
 
   if (isLoading) {
     return (
-      <RoleGuard allowedRoles={["waiter"]}>
-        <div className="mx-auto max-w-7xl space-y-6 px-4 py-8">
-          <Skeleton className="h-10 w-1/3 rounded-2xl" />
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-            {[1, 2, 3].map((i) => (
-              <Skeleton key={i} className="h-24 rounded-2xl" />
-            ))}
-          </div>
-          <Skeleton className="h-80 rounded-3xl" />
+      <div className="mx-auto max-w-7xl space-y-6 px-4 py-8">
+        <Skeleton className="h-10 w-1/3 rounded-2xl" />
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+          {[1, 2, 3].map((i) => (
+            <Skeleton key={i} className="h-24 rounded-2xl" />
+          ))}
         </div>
-      </RoleGuard>
+        <Skeleton className="h-80 rounded-3xl" />
+      </div>
     );
   }
 
   return (
-    <RoleGuard allowedRoles={["waiter"]}>
-      <div className="mx-auto max-w-7xl space-y-7 px-4 py-6 sm:px-6">
+    <div className="mx-auto max-w-7xl space-y-7 px-4 py-6 sm:px-6">
         {/* Top Header */}
         <div className="flex flex-col justify-between gap-3 md:flex-row md:items-center">
           <div>
@@ -241,7 +246,6 @@ export default function WaiterPage() {
           )}
         </section>
       </div>
-    </RoleGuard>
-  );
-}
+    );
+  }
 

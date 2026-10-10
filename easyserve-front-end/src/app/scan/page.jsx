@@ -75,10 +75,12 @@ export default function ScanQRPage() {
 
     if (clean.startsWith("http")) {
       const url = new URL(clean);
+      const pathMatch = url.pathname.match(/\/restaurant\/([^/?]+)/);
       return {
         restaurant_id:
           url.searchParams.get("rid") ||
-          url.searchParams.get("restaurant"),
+          url.searchParams.get("restaurant") ||
+          (pathMatch ? pathMatch[1] : null),
         table_number: url.searchParams.get("table"),
       };
     }

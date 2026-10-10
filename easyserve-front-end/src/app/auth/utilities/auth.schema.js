@@ -58,8 +58,8 @@ export const registerSchema = z
   });
 
 export const loginSchema = z.object({
-  email: z.email({ error: "Enter a valid email." }),
+  email: z.string().email({ message: "Enter a valid email." }),
   password: z
     .string()
-    .min(8, { error: "Password must be at least 8 characters." }),
+    .min(8, { message: "Password must be at least 8 characters." }),
 });

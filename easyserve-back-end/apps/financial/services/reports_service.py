@@ -70,7 +70,9 @@ class ReportsService:
         Detailed transaction ledger of confirmed, non-cancelled orders.
         """
         orders_qs = Orders.objects.filter(
-            Q(table__restaurant=restaurant) | Q(items__menu_item__menu__restaurant=restaurant),
+            Q(table__restaurant=restaurant)
+            | Q(dine_in_session__restaurant=restaurant)
+            | Q(items__menu_item__menu__restaurant=restaurant),
             order_cancelled=False,
             payment_status=PaymentStatus.CONFIRMED.value
         ).distinct()
