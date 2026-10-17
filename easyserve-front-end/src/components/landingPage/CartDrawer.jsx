@@ -3,11 +3,29 @@
 import { motion } from "framer-motion";
 import { useRouter } from "next/navigation";
 import { X, Plus, Minus, Trash2, ShoppingBag } from "lucide-react";
+import { toast } from "sonner";
 import Image from "next/image";
 import { useSelector, useDispatch } from "react-redux";
 import { removeItem, increaseQty, decreaseQty, toggleCart, clearCart } from "@/store/slices/cartSlice";
+import { clearDineIn } from "@/store/slices/dineInSlice";
 import MenuPic from "@/assets/menuImgs/menu-pic.jpg";
 import { useAddOrderMutation } from "@/services/private/orders";
+
+const DINE_IN_STORAGE_KEY = "easyserve:dine-in-context";
+
+// RTK Query errors are { status, data }; the Next.js overlay printed them as
+// "{}", hiding the server's reason. Turn them into one readable sentence.
+const checkoutErrorMessage = (error) => {
+  const data = error?.data;
+  if (typeof data?.detail === "string") return data.detail;
+  if (data && typeof data === "object") {
+    const first = Object.values(data).flat().find((v) => typeof v === "string");
+    if (first) return first;
+  }
+  if (error?.status === "FETCH_ERROR") return "Cannot reach the server. Please check that the backend is running.";
+  if (error?.status === 401) return "Please log in again to place your order.";
+  return "Checkout failed. Please try again.";
+};
 
 export default function CartDrawer() {
   const dispatch = useDispatch();
@@ -60,7 +78,30 @@ export default function CartDrawer() {
       console.log("Order created:", res);
       router.push("/orders");
     } catch (error) {
-      console.error("Checkout failed:", error);
+      const message = checkoutErrorMessage(error);
+      // Handled and shown to the customer, so a warning rather than an
+      // error that opens the Next.js dev overlay.
+      console.warn(`Checkout failed (${error?.status ?? "unknown"}): ${message}`);
+      toast.error(message);
+
+      // The table's session was closed after the bill was settled, so the
+      // saved token can never work again. Forget it and reopen the table's
+      // QR link, which starts a fresh session (guest count, then menu) and
+      // keeps the cart.
+      if (error?.data?.code === "dine_in_session_ended") {
+        const restaurantId = dineIn.restaurant?.id;
+        const tableNumber = dineIn.table?.number ?? dineIn.table;
+        dispatch(clearDineIn());
+        try {
+          window.localStorage.removeItem(DINE_IN_STORAGE_KEY);
+        } catch (_) {
+          // Storage can be unavailable (private mode); the Redux state is cleared.
+        }
+        dispatch(toggleCart());
+        if (restaurantId && tableNumber) {
+          router.push(`/restaurant/${restaurantId}?mode=dine-in&table=${tableNumber}`);
+        }
+      }
     }
   };
 

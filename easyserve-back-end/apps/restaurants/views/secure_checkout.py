@@ -55,13 +55,26 @@ class SecureOrderCheckoutAPIView(OrderCheckoutAPIView):
             table_number=table_number,
             is_active=True,
         )
-        session = get_object_or_404(
-            DineInSession,
+        # The session closes when the bill is settled. A browser that still
+        # holds the old token used to get a bare 404 here, which the cart
+        # showed as "Checkout failed: {}" on every attempt.
+        session = DineInSession.objects.filter(
             restaurant=restaurant,
             table=table,
             token=session_token,
             status=DineInSessionStatus.ACTIVE.value,
-        )
+        ).first()
+        if session is None:
+            return Response(
+                {
+                    "detail": (
+                        "Your table session has ended. Please scan the "
+                        "table QR code again to order."
+                    ),
+                    "code": "dine_in_session_ended",
+                },
+                status=status.HTTP_409_CONFLICT,
+            )
 
         try:
             guests = int(data.get("guests", session.guests))
