@@ -1,6 +1,7 @@
 from django.utils.timezone import now
 from apps.restaurants.models import Orders, Table
-from apps.restaurants.constants import OrderStatus, TableState, PaymentStatus
+from apps.restaurants.constants import OrderStatus, PaymentStatus
+from apps.restaurants.services.table_lifecycle import table_is_busy
 
 
 class WaiterRepository:
@@ -20,48 +21,32 @@ class WaiterRepository:
 
     @staticmethod
     def get_active_table_count(user_profile):
-        """Count distinct tables currently requiring waiter attention.
+        """Count tables this waiter is looking after that are in use now.
 
-        The latest order is authoritative when a stale TableState conflicts
-        with the order lifecycle. A served + confirmed order releases the
-        table from the active count; a served order awaiting cash settlement
-        remains active until the manager settles it.
+        Candidates are the waiter's assigned tables plus any table where the
+        waiter still has an unpaid order. Whether a table is in use comes
+        from the shared table lifecycle (active dine-in session or open
+        order), the same rule that frees the table on settlement. The old
+        count mixed raw table_state with "latest order" checks, so a table
+        could stay "active" here after the manager had settled it.
         """
-        inactive_states = {
-            TableState.EMPTY.value,
-            TableState.CLEANING.value,
-            TableState.UNAVAILABLE.value,
-        }
-        active_ids = set()
+        candidate_ids = set(
+            WaiterRepository.get_assigned_tables(user_profile).values_list("id", flat=True)
+        )
+        candidate_ids.update(
+            Orders.objects.filter(
+                waiter=user_profile,
+                table__isnull=False,
+                order_cancelled=False,
+                payment_status=PaymentStatus.PENDING.value,
+            ).values_list("table_id", flat=True)
+        )
 
-        for table in WaiterRepository.get_assigned_tables(user_profile):
-            latest_order = (
-                Orders.objects
-                .filter(table=table, order_cancelled=False)
-                .order_by("-created_at")
-                .first()
-            )
-
-            if latest_order and (
-                latest_order.order_status == OrderStatus.SERVED.value
-                and latest_order.payment_status == PaymentStatus.CONFIRMED.value
-            ):
-                continue
-
-            if table.table_state not in inactive_states:
-                active_ids.add(table.id)
-
-        active_order_table_ids = Orders.objects.filter(
-            waiter=user_profile,
-            table__isnull=False,
-            order_cancelled=False,
-        ).exclude(
-            order_status=OrderStatus.SERVED.value,
-            payment_status=PaymentStatus.CONFIRMED.value,
-        ).values_list("table_id", flat=True).distinct()
-
-        active_ids.update(active_order_table_ids)
-        return len(active_ids)
+        return sum(
+            1
+            for table in Table.objects.filter(id__in=candidate_ids, is_active=True)
+            if table_is_busy(table)
+        )
 
     @staticmethod
     def get_today_stats(user_profile):

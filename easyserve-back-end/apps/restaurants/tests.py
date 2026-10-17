@@ -76,6 +76,9 @@ class OrderFlowTestCase(TestCase):
     # --- Waiter accept (consolidated in F-11) ---
 
     def test_waiter_sees_pending_order_for_their_restaurant(self):
+        # The order reaches the waiter once the customer chose Pay with cash.
+        self.client.force_authenticate(user=self.customer_user)
+        self.client.post(f"/api/restaurants/orders/{self.order.id}/cash-request/")
         self.client.force_authenticate(user=self.waiter_user)
         response = self.client.get("/api/restaurants/orders/pending/")
         self.assertEqual(response.status_code, status.HTTP_200_OK)
@@ -475,7 +478,10 @@ class FullAcceptanceWorkflowTestCase(TestCase):
         OrderItem.objects.create(order=order, menu_item=self.item1, quantity=1, price=25)
         OrderItem.objects.create(order=order, menu_item=self.item2, quantity=1, price=5)
 
-        # Step 2: Waiter polls pending orders and sees the new order
+        # Step 2: Customer picks Pay with cash; the waiter polls pending
+        # orders and sees the new order
+        self.client.force_authenticate(user=self.customer_user)
+        self.client.post(f"/api/restaurants/orders/{order.id}/cash-request/")
         self.client.force_authenticate(user=self.waiter_user)
         res = self.client.get("/api/restaurants/orders/pending/")
         self.assertEqual(res.status_code, status.HTTP_200_OK)

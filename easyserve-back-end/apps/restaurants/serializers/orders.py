@@ -1,4 +1,5 @@
 from rest_framework import serializers
+from apps.restaurants.constants import PaymentMethod
 from apps.restaurants.models import Orders, OrderItem, MenuItem
 
 
@@ -113,6 +114,7 @@ class OrderSerializer(serializers.ModelSerializer):
     waiter_name = serializers.SerializerMethodField()
     chef_name = serializers.SerializerMethodField()
     table_number = serializers.SerializerMethodField()
+    cash_requested = serializers.SerializerMethodField()
 
     class Meta:
         model = Orders
@@ -130,6 +132,7 @@ class OrderSerializer(serializers.ModelSerializer):
             'waiter_name',
             'chef_name',
             'table_number',
+            'cash_requested',
             'items',
         ]
 
@@ -147,3 +150,10 @@ class OrderSerializer(serializers.ModelSerializer):
         if obj.table:
             return obj.table.table_number
         return None
+
+    def get_cash_requested(self, obj):
+        # Lets the customer's orders page keep showing "Cash requested"
+        # after a reload instead of offering Pay with cash again.
+        return obj.paymentdetails_set.filter(
+            payment_method=PaymentMethod.CATCH_ON_DELIVERY.value
+        ).exists()

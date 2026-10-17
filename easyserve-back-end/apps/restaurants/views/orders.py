@@ -315,9 +315,15 @@ class PendingOrderListAPIView(ListAPIView):
             return Orders.objects.none()
 
         target_id = restaurant.id if restaurant else restaurant_id
+        # The order reaches the waiter once the customer chose how to pay
+        # (Pay with cash creates the payment record, Pay with card confirms
+        # the order). A bare checkout is still on the customer's payment page.
         return Orders.objects.filter(
             accepted_by_waiter=False,
             order_status=OrderStatus.TO_PREPARE,
+            order_cancelled=False,
+        ).filter(
+            Q(paymentdetails__isnull=False) | Q(payment_status=PaymentStatus.CONFIRMED.value)
         ).filter(
             Q(table__restaurant_id=target_id)
             | Q(dine_in_session__restaurant_id=target_id)

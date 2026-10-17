@@ -16,7 +16,8 @@ export default function TablesPage() {
   const tables = data?.results ?? data ?? [];
   const showError = isError && !isFetching && tables.length === 0;
 
-  const occupiedCount = tables.filter((t) => t.status === "OCCUPIED" || t.status === "ORDER_PLACED" || t.status === "PREPARING").length;
+  const BUSY_STATUSES = ["OCCUPIED", "ORDER_PLACED", "PREPARING", "READY", "SERVED", "PAYMENT_PENDING"];
+  const occupiedCount = tables.filter((t) => BUSY_STATUSES.includes(t.status)).length;
   const availableCount = tables.filter((t) => t.status === "EMPTY").length;
 
   return (

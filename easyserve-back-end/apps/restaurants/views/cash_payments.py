@@ -179,11 +179,20 @@ class WaiterCashOrdersAPIView(ListAPIView):
         restaurant = waiter.restaurant
         restaurant_id = waiter.restaurant_id or getattr(waiter, "selected_restaurant", None)
 
-        base_filter = Q(
+        # Cash is collected after the food is served. A served order with no
+        # payment record at all (placed before payment had to be chosen
+        # first) is also listed, otherwise nobody could ever collect it and
+        # its table stayed active forever.
+        cash_requested = Q(
             paymentdetails__payment_method=PaymentMethod.CATCH_ON_DELIVERY.value,
             paymentdetails__payment_status=PaymentStatus.PENDING.value,
             paymentdetails__cash_received_by__isnull=True,
             paymentdetails__cash_settled_by__isnull=True,
+        )
+        base_filter = (cash_requested | Q(paymentdetails__isnull=True)) & Q(
+            order_status=OrderStatus.SERVED.value,
+            payment_status=PaymentStatus.PENDING.value,
+            order_cancelled=False,
         )
 
         target_id = restaurant.id if restaurant else restaurant_id

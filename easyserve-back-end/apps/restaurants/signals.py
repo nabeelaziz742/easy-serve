@@ -3,7 +3,7 @@ from django.dispatch import receiver
 
 from apps.restaurants.constants import OrderStatus, OrderType, PaymentStatus, TableState
 from apps.restaurants.models import Orders
-from apps.restaurants.services.table_lifecycle import release_table_after_payment
+from apps.restaurants.services.table_lifecycle import release_table_after_payment, clean_and_get_active_session
 
 
 @receiver(post_save, sender=Orders)
@@ -18,6 +18,12 @@ def sync_dine_in_table_state(sender, instance, **kwargs):
 
     table = instance.table
     if not table or not table.is_active:
+        return
+
+    # A cancelled order no longer drives the table; let the shared
+    # lifecycle decide whether anything else still keeps it busy.
+    if instance.order_cancelled:
+        clean_and_get_active_session(table)
         return
 
     if instance.order_status == OrderStatus.SERVED.value:

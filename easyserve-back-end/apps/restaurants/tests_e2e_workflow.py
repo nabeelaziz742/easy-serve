@@ -204,7 +204,10 @@ class RealtimeWorkflowAndFinancialTests(TestCase):
                 return [o["id"] for o in resp_data]
             return []
 
-        # 2. Verify Waiter sees new order in Pending Orders (Requirement A)
+        # 2. Customer picks Pay with cash, then the waiter sees the new
+        # order in Pending Orders (Requirement A)
+        self.client.force_authenticate(user=self.customer_user)
+        self.client.post(f"/api/restaurants/orders/{order.id}/cash-request/")
         self.client.force_authenticate(user=self.waiter_user)
         pending_resp = self.client.get("/api/restaurants/orders/pending/")
         self.assertEqual(pending_resp.status_code, status.HTTP_200_OK)

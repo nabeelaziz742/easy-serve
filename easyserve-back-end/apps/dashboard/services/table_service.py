@@ -1,5 +1,6 @@
 from apps.dashboard.repositories import TableRepository
-from apps.restaurants.constants import OrderStatus, PaymentStatus, TableState
+from apps.restaurants.constants import TableState
+from apps.restaurants.services.table_lifecycle import clean_and_get_active_session
 
 
 class TableService:
@@ -11,14 +12,23 @@ class TableService:
         tables = TableRepository.get_all_tables(restaurant_id)
 
         for table in tables:
-            order = TableRepository.get_latest_order_for_table(table)
-            status = table.get_table_state_display().upper().replace(" ", "_")
+            # The shared lifecycle decides whether the table is in use and
+            # heals a table left busy after its bill was settled. The page
+            # used to guess from the latest order instead, so it could show
+            # EMPTY while the waiter dashboard still counted the table.
+            session = clean_and_get_active_session(table)
+            table.refresh_from_db(fields=["table_state", "customer_count"])
+            order = TableRepository.get_current_order_for_table(table, session)
+
+            # Enum names match the keys the Tables page styles (READY,
+            # PREPARING, PAYMENT_PENDING); the display labels did not.
+            status = TableState(table.table_state).name
 
             table_info = {
                 "id": table.id,
                 "number": table.table_number,
                 "status": status,
-                "customers": table.customer_count,
+                "customers": table.customer_count if status != TableState.EMPTY.name else 0,
                 "orderItems": [],
                 "orderTime": None,
                 "orderId": None,
@@ -26,52 +36,32 @@ class TableService:
                 "review": None,
             }
 
-            if order:
+            if order and status != TableState.EMPTY.name:
                 items = TableRepository.get_order_items(order)
-
-                # Order/payment lifecycle is authoritative for a completed
-                # dine-in order. Never let a stale table_state keep a served
-                # table looking OCCUPIED.
-                if order.order_status == OrderStatus.SERVED.value:
-                    if order.payment_status == PaymentStatus.CONFIRMED.value:
-                        status = TableState.EMPTY.name
-                    else:
-                        status = TableState.PAYMENT_PENDING.name
-                else:
-                    status = order.table.get_table_state_display().upper().replace(" ", "_")
-
-                table_info["status"] = status
-
-                # Once payment is confirmed, the previous order must no
-                # longer make the table look active or occupied.
-                if status == TableState.EMPTY.name:
-                    table_info["customers"] = 0
-                else:
-                    table_info.update({
-                        "customers": order.table.customer_count,
-                        "orderItems": [
-                            {
-                                "item_name": i.menu_item.name,
-                                "quantity": i.quantity,
-                                "price": str(i.price),
-                                "comments": i.comments or "",
-                            }
-                            for i in items
-                        ],
-                        "orderTime": order.created_at,
-                        "orderId": order.id,
-                        "customer_name": getattr(order.user, "full_name", None),
-                        "review": (
-                            {
-                                "rate": order.review.rate,
-                                "comment": order.review.comment,
-                                "created_by": order.review.created_by,
-                                "created_at": order.review.created_at,
-                            }
-                            if hasattr(order, "review") and order.review
-                            else None
-                        ),
-                    })
+                table_info.update({
+                    "orderItems": [
+                        {
+                            "item_name": i.menu_item.name,
+                            "quantity": i.quantity,
+                            "price": str(i.price),
+                            "comments": i.comments or "",
+                        }
+                        for i in items
+                    ],
+                    "orderTime": order.created_at,
+                    "orderId": order.id,
+                    "customer_name": getattr(order.user, "full_name", None),
+                    "review": (
+                        {
+                            "rate": order.review.rate,
+                            "comment": order.review.comment,
+                            "created_by": order.review.created_by,
+                            "created_at": order.review.created_at,
+                        }
+                        if hasattr(order, "review") and order.review
+                        else None
+                    ),
+                })
 
             tables_data.append(table_info)
 

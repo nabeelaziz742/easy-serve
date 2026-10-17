@@ -176,7 +176,7 @@ function ClientOrders() {
                 hour: "2-digit",
                 minute: "2-digit",
               });
-              const cashRequested = cashRequestedIds.includes(order.id);
+              const cashRequested = order.cash_requested || cashRequestedIds.includes(order.id);
               const paymentMeta = PAYMENT_STATUS_META[order.payment_status] || {
                 label: order.payment_status,
                 color: "bg-gray-100 text-gray-700",
@@ -284,6 +284,11 @@ function ClientOrders() {
 
                       {order.payment_status !== "Confirmed" && !order.order_cancelled && (
                         <div className="space-y-3 pt-2">
+                          {!cashRequested && order.order_status === "To Prepare" && !order.accepted_by_waiter && (
+                            <p className="rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs font-semibold text-amber-800">
+                              Choose how you will pay to send this order to the kitchen.
+                            </p>
+                          )}
                           <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2">
                             <Button
                               variant="outline"

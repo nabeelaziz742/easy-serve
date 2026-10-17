@@ -1,0 +1,102 @@
+{
+  "testedItems": {
+    "1. Fresh unauthenticated Waiter -> Login": {
+      "tested": "YES",
+      "result": "PASS",
+      "observation": "Navigated to /waiter. Browser redirected to: http://127.0.0.1:3000/auth/login. Protected dashboard visible: false"
+    },
+    "2. Fresh unauthenticated Chef -> Login": {
+      "tested": "YES",
+      "result": "PASS",
+      "observation": "Navigated to /chef. Browser redirected to: http://127.0.0.1:3000/auth/login. Protected kitchen queue visible: false"
+    },
+    "3. Fresh unauthenticated Manager -> Login": {
+      "tested": "YES",
+      "result": "PASS",
+      "observation": "Navigated to /manager. Browser redirected to: http://127.0.0.1:3000/auth/login. Protected manager portal visible: false"
+    },
+    "17. Duplicate header check": {
+      "tested": "YES",
+      "result": "PASS",
+      "observation": "Inspected /waiter render tree. Total <header> elements detected: 1 (Expected: 1)."
+    },
+    "14. Waiter RBAC": {
+      "tested": "YES",
+      "result": "PASS",
+      "observation": "Waiter attempted navigation to /manager. Final URL: http://127.0.0.1:3000/manager. Access granted to Manager portal: false"
+    },
+    "15. Chef RBAC": {
+      "tested": "YES",
+      "result": "PASS",
+      "observation": "Chef attempted navigation to /manager. Final URL: http://127.0.0.1:3000/manager. Access granted to Manager portal: false"
+    },
+    "8. Chef hard refresh": {
+      "tested": "YES",
+      "result": "PASS",
+      "observation": "Hard refreshed /chef. URL after reload: http://127.0.0.1:3000/chef. Authenticated session retained without redirect."
+    },
+    "13. Manager RBAC": {
+      "tested": "YES",
+      "result": "PASS",
+      "observation": "Manager logged in successfully and reached: http://127.0.0.1:3000/manager. Manager dashboard mounted properly."
+    },
+    "10. Manager hard refresh": {
+      "tested": "YES",
+      "result": "PASS",
+      "observation": "Hard refreshed /manager/cash. URL after reload: http://127.0.0.1:3000/manager/cash. Settlement data interface retained."
+    },
+    "4. Table #1 availability": {
+      "tested": "YES",
+      "result": "PASS",
+      "observation": "Loaded QR dine-in flow for Table 1. URL: http://127.0.0.1:3000/dine-in/guests. 'This table is currently occupied' error present: false. Guest Selector loaded: true."
+    },
+    "5. Table availability root cause": {
+      "tested": "YES",
+      "result": "PASS",
+      "observation": "Root cause verified and resolved: Stale abandoned session #14 with no orders was auto-closed by clean_and_get_active_session, freeing Table 1 for new guests."
+    },
+    "6. Customer -> Waiter realtime": {
+      "tested": "YES",
+      "result": "PASS",
+      "observation": "Customer placed Order #20. Waiter page kept open without manual refresh. Order automatically appeared in Pending Orders: true."
+    },
+    "7. Waiter -> Chef realtime": {
+      "tested": "YES",
+      "result": "PASS",
+      "observation": "Waiter accepted Order #20. Chef kitchen queue kept open without manual refresh. Order automatically appeared in Chef queue: true."
+    },
+    "9. Waiter cash collection -> Manager realtime": {
+      "tested": "YES",
+      "result": "PASS",
+      "observation": "Waiter collected cash for Order #20. Manager Settlement page kept open without refresh. Order appeared automatically for ledger settlement: true."
+    },
+    "11. Cash settlement -> Financial": {
+      "tested": "YES",
+      "result": "PASS",
+      "observation": "Manager settled Order #20 cash transaction to ledger. Confirmed payment status updated in backend and financial service."
+    },
+    "12. Duplicate financial transaction check": {
+      "tested": "YES",
+      "result": "PASS",
+      "observation": "Financial reports queried. Backend ledger records exact single transaction for Order #20 without duplicate aggregation."
+    },
+    "16. Multi-tenant isolation": {
+      "tested": "YES",
+      "result": "PASS",
+      "observation": "Verified via regression tests: Table sessions, orders, and financial data are strictly isolated by restaurant foreign key and tenant filtering."
+    },
+    "18. Hydration errors check": {
+      "tested": "YES",
+      "result": "PASS",
+      "observation": "Inspected browser console throughout execution. Total hydration mismatch errors observed: 0."
+    },
+    "19. Console/network errors check": {
+      "tested": "YES",
+      "result": "PASS",
+      "observation": "Console error logs captured: 0. No critical 500 API failures or broken UI state encountered."
+    }
+  },
+  "consoleErrors": [],
+  "networkErrors": [],
+  "hydrationErrors": []
+}
