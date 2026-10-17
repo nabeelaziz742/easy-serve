@@ -186,3 +186,33 @@ class StuckTableTests(OrderFlowBase):
     def pay_cash_after_request(self, oid):
         self.ok(self.waiter, f"/api/restaurants/orders/{oid}/cash-receive/")
         self.ok(self.manager, f"/api/restaurants/orders/{oid}/cash-settle/")
+
+
+class CheckoutAfterSettlementTests(OrderFlowBase):
+    def test_old_session_token_gets_clear_409_not_404(self):
+        token = self.start_session()
+        oid = self.place_dine_in(token)
+        self.ok(self.customer, f"/api/restaurants/orders/{oid}/cash-request/")
+        self.to_served(oid)
+        self.ok(self.waiter, f"/api/restaurants/orders/{oid}/cash-receive/")
+        self.ok(self.manager, f"/api/restaurants/orders/{oid}/cash-settle/")
+
+        # The customer's browser still holds the closed session's token.
+        self.as_user(self.customer)
+        res = self.client.post(
+            "/api/restaurants/orders/checkout-order/",
+            {
+                "order_type": "DINE_IN",
+                "restaurant": self.restaurant.id,
+                "table": 1,
+                "guests": 2,
+                "session_token": token,
+                "items": [{"menu_item": self.burger.id, "quantity": 1}],
+            },
+            format="json",
+        )
+        self.assertEqual(res.status_code, 409, res.data)
+        self.assertEqual(res.data["code"], "dine_in_session_ended")
+
+        # Scanning again gives a new session that checks out normally.
+        self.place_dine_in(self.start_session())
