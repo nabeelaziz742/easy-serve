@@ -2,6 +2,7 @@
 
 import { useLoginMutation } from "@/services/public/auth";
 import { onLoggedIn } from "@/store/slices/authSlice";
+import { getRoleHome } from "@/utilities/roleRoutes";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { useDispatch } from "react-redux";
@@ -33,28 +34,11 @@ export default function LoginPage() {
   });
 
   const onSubmit = async (values) => {
-    console.log("FORM VALUES:", values);
-
     try {
       const result = await login(values).unwrap();
-      console.log("LOGIN SUCCESS:", result);
-
       dispatch(onLoggedIn(result));
 
-      if (result.user_type === "waiter") {
-        router.push("/waiter");
-      } else if (result.user_type === "chef") {
-        router.push("/chef");
-      } else if (
-        result.user_type === "manager" ||
-        result.user_type === "restaurant_owner"
-      ) {
-        router.push("/manager");
-      } else if (result.user_type === "user") {
-        router.push("/profile");
-      } else {
-        router.push("/");
-      }
+      router.push(getRoleHome(result.user_type));
     } catch (error) {
       console.log("FULL ERROR OBJECT:", JSON.stringify(error, null, 2));
     }

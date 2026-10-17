@@ -19,8 +19,8 @@ const itemVariants = {
 };
 
 export default function DashboardPage() {
-  const { data, isLoading, isError, refetch } = useGetWaiterDashboardQuery(undefined, { pollingInterval: 60000 });
-  const { data: cashOrdersResponse, isLoading: cashLoading } = useGetWaiterCashOrdersQuery(undefined, { pollingInterval: 15000 });
+  const { data, isLoading, isError, refetch } = useGetWaiterDashboardQuery(undefined, { pollingInterval: 5000, refetchOnFocus: true, refetchOnReconnect: true });
+  const { data: cashOrdersResponse, isLoading: cashLoading } = useGetWaiterCashOrdersQuery(undefined, { pollingInterval: 5000, refetchOnFocus: true, refetchOnReconnect: true });
   const [receiveCash, { isLoading: receivingCash }] = useReceiveCashPaymentMutation();
 
   if (isLoading) {

@@ -27,7 +27,9 @@ class ReviewViewSet(ModelViewSet):
 
     def get_queryset(self):
         user = self.request.user
-        if user.is_staff:
+        # create_user() sets is_staff=True on every account, so is_staff let
+        # every customer list, edit and delete everyone's reviews.
+        if user.is_superuser or getattr(user, "user_type", None) == "super_admin":
             return Review.objects.all().select_related('user', 'order')
         return Review.objects.filter(user=user.profile).select_related('user', 'order')
 

@@ -11,6 +11,9 @@ from rest_framework.views import APIView
 from drf_spectacular.utils import extend_schema
 
 from apps.restaurants.models import Orders
+from apps.restaurants.services.order_access import staff_belongs_to_order_restaurant
+
+STAFF_TYPES = ("waiter", "chef", "manager", "restaurant_owner", "super_admin")
 
 from apps.dashboard.serializers import (
     AssignedTableSerializer,
@@ -77,13 +80,16 @@ class ChangeOrderStatusView(APIView):
 
     def post(self, request, order_id):
 
-        try:
+        order = Orders.objects.filter(id=order_id).first()
 
-            order = Orders.objects.get(
-                id=order_id
-            )
-
-        except Orders.DoesNotExist:
+        # Only staff of the order's own restaurant may change it. This used
+        # to accept any logged-in account (customers, other restaurants).
+        # 404 rather than 403 so the order's existence is not revealed.
+        if (
+            order is None
+            or getattr(request.user, "user_type", None) not in STAFF_TYPES
+            or not staff_belongs_to_order_restaurant(request.user, order)
+        ):
 
             return Response(
                 {
@@ -153,7 +159,19 @@ class AddCustomerReview(APIView):
 
         if serializer.is_valid():
 
-            serializer.save()
+            # A review can only be written by the customer who placed the
+            # order, for the waiter who served it. The client used to choose
+            # "user" and "waiter" freely, so anyone could post reviews under
+            # another customer's name or rate any waiter.
+            order = serializer.validated_data["order"]
+            profile = getattr(request.user, "profile", None)
+            if profile is None or order.user_id != profile.id:
+                return Response(
+                    {"order": ["You can only review your own orders."]},
+                    status=status.HTTP_403_FORBIDDEN
+                )
+
+            serializer.save(user=profile, waiter=order.waiter)
 
             return Response(
                 serializer.data,

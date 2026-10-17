@@ -2,6 +2,7 @@ from rest_framework import serializers
 
 from apps.restaurants.constants import OrderStatus, PaymentStatus, ReviewBy
 from apps.restaurants.models import Review
+from apps.restaurants.services.order_access import staff_belongs_to_order_restaurant
 
 
 class ReviewSerializer(serializers.ModelSerializer):
@@ -86,6 +87,8 @@ class ReviewCreateSerializer(serializers.ModelSerializer):
                 raise serializers.ValidationError("You can review an order only after payment is confirmed.")
         elif profile is None or getattr(profile.user, "user_type", None) != "waiter":
             raise serializers.ValidationError("Only a waiter can submit a waiter review.")
+        elif not staff_belongs_to_order_restaurant(profile.user, order):
+            raise serializers.ValidationError("You can only review orders of your own restaurant.")
 
         return data
 

@@ -1,14 +1,18 @@
 import API_URL from '@/utilities/apiConfig';
 import { createApi, fetchBaseQuery } from '@reduxjs/toolkit/query/react';
+import {
+  adoptSharedIfSameUser,
+  getAccessToken,
+  getRefreshToken,
+} from '@/utilities/authStorage';
 
 const baseQuery = fetchBaseQuery({
   baseUrl: API_URL,
   prepareHeaders: (headers, { getState }) => {
-    // Prefer persisted auth, but fall back to the Redux auth state so a
-    // private request is not sent anonymously when the token is already
-    // available in the current session.
-    const storedToken =
-      typeof window !== 'undefined' ? localStorage.getItem('token') : null;
+    // Prefer this tab's persisted session, but fall back to the Redux auth
+    // state so a private request is not sent anonymously when the token is
+    // already available in the current session.
+    const storedToken = getAccessToken();
     const stateToken = getState()?.auth?.token;
     const token = storedToken || stateToken;
 
@@ -70,58 +74,76 @@ const baseQueryWithReauth = async (args, api, extraOptions) => {
   // Wait until any active refresh has completed
   await mutex.waitForUnlock();
 
+  const currentToken = () => getAccessToken() || api.getState()?.auth?.token || null;
+  const tokenUsed = currentToken();
+
   let result = await baseQuery(args, api, extraOptions);
 
   if (result.error && result.error.status === 401) {
-    if (!mutex.isLocked()) {
+    if (!mutex.isLocked() && currentToken() !== tokenUsed) {
+      // This request was sent with a token that a concurrent refresh has
+      // already replaced; retry with the new one instead of refreshing again.
+      result = await baseQuery(args, api, extraOptions);
+    } else if (!mutex.isLocked()) {
       const release = await mutex.acquire();
       try {
         console.warn('⛔ Access token expired. Trying refresh...');
 
-        const refresh =
-          typeof window !== 'undefined'
-            ? localStorage.getItem('refresh_token')
-            : null;
+        const refresh = getRefreshToken();
 
         if (!refresh) {
           console.log('❌ No refresh token saved');
+          // Same outcome as a rejected refresh token, so every caller (not
+          // only RoleGuard's /me check) ends up logged out consistently.
+          if (tokenUsed) api.dispatch({ type: 'auth/onLoggedOut' });
           return result;
         }
 
-        const refreshResult = await baseQuery(
-          {
-            url: '/user/token-refresh/',
-            method: 'POST',
-            body: { refresh },
-          },
-          api,
-          extraOptions
-        );
+        const tryRefresh = (token) =>
+          baseQuery(
+            {
+              url: '/user/token-refresh/',
+              method: 'POST',
+              body: { refresh: token },
+            },
+            api,
+            extraOptions
+          );
+
+        let usedRefresh = refresh;
+        let refreshResult = await tryRefresh(refresh);
+
+        const isRejected = (res) =>
+          res.error && (res.error.status === 401 || res.error.status === 403);
+
+        // Another tab of the same user may already have rotated this refresh
+        // token (rotation blacklists the old one); take over its newer one.
+        if (isRejected(refreshResult)) {
+          const shared = adoptSharedIfSameUser(refresh);
+          if (shared?.refresh) {
+            usedRefresh = shared.refresh;
+            refreshResult = await tryRefresh(shared.refresh);
+          }
+        }
 
         if (refreshResult.data) {
           console.log('✔ Token refreshed');
 
           const newAccess = refreshResult.data.access;
-          const newRefresh = refreshResult.data.refresh || refresh;
-
-          localStorage.setItem('token', newAccess);
-          localStorage.setItem('refresh_token', newRefresh);
+          const newRefresh = refreshResult.data.refresh || usedRefresh;
 
           api.dispatch({
-            type: 'auth/onLoggedIn',
+            type: 'auth/onTokenRefreshed',
             payload: {
               access: newAccess,
               refresh: newRefresh,
-              user_type: api.getState().auth.user?.user_type,
+              previousRefresh: usedRefresh,
             },
           });
 
           // Retry the original query with the new token
           result = await baseQuery(args, api, extraOptions);
-        } else if (
-          refreshResult.error &&
-          (refreshResult.error.status === 401 || refreshResult.error.status === 403)
-        ) {
+        } else if (isRejected(refreshResult)) {
           console.log('❌ Refresh token rejected by server → logging out');
           api.dispatch({ type: 'auth/onLoggedOut' });
         } else {

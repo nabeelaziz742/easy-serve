@@ -2,22 +2,20 @@
 
 import { useSelector, useDispatch } from "react-redux";
 import { useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
 import { onAuthorized, onLoggedOut } from "@/store/slices/authSlice";
 import { useGetMeQuery } from "@/services/private/me";
+import { getAccessToken } from "@/utilities/authStorage";
+import { getRoleHome } from "@/utilities/roleRoutes";
 
 export default function RoleGuard({ allowedRoles, children }) {
   const router = useRouter();
   const dispatch = useDispatch();
-  const { user, isAuthenticated } = useSelector((state) => state.auth);
-  const [mounted, setMounted] = useState(false);
+  const { user, isAuthenticated, initialized } = useSelector((state) => state.auth);
 
-  useEffect(() => {
-    setMounted(true);
-  }, []);
-
-  const hasStoredToken =
-    typeof window !== "undefined" && !!localStorage.getItem("token");
+  // No routing decision is made until the persisted session has been
+  // restored into the store (see StateProvider).
+  const hasStoredToken = initialized && !!getAccessToken();
 
   const {
     data: me,
@@ -25,7 +23,7 @@ export default function RoleGuard({ allowedRoles, children }) {
     error: restoreError,
     refetch: refetchMe,
   } = useGetMeQuery(undefined, {
-    skip: !mounted || !hasStoredToken,
+    skip: !initialized || !hasStoredToken,
   });
 
   const restoreFailed =
@@ -40,7 +38,7 @@ export default function RoleGuard({ allowedRoles, children }) {
 
   useEffect(() => {
     if (
-      mounted &&
+      initialized &&
       hasStoredToken &&
       !isRestoring &&
       restoreError &&
@@ -51,10 +49,10 @@ export default function RoleGuard({ allowedRoles, children }) {
       return () => clearTimeout(timer);
     }
     return undefined;
-  }, [hasStoredToken, isRestoring, mounted, refetchMe, restoreError]);
+  }, [hasStoredToken, isRestoring, initialized, refetchMe, restoreError]);
 
   useEffect(() => {
-    if (!mounted) return;
+    if (!initialized) return;
 
     // No stored token and not authenticated
     if (!hasStoredToken && !isAuthenticated) {
@@ -69,10 +67,12 @@ export default function RoleGuard({ allowedRoles, children }) {
       return;
     }
 
-    // Role check once user role is available
-    const activeRole = user?.user_type || me?.user_type;
+    // Role check once user role is available. A user on another role's
+    // page is sent to their own landing page, never to a page their role
+    // is not allowed to see.
+    const activeRole = me?.user_type || user?.user_type;
     if (activeRole && allowedRoles && !allowedRoles.includes(activeRole)) {
-      router.replace("/");
+      router.replace(getRoleHome(activeRole));
     }
   }, [
     allowedRoles,
@@ -80,14 +80,14 @@ export default function RoleGuard({ allowedRoles, children }) {
     hasStoredToken,
     isAuthenticated,
     me?.user_type,
-    mounted,
+    initialized,
     restoreFailed,
     router,
     user?.user_type,
   ]);
 
   // Loading state while restoring session on initial reload if no user profile is in state
-  if (!mounted || (hasStoredToken && !user && !me && isRestoring)) {
+  if (!initialized || (hasStoredToken && !user && !me && isRestoring)) {
     return (
       <div className="flex min-h-[70vh] flex-col items-center justify-center space-y-4 p-8">
         <div className="h-8 w-8 animate-spin rounded-full border-4 border-amber-500 border-t-transparent" />
@@ -100,7 +100,7 @@ export default function RoleGuard({ allowedRoles, children }) {
     return null;
   }
 
-  const activeRole = user?.user_type || me?.user_type;
+  const activeRole = me?.user_type || user?.user_type;
   if (activeRole && allowedRoles && !allowedRoles.includes(activeRole)) {
     return null;
   }

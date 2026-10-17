@@ -20,6 +20,8 @@ from apps.restaurants.constants import (
 )
 from apps.restaurants.serializers import OrderSerializer, OrderDetailSerializer
 from apps.restaurants.permissions import IsWaiter, IsChef, IsManager
+from apps.restaurants.services.order_access import staff_belongs_to_order_restaurant
+from apps.recipes.services.consumption_service import RecipeConsumptionService
 
 from apps.restaurants.models import (
     Cart,
@@ -51,6 +53,33 @@ class OrderCheckoutAPIView(APIView):
         except KeyError:
             return Response({"detail": "Invalid order type."}, status=status.HTTP_400_BAD_REQUEST)
 
+        # Validate every line before anything is written. Returning a 400
+        # after Orders.objects.create() would not roll back the half-built
+        # order, and a bad quantity used to raise a 500.
+        lines = []
+        for item in items:
+            try:
+                menu_item_id = int(item["menu_item"])
+                quantity = int(item.get("quantity", 1))
+            except (KeyError, TypeError, ValueError):
+                return Response({"detail": "Each order item needs a valid menu_item and quantity."}, status=status.HTTP_400_BAD_REQUEST)
+            if quantity < 1:
+                return Response({"detail": "Quantity must be at least 1."}, status=status.HTTP_400_BAD_REQUEST)
+            menu_item = get_object_or_404(MenuItem.objects.select_related("menu__restaurant"), id=menu_item_id)
+            lines.append((menu_item, quantity))
+
+        restaurant_ids = {menu_item.menu.restaurant_id for menu_item, _ in lines}
+        if len(restaurant_ids) != 1:
+            return Response({"detail": "All items in an order must come from the same restaurant."}, status=status.HTTP_400_BAD_REQUEST)
+        unavailable = [
+            menu_item.name for menu_item, _ in lines
+            if not menu_item.is_available
+            or not menu_item.menu.is_active
+            or menu_item.menu.restaurant.is_active is False
+        ]
+        if unavailable:
+            return Response({"detail": f"Currently unavailable: {', '.join(unavailable)}."}, status=status.HTTP_400_BAD_REQUEST)
+
         dine_in_session = None
         table = None
 
@@ -66,6 +95,8 @@ class OrderCheckoutAPIView(APIView):
 
             restaurant = get_object_or_404(Restaurant, id=restaurant_id)
             table = get_object_or_404(Table, restaurant=restaurant, table_number=table_number)
+            if restaurant_ids != {restaurant.id}:
+                return Response({"detail": "Menu item does not belong to the selected restaurant."}, status=status.HTTP_400_BAD_REQUEST)
 
             if guests > table.capacity:
                 return Response({"detail": f"Table capacity exceeded ({table.capacity}).", "warning": True}, status=status.HTTP_400_BAD_REQUEST)
@@ -97,12 +128,7 @@ class OrderCheckoutAPIView(APIView):
         )
 
         total_price = 0
-        for item in items:
-            menu_item = get_object_or_404(MenuItem, id=item["menu_item"])
-            if order_type == OrderType.DINE_IN.value and menu_item.menu.restaurant_id != restaurant.id:
-                return Response({"detail": "Menu item does not belong to the selected restaurant."}, status=status.HTTP_400_BAD_REQUEST)
-
-            quantity = max(1, int(item.get("quantity", 1)))
+        for menu_item, quantity in lines:
             OrderItem.objects.create(order=order, menu_item=menu_item, quantity=quantity, price=menu_item.price)
             total_price += menu_item.price * quantity
 
@@ -131,6 +157,8 @@ class PayOrderAPIView(APIView):
 
         if not (is_owner or is_staff):
             return Response({"detail": "You are not allowed to confirm payment for this order."}, status=status.HTTP_403_FORBIDDEN)
+        if is_staff and not is_owner and not staff_belongs_to_order_restaurant(request.user, order):
+            return Response({"detail": "This order does not belong to your restaurant."}, status=status.HTTP_403_FORBIDDEN)
         if order.payment_status == PaymentStatus.CONFIRMED.value:
             return Response({"detail": "This order has already been paid."}, status=status.HTTP_400_BAD_REQUEST)
         if order.order_cancelled:
@@ -192,7 +220,14 @@ class PayOrderAPIView(APIView):
                 status=status.HTTP_200_OK,
             )
 
-        # Transfer confirmation remains a manual/staff-confirmed flow.
+        # Transfer confirmation remains a manual/staff-confirmed flow. Cash a
+        # waiter already holds must go through manager settlement instead,
+        # otherwise the custody record would be overwritten.
+        if PaymentDetails.objects.filter(order=order, cash_received_by__isnull=False).exists():
+            return Response(
+                {"detail": "Cash for this order was already received by a waiter. Settle it from Cash Settlement."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
         PaymentDetails.objects.update_or_create(
             order=order,
             defaults={
@@ -491,6 +526,11 @@ class MarkPreparedAPIView(APIView):
             return Response({"detail": "Order must be in Preparing state before it can be marked Prepared."}, status=status.HTTP_400_BAD_REQUEST)
         order.order_status = OrderStatus.PREPARED
         order.save(update_fields=["order_status", "updated_at"])
+        # Same BOM stock consumption and COGS snapshot as the dashboard
+        # status endpoint. It is idempotent, and insufficient stock raises a
+        # ValidationError that rolls this transaction back (order stays
+        # Preparing).
+        RecipeConsumptionService.consume_order_inventory(order, user_profile=chef_profile)
         if order.waiter:
             Notification.objects.create(profile=order.waiter, message=f"Order #{order.id} is ready to serve")
         return Response({"message": "Order prepared successfully"})

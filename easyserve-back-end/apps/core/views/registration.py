@@ -50,6 +50,16 @@ class RegistrationView(APIView):
         # Security: Public registration is strictly restricted to the customer role ('user').
         # Staff (waiter/chef/manager) must be created by authenticated managers via /api/user/staff/.
         payload['user_type'] = 'user'
+        # New accounts stay inactive until the emailed activation link is
+        # used; a client-sent is_active skipped that verification.
+        payload.pop('is_active', None)
+        # A new customer cannot attach itself to a restaurant.
+        profile_data = payload.get('profile')
+        if isinstance(profile_data, dict):
+            payload['profile'] = {
+                k: v for k, v in profile_data.items()
+                if k not in ('restaurant', 'owned_restaurants', 'selected_restaurant', 'user_type')
+            }
 
         serializer = CreateUserSerializer(data=payload)
         serializer.is_valid(raise_exception=True)

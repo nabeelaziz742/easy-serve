@@ -20,7 +20,7 @@ from ..restaurants.serializers import RestaurantLiteSerializer
 
 
 class UserProfileViewSet(ModelViewSet):
-    permission_classes = [IsSuperAdminOrReadOnly]
+    permission_classes = [IsAuthenticated, IsSuperAdminOrReadOnly]
     pagination_class = LimitOffsetPagination
     filter_backends = [
         backend_filters.DjangoFilterBackend,
@@ -40,11 +40,11 @@ class UserProfileViewSet(ModelViewSet):
     def get_queryset(self):
         user = self.request.user
 
-        if user.is_superuser or getattr(user, "is_super_admin", False):
+        if user.is_superuser or getattr(user, "user_type", None) == "super_admin":
             return self.queryset.filter(user__is_active=True)
 
-        if self.action in ['list', 'retrieve']:
-            return self.queryset.filter(user__is_active=True)
+        # Everyone else only sees their own profile. Listing used to return
+        # every user's email, phone and restaurant, even to anonymous callers.
         return self.queryset.filter(user__is_active=True, user=self.request.user)
 
     # ✅ Notification when a new profile is created

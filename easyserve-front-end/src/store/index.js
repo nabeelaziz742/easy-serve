@@ -1,8 +1,9 @@
-import { configureStore } from '@reduxjs/toolkit';
+import { configureStore, createListenerMiddleware, isAnyOf } from '@reduxjs/toolkit';
 import { setupListeners } from '@reduxjs/toolkit/query';
-import authSlice from './slices/authSlice';
+import authSlice, { onLoggedIn, onLoggedOut } from './slices/authSlice';
 import cartSlice from './slices/cartSlice';
 import { serviceMiddlewares, serviceReducers } from '@/services';
+import { privateAPi } from '@/services/private';
 import dineInSlice from "@/store/slices/dineInSlice";
 
 // F-14: This used to be a single store instance created once at module
@@ -16,6 +17,18 @@ import dineInSlice from "@/store/slices/dineInSlice";
 // mount (browser) build its own isolated store. See:
 // https://redux-toolkit.js.org/usage/nextjs
 export const makeStore = () => {
+  // Cached private API data belongs to the user who fetched it. Without this
+  // reset, logging out and back in as another role in the same tab reused
+  // the previous user's cached /user/me/ response: RoleGuard then saw the
+  // old role and sent the new user to "/" (or to the old role's dashboard).
+  const authListener = createListenerMiddleware();
+  authListener.startListening({
+    matcher: isAnyOf(onLoggedIn, onLoggedOut),
+    effect: (_action, listenerApi) => {
+      listenerApi.dispatch(privateAPi.util.resetApiState());
+    },
+  });
+
   const store = configureStore({
     reducer: {
       auth: authSlice,
@@ -23,7 +36,8 @@ export const makeStore = () => {
       dineIn: dineInSlice,
       ...serviceReducers,
     },
-    middleware: getDefaultMiddleware => getDefaultMiddleware().concat(serviceMiddlewares),
+    middleware: getDefaultMiddleware =>
+      getDefaultMiddleware().prepend(authListener.middleware).concat(serviceMiddlewares),
   });
 
   // Required for RTK Query's refetchOnFocus / refetchOnReconnect to work at

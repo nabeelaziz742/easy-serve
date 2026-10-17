@@ -98,12 +98,13 @@ export const {
 } = financialApi;
 
 import API_URL from "@/utilities/apiConfig";
+import { getAccessToken } from "@/utilities/authStorage";
 
 /**
  * Triggers an authenticated backend export download for Excel (.xlsx)
  */
 export const downloadReportExcel = async (reportType, params = {}) => {
-  const token = typeof window !== "undefined" ? localStorage.getItem("token") : null;
+  const token = getAccessToken();
   const searchParams = new URLSearchParams({ type: reportType, ...params });
   const url = `${API_URL}/manager/financial/reports/export-excel/?${searchParams.toString()}`;
 
@@ -141,7 +142,7 @@ export const downloadReportExcel = async (reportType, params = {}) => {
  * Triggers an authenticated backend export download for PDF (.pdf)
  */
 export const downloadReportPdf = async (reportType, params = {}) => {
-  const token = typeof window !== "undefined" ? localStorage.getItem("token") : null;
+  const token = getAccessToken();
   const searchParams = new URLSearchParams({ type: reportType, ...params });
   const url = `${API_URL}/manager/financial/reports/export-pdf/?${searchParams.toString()}`;
 

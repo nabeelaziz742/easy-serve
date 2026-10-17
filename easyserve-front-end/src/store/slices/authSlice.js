@@ -1,48 +1,43 @@
 import { createSlice } from '@reduxjs/toolkit';
+import { clearSession, isSignedOut, readSession, saveLogin, updateSession } from '@/utilities/authStorage';
 
-const getInitialState = () => {
-  if (typeof window === 'undefined') {
-    return {
-      isAuthenticated: false,
-      user: null,
-      token: null,
-    };
-  }
-
-  try {
-    const token = localStorage.getItem('token');
-    const userStr = localStorage.getItem('user');
-    const user = userStr ? JSON.parse(userStr) : null;
-    return {
-      isAuthenticated: !!token,
-      user: user,
-      token: token || null,
-    };
-  } catch (_) {
-    return {
-      isAuthenticated: false,
-      user: null,
-      token: null,
-    };
-  }
+// The server render and the first client render must agree, so the
+// persisted session is not read here. StateProvider restores it right after
+// mount via onSessionRestored; until then `initialized` is false and route
+// guards wait instead of treating the user as logged out.
+const initialState = {
+  initialized: false,
+  isAuthenticated: false,
+  user: null,
+  token: null,
 };
 
 const authSlice = createSlice({
   name: 'auth',
-  initialState: getInitialState(),
+  initialState,
   reducers: {
+    onSessionRestored: (state, { payload }) => {
+      state.initialized = true;
+      state.isAuthenticated = !!payload?.token;
+      state.user = payload?.user || null;
+      state.token = payload?.token || null;
+    },
+
     onAuthorized: (state, { payload }) => {
+      // A /me response that lands after this tab logged out is ignored.
+      if (isSignedOut()) return;
       state.isAuthenticated = true;
       state.user = payload ? { ...state.user, ...payload } : state.user;
       if (typeof window !== 'undefined') {
-        state.token = localStorage.getItem('token') || state.token;
+        state.token = readSession()?.token || state.token;
         if (state.user) {
-          localStorage.setItem('user', JSON.stringify(state.user));
+          updateSession({ user: state.user });
         }
       }
     },
 
     onLoggedIn: (state, { payload }) => {
+      state.initialized = true;
       state.token = payload.access;
       state.isAuthenticated = true;
       state.user = payload.user_type
@@ -50,32 +45,43 @@ const authSlice = createSlice({
         : state.user;
 
       if (typeof window !== 'undefined') {
-        if (payload.access) {
-          localStorage.setItem('token', payload.access);
-        }
-        if (payload.refresh) {
-          localStorage.setItem('refresh_token', payload.refresh);
-        }
-        if (state.user) {
-          localStorage.setItem('user', JSON.stringify(state.user));
-        }
+        saveLogin({
+          token: payload.access || undefined,
+          refresh: payload.refresh || undefined,
+          user: state.user || undefined,
+        });
+      }
+    },
+
+    // Token refresh for the current tab's session. Unlike onLoggedIn it
+    // keeps the full user profile and does not touch another tab's login.
+    onTokenRefreshed: (state, { payload }) => {
+      // A refresh that finishes after this tab logged out is ignored.
+      if (isSignedOut()) return;
+      state.token = payload.access;
+      state.isAuthenticated = true;
+
+      if (typeof window !== 'undefined') {
+        updateSession(
+          { token: payload.access, refresh: payload.refresh },
+          payload.previousRefresh
+        );
       }
     },
 
     onLoggedOut: (state) => {
+      state.initialized = true;
       state.isAuthenticated = false;
       state.user = null;
       state.token = null;
 
       if (typeof window !== 'undefined') {
-        localStorage.removeItem('token');
-        localStorage.removeItem('refresh_token');
-        localStorage.removeItem('user');
+        clearSession();
       }
     },
   },
 });
 
 export default authSlice.reducer;
-export const { onAuthorized, onLoggedIn, onLoggedOut } = authSlice.actions;
+export const { onSessionRestored, onAuthorized, onLoggedIn, onTokenRefreshed, onLoggedOut } = authSlice.actions;
 

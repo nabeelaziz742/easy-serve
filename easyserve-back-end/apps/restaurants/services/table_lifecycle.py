@@ -19,9 +19,29 @@ def set_table_awaiting_payment(order):
 
 
 def release_table_after_payment(order):
-    """Release a fully paid dine-in table and close its active session."""
+    """Release a fully paid dine-in table and close its active session.
+
+    A session can hold several orders. The table is only released once no
+    other order of its active session still owes money; otherwise settling
+    the first order freed the table while the guests had not paid the rest.
+    """
     table = order.table
     if not table or order.order_type != 1:
+        return
+
+    from apps.restaurants.models import Orders
+
+    still_unpaid = (
+        Orders.objects
+        .filter(
+            table=table,
+            dine_in_session__status=DineInSessionStatus.ACTIVE.value,
+            order_cancelled=False,
+        )
+        .exclude(id=order.id)
+        .exclude(payment_status__in=[PaymentStatus.CONFIRMED.value, PaymentStatus.CANCELLED.value])
+    )
+    if still_unpaid.exists():
         return
 
     with transaction.atomic():

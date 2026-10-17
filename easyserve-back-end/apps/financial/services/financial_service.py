@@ -4,6 +4,7 @@ import pytz
 from django.conf import settings
 from django.db.models import Sum, Count, F, Q, DecimalField, ExpressionWrapper
 from django.utils import timezone
+from rest_framework.exceptions import ValidationError
 
 from apps.restaurants.models import Orders, OrderItem
 from apps.restaurants.constants import OrderStatus, PaymentStatus, OrderType, PaymentMethod
@@ -46,10 +47,17 @@ class FinancialReportService:
         today = now.date()
 
         if start_date and end_date:
-            if isinstance(start_date, str):
-                start_date = date.fromisoformat(start_date)
-            if isinstance(end_date, str):
-                end_date = date.fromisoformat(end_date)
+            # Query-string dates come straight from the client. A malformed
+            # or reversed range used to raise a 500; it is a 400 now.
+            try:
+                if isinstance(start_date, str):
+                    start_date = date.fromisoformat(start_date)
+                if isinstance(end_date, str):
+                    end_date = date.fromisoformat(end_date)
+            except ValueError:
+                raise ValidationError({"detail": "Dates must use the YYYY-MM-DD format."})
+            if start_date > end_date:
+                raise ValidationError({"detail": "start_date must be on or before end_date."})
             duration = (end_date - start_date).days + 1
             prev_end = start_date - timedelta(days=1)
             prev_start = prev_end - timedelta(days=duration - 1)

@@ -19,8 +19,9 @@ class RequestCashPaymentAPIView(APIView):
     """Customer requests cash payment; this NEVER confirms the payment."""
     permission_classes = [IsAuthenticated]
 
+    @transaction.atomic
     def post(self, request, order_id):
-        order = get_object_or_404(Orders, id=order_id)
+        order = get_object_or_404(Orders.objects.select_for_update(), id=order_id)
         profile = request.user.profile
         if order.user_id != profile.id:
             return Response({"detail": "You are not allowed to pay for this order."}, status=status.HTTP_403_FORBIDDEN)
@@ -28,6 +29,18 @@ class RequestCashPaymentAPIView(APIView):
             return Response({"detail": "Cannot pay for a cancelled order."}, status=status.HTTP_400_BAD_REQUEST)
         if order.payment_status == PaymentStatus.CONFIRMED.value:
             return Response({"detail": "This order has already been paid."}, status=status.HTTP_400_BAD_REQUEST)
+
+        # A repeated request (double click, second device) after the waiter
+        # has taken the cash must not wipe the custody record; that used to
+        # move the order back to the waiter's "collect" list and off the
+        # manager's settlement list.
+        existing = PaymentDetails.objects.select_for_update().filter(order=order).first()
+        if (
+            existing
+            and existing.payment_method == PaymentMethod.CATCH_ON_DELIVERY.value
+            and existing.cash_received_by_id
+        ):
+            return Response(OrderDetailSerializer(order).data, status=status.HTTP_200_OK)
 
         PaymentDetails.objects.update_or_create(
             order=order,
