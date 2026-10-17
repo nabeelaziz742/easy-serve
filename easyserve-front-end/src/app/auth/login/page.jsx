@@ -38,7 +38,12 @@ export default function LoginPage() {
       const result = await login(values).unwrap();
       dispatch(onLoggedIn(result));
 
-      router.push(getRoleHome(result.user_type));
+      // Return to the page that sent the user here (e.g. the dine-in menu
+      // with a cart waiting). Only same-site paths: "//host" and "/\\host"
+      // would leave the site.
+      const next = new URLSearchParams(window.location.search).get("next");
+      const safeNext = next && /^\/(?![\/\\])/.test(next) ? next : null;
+      router.push(safeNext || getRoleHome(result.user_type));
     } catch (error) {
       console.log("FULL ERROR OBJECT:", JSON.stringify(error, null, 2));
     }

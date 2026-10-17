@@ -10,6 +10,7 @@ import { removeItem, increaseQty, decreaseQty, toggleCart, clearCart } from "@/s
 import { clearDineIn } from "@/store/slices/dineInSlice";
 import MenuPic from "@/assets/menuImgs/menu-pic.jpg";
 import { useAddOrderMutation } from "@/services/private/orders";
+import { getAccessToken } from "@/utilities/authStorage";
 
 const DINE_IN_STORAGE_KEY = "easyserve:dine-in-context";
 
@@ -40,7 +41,25 @@ export default function CartDrawer() {
   const deliveryFee = dineIn?.active ? 0 : 120;
   const total = subtotal + tax + deliveryFee - discount;
 
+  const authToken = useSelector((state) => state.auth?.token);
+
+  // Ordering needs a customer account. A guest who scanned the QR code, or a
+  // tab that was signed out, used to send the order anyway and only got
+  // "Authentication credentials were not provided." Send them to log in and
+  // bring them back to this menu; the cart and table stay in place.
+  const sendToLogin = () => {
+    toast.info("Please log in to place your order. Your cart is saved.");
+    dispatch(toggleCart());
+    const here = `${window.location.pathname}${window.location.search}`;
+    router.push(`/auth/login?next=${encodeURIComponent(here)}`);
+  };
+
   const handleCheckout = async () => {
+    if (!authToken && !getAccessToken()) {
+      sendToLogin();
+      return;
+    }
+
     let body;
 
     if (dineIn?.active) {
@@ -78,6 +97,12 @@ export default function CartDrawer() {
       console.log("Order created:", res);
       router.push("/orders");
     } catch (error) {
+
+      if (error?.status === 401) {
+        sendToLogin();
+        return;
+      }
+
       const message = checkoutErrorMessage(error);
       // Handled and shown to the customer, so a warning rather than an
       // error that opens the Next.js dev overlay.
