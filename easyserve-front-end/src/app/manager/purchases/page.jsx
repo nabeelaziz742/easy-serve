@@ -966,7 +966,7 @@ function PurchasesContent() {
       {/* ========================================================= */}
       {showPurchaseModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm overflow-y-auto">
-          <div className="bg-white rounded-3xl shadow-2xl border border-gray-100 w-full max-w-4xl overflow-hidden my-8 animate-in fade-in zoom-in-95 duration-200">
+          <div className="bg-white rounded-2xl shadow-2xl border border-gray-100 w-full max-w-4xl overflow-hidden my-8 animate-in fade-in zoom-in-95 duration-200">
             {/* Modal Header */}
             <div className="bg-[#063B2E] text-white px-6 py-5 flex items-center justify-between">
               <div className="flex items-center gap-3">
@@ -1229,7 +1229,7 @@ function PurchasesContent() {
       {/* ========================================================= */}
       {showDetailModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm overflow-y-auto">
-          <div className="bg-white rounded-3xl shadow-2xl border border-gray-100 w-full max-w-3xl overflow-hidden my-8 animate-in fade-in zoom-in-95 duration-200">
+          <div className="bg-white rounded-2xl shadow-2xl border border-gray-100 w-full max-w-3xl overflow-hidden my-8 animate-in fade-in zoom-in-95 duration-200">
             {/* Detail Header */}
             <div className="bg-[#063B2E] text-white px-6 py-5 flex items-center justify-between">
               <div className="flex items-center gap-3">
@@ -1398,7 +1398,7 @@ function PurchasesContent() {
       {/* ========================================================= */}
       {showReceiveModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
-          <div className="bg-white rounded-3xl shadow-2xl border border-gray-100 w-full max-w-lg overflow-hidden animate-in fade-in zoom-in-95 duration-200 p-6 space-y-5">
+          <div className="bg-white rounded-2xl shadow-2xl border border-gray-100 w-full max-w-lg overflow-hidden animate-in fade-in zoom-in-95 duration-200 p-6 space-y-5">
             <div className="flex items-center gap-3 text-emerald-800">
               <div className="w-12 h-12 rounded-2xl bg-emerald-100 flex items-center justify-center">
                 <CheckCircle2 size={26} />
@@ -1462,7 +1462,7 @@ function PurchasesContent() {
       {/* ========================================================= */}
       {showCancelModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
-          <div className="bg-white rounded-3xl shadow-2xl border border-gray-100 w-full max-w-md overflow-hidden animate-in fade-in zoom-in-95 duration-200 p-6 space-y-5">
+          <div className="bg-white rounded-2xl shadow-2xl border border-gray-100 w-full max-w-md overflow-hidden animate-in fade-in zoom-in-95 duration-200 p-6 space-y-5">
             <div className="flex items-center gap-3 text-red-600">
               <div className="w-12 h-12 rounded-2xl bg-red-100 flex items-center justify-center">
                 <XCircle size={26} />
@@ -1507,7 +1507,7 @@ function PurchasesContent() {
       {/* ========================================================= */}
       {showSupplierModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
-          <div className="bg-white rounded-3xl shadow-2xl border border-gray-100 w-full max-w-lg overflow-hidden animate-in fade-in zoom-in-95 duration-200">
+          <div className="bg-white rounded-2xl shadow-2xl border border-gray-100 w-full max-w-lg overflow-hidden animate-in fade-in zoom-in-95 duration-200">
             <div className="bg-[#063B2E] text-white px-6 py-5 flex items-center justify-between">
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 rounded-xl bg-yellow-400 flex items-center justify-center text-[#063B2E] shadow-md">
@@ -1639,7 +1639,7 @@ export default function PurchasesPage() {
   return (
     <Suspense
       fallback={
-        <div className="p-12 text-center text-gray-400">
+        <div className="p-8 text-center text-gray-400">
           <RefreshCw size={32} className="animate-spin text-[#063B2E] mx-auto mb-2" />
           <p className="text-sm font-bold text-gray-700">Loading Purchases module...</p>
         </div>

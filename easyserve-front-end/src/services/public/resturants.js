@@ -60,6 +60,12 @@ export const restaurantsApi = publicApi.injectEndpoints({
       providesTags: (result, error, { id }) => [{ type: "Menu", id }],
     }),
     
+    getRestaurantBilling: build.query({
+      query: (restaurantId) => ({
+        url: `/restaurants/restaurants/${restaurantId}/billing/`,
+        method: "GET",
+      }),
+    }),
     getMenuItemDetail: build.query({
       query: ( itemId ) => ({
         url: `/restaurants/menu-items/${itemId}/`,
@@ -78,5 +84,6 @@ export const {
   useGetAIRecommendedMenuItemQuery,
   useGetRestaurantMenusQuery,
   useGetMenuItemDetailQuery,
+  useGetRestaurantBillingQuery,
   useGetMenuQuery 
 } = restaurantsApi;

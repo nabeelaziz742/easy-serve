@@ -494,7 +494,7 @@ function InventoryContent() {
                 <Boxes size={18} />
               </div>
               <span className="text-xs uppercase tracking-widest font-bold text-[#063B2E]/70">
-                Commercial Kitchen SaaS
+                Inventory
               </span>
             </div>
             <h1 className="text-2xl sm:text-3xl font-black tracking-tight text-[#063B2E]">
@@ -556,7 +556,7 @@ function InventoryContent() {
         >
           {/* Card 1: Total Stock Value */}
           <motion.div variants={itemVariants}>
-            <Card className="p-4 rounded-2xl border-none bg-gradient-to-br from-[#063B2E] via-[#084838] to-[#0a5744] text-white shadow-md relative overflow-hidden">
+            <Card className="p-4 rounded-2xl border-none bg-gradient-to-br from-[#063B2E] via-[#084838] to-[#0a5744] text-white shadow-md relative overflow-hidden gap-1.5">
               <div className="absolute -right-4 -bottom-4 opacity-10">
                 <DollarSign className="w-20 h-20 text-yellow-400" />
               </div>
@@ -583,7 +583,7 @@ function InventoryContent() {
 
           {/* Card 2: Tracked Items */}
           <motion.div variants={itemVariants}>
-            <Card className="p-4 rounded-2xl border-stone-200/80 bg-white shadow-sm hover:shadow-md transition-all">
+            <Card className="p-4 rounded-2xl border-stone-200/80 bg-white shadow-sm hover:shadow-md transition-all gap-1.5">
               <div className="flex justify-between items-start mb-2">
                 <div className="p-2 bg-stone-100 rounded-xl text-[#063B2E] ring-1 ring-stone-200">
                   <Package className="w-5 h-5" />
@@ -609,7 +609,7 @@ function InventoryContent() {
           <motion.div variants={itemVariants}>
             <Card
               onClick={() => setActiveTab("wastage")}
-              className="p-4 rounded-2xl border-rose-200/80 bg-white hover:bg-rose-50/40 shadow-sm hover:shadow-md transition-all cursor-pointer group"
+              className="p-4 rounded-2xl border-rose-200/80 bg-white hover:bg-rose-50/40 shadow-sm hover:shadow-md transition-all cursor-pointer group gap-1.5"
             >
               <div className="flex justify-between items-start mb-2">
                 <div className="p-2 rounded-xl bg-rose-100 text-rose-700 ring-1 ring-rose-300">
@@ -639,7 +639,7 @@ function InventoryContent() {
                 setSelectedStatus(Number(summary.out_of_stock_count) > 0 ? "out_of_stock" : "low_stock");
                 setActiveTab("items");
               }}
-              className={`p-4 rounded-2xl border transition-all cursor-pointer ${
+              className={`p-4 gap-1.5 rounded-2xl border transition-all cursor-pointer ${
                 Number(summary.out_of_stock_count) > 0
                   ? "border-rose-300 bg-rose-50/50 hover:bg-rose-50"
                   : Number(summary.low_stock_count) > 0
@@ -945,7 +945,7 @@ function InventoryContent() {
           <div>
             {/* WASTAGE SUMMARY CARDS */}
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-              <Card className="p-4 rounded-2xl bg-white border border-rose-200/80 shadow-sm">
+              <Card className="p-4 rounded-2xl bg-white border border-rose-200/80 shadow-sm gap-1.5">
                 <div className="flex justify-between items-start mb-2">
                   <div className="p-2 bg-rose-100 rounded-xl text-rose-700 ring-1 ring-rose-200">
                     <Flame className="w-5 h-5" />
@@ -962,7 +962,7 @@ function InventoryContent() {
                 </h3>
               </Card>
 
-              <Card className="p-4 rounded-2xl bg-white border border-rose-200/80 shadow-sm">
+              <Card className="p-4 rounded-2xl bg-white border border-rose-200/80 shadow-sm gap-1.5">
                 <div className="flex justify-between items-start mb-2">
                   <div className="p-2 bg-amber-100 rounded-xl text-amber-700 ring-1 ring-amber-200">
                     <TrendingDown className="w-5 h-5" />
@@ -979,7 +979,7 @@ function InventoryContent() {
                 </h3>
               </Card>
 
-              <Card className="p-4 rounded-2xl bg-white border border-rose-200/80 shadow-sm">
+              <Card className="p-4 rounded-2xl bg-white border border-rose-200/80 shadow-sm gap-1.5">
                 <div className="flex justify-between items-start mb-2">
                   <div className="p-2 bg-purple-100 rounded-xl text-purple-700 ring-1 ring-purple-200">
                     <Calendar className="w-5 h-5" />
@@ -996,7 +996,7 @@ function InventoryContent() {
                 </h3>
               </Card>
 
-              <Card className="p-4 rounded-2xl bg-white border border-stone-200 shadow-sm">
+              <Card className="p-4 rounded-2xl bg-white border border-stone-200 shadow-sm gap-1.5">
                 <div className="flex justify-between items-start mb-2">
                   <div className="p-2 bg-stone-100 rounded-xl text-stone-700 ring-1 ring-stone-200">
                     <ClipboardList className="w-5 h-5" />
@@ -1016,7 +1016,7 @@ function InventoryContent() {
 
             {/* TOP WASTED ITEMS & TOP REASONS HIGHLIGHT */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-6">
-              <Card className="p-4 rounded-2xl bg-white border border-stone-200 shadow-sm">
+              <Card className="p-4 rounded-2xl bg-white border border-stone-200 shadow-sm gap-1.5">
                 <h4 className="text-xs uppercase tracking-wider font-bold text-[#063B2E] mb-3 flex items-center gap-2">
                   <Flame size={15} className="text-rose-600" />
                   Top Wasted Ingredients
@@ -1044,7 +1044,7 @@ function InventoryContent() {
                 )}
               </Card>
 
-              <Card className="p-4 rounded-2xl bg-white border border-stone-200 shadow-sm">
+              <Card className="p-4 rounded-2xl bg-white border border-stone-200 shadow-sm gap-1.5">
                 <h4 className="text-xs uppercase tracking-wider font-bold text-[#063B2E] mb-3 flex items-center gap-2">
                   <TrendingDown size={15} className="text-amber-600" />
                   Loss Breakdown by Category / Reason
@@ -1534,7 +1534,7 @@ function InventoryContent() {
         {activeTab === "categories_units" && (
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             {/* CATEGORIES CARD */}
-            <Card className="p-5 rounded-2xl bg-white border border-stone-200 shadow-sm">
+            <Card className="p-5 rounded-2xl bg-white border border-stone-200 shadow-sm gap-3">
               <div className="flex items-center justify-between mb-4">
                 <h3 className="text-base font-bold text-[#063B2E] flex items-center gap-2">
                   <Layers size={18} />
@@ -1574,7 +1574,7 @@ function InventoryContent() {
             </Card>
 
             {/* UNITS OF MEASURE CARD */}
-            <Card className="p-5 rounded-2xl bg-white border border-stone-200 shadow-sm">
+            <Card className="p-5 rounded-2xl bg-white border border-stone-200 shadow-sm gap-3">
               <div className="flex items-center justify-between mb-4">
                 <h3 className="text-base font-bold text-[#063B2E] flex items-center gap-2">
                   <Scale size={18} />
@@ -1624,7 +1624,7 @@ function InventoryContent() {
                 initial={{ opacity: 0, scale: 0.95 }}
                 animate={{ opacity: 1, scale: 1 }}
                 exit={{ opacity: 0, scale: 0.95 }}
-                className="bg-white rounded-3xl shadow-2xl border border-stone-200 max-w-lg w-full overflow-hidden"
+                className="bg-white rounded-2xl shadow-2xl border border-stone-200 max-w-lg w-full overflow-hidden"
               >
                 <div className="p-6 border-b border-stone-200 flex items-center justify-between bg-gradient-to-r from-rose-900 to-[#063B2E] text-white">
                   <div className="flex items-center gap-2.5">
@@ -1815,7 +1815,7 @@ function InventoryContent() {
                 initial={{ opacity: 0, scale: 0.95 }}
                 animate={{ opacity: 1, scale: 1 }}
                 exit={{ opacity: 0, scale: 0.95 }}
-                className="bg-white rounded-3xl shadow-2xl border border-stone-200 max-w-xl w-full overflow-hidden"
+                className="bg-white rounded-2xl shadow-2xl border border-stone-200 max-w-xl w-full overflow-hidden"
               >
                 <div className="p-6 border-b border-stone-200 bg-[#063B2E] text-white flex items-center justify-between">
                   <div className="flex items-center gap-2">
@@ -1903,7 +1903,7 @@ function InventoryContent() {
                 initial={{ opacity: 0, scale: 0.95 }}
                 animate={{ opacity: 1, scale: 1 }}
                 exit={{ opacity: 0, scale: 0.95 }}
-                className="bg-white rounded-3xl shadow-2xl border border-stone-200 max-w-md w-full overflow-hidden"
+                className="bg-white rounded-2xl shadow-2xl border border-stone-200 max-w-md w-full overflow-hidden"
               >
                 <div className="p-6 border-b border-stone-200 bg-[#063B2E] text-white flex items-center justify-between">
                   <div className="flex items-center gap-2">
@@ -2064,7 +2064,7 @@ function InventoryContent() {
                 initial={{ opacity: 0, scale: 0.95 }}
                 animate={{ opacity: 1, scale: 1 }}
                 exit={{ opacity: 0, scale: 0.95 }}
-                className="bg-white rounded-3xl shadow-2xl border border-stone-200 max-w-lg w-full overflow-hidden"
+                className="bg-white rounded-2xl shadow-2xl border border-stone-200 max-w-lg w-full overflow-hidden"
               >
                 <div className="p-6 border-b border-stone-200 bg-[#063B2E] text-white flex items-center justify-between">
                   <div className="flex items-center gap-2">
@@ -2273,7 +2273,7 @@ function InventoryContent() {
                 initial={{ opacity: 0, scale: 0.95 }}
                 animate={{ opacity: 1, scale: 1 }}
                 exit={{ opacity: 0, scale: 0.95 }}
-                className="bg-white rounded-3xl shadow-2xl border border-stone-200 max-w-md w-full p-6 space-y-4"
+                className="bg-white rounded-2xl shadow-2xl border border-stone-200 max-w-md w-full p-6 space-y-4"
               >
                 <div className="flex items-center justify-between pb-3 border-b border-stone-200">
                   <h3 className="font-bold text-base text-[#063B2E] flex items-center gap-2">
@@ -2358,7 +2358,7 @@ function InventoryContent() {
                 initial={{ opacity: 0, scale: 0.95 }}
                 animate={{ opacity: 1, scale: 1 }}
                 exit={{ opacity: 0, scale: 0.95 }}
-                className="bg-white rounded-3xl shadow-2xl border border-stone-200 max-w-md w-full p-6 space-y-4"
+                className="bg-white rounded-2xl shadow-2xl border border-stone-200 max-w-md w-full p-6 space-y-4"
               >
                 <div className="flex items-center justify-between pb-3 border-b border-stone-200">
                   <h3 className="font-bold text-base text-[#063B2E] flex items-center gap-2">
@@ -2457,7 +2457,7 @@ function InventoryContent() {
                 initial={{ opacity: 0, scale: 0.95 }}
                 animate={{ opacity: 1, scale: 1 }}
                 exit={{ opacity: 0, scale: 0.95 }}
-                className="bg-white rounded-3xl shadow-2xl border border-stone-200 max-w-sm w-full p-6 text-center space-y-4"
+                className="bg-white rounded-2xl shadow-2xl border border-stone-200 max-w-sm w-full p-6 text-center space-y-4"
               >
                 <div className="w-12 h-12 rounded-2xl bg-rose-100 text-rose-600 flex items-center justify-center mx-auto">
                   <Trash2 size={24} />

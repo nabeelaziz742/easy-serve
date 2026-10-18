@@ -11,6 +11,8 @@ import AIChatbot from "@/components/Aichatbot";
 import { useGetRestaurantMenusQuery } from "@/services/public/resturants";
 import { useValidateTableMutation } from "@/services/public/dineIn";
 import { setDineInContext } from "@/store/slices/dineInSlice";
+import { onBecameGuest } from "@/store/slices/authSlice";
+import { readSession } from "@/utilities/authStorage";
 
 const DINE_IN_STORAGE_KEY = "easyserve:dine-in-context";
 
@@ -61,7 +63,17 @@ function Restaurant() {
           })
         );
 
-        window.localStorage.removeItem(DINE_IN_STORAGE_KEY);
+                window.localStorage.removeItem(DINE_IN_STORAGE_KEY);
+
+        // A new tab adopts the browser's latest login, which on a shared or
+        // staff device can be the waiter or manager. The person scanning the
+        // table QR is a customer, so this tab continues as a guest; other
+        // tabs keep their logins. A signed-in customer stays signed in.
+        const role = readSession()?.user?.user_type;
+        if (role && role !== "user") {
+          dispatch(onBecameGuest());
+        }
+
         router.replace("/dine-in/guests");
       } catch (error) {
         if (cancelled) return;
@@ -79,11 +91,7 @@ function Restaurant() {
   }, [dispatch, isQrDineIn, param?.id, qrTable, router, validateTableMutation]);
 
   useEffect(() => {
-    if (
-      !param?.id ||
-      !window.location.search.includes("mode=dine-in") ||
-      isQrDineIn
-    ) {
+    if (!param?.id || isQrDineIn)  {
       setRestoringDineIn(false);
       return;
     }
@@ -118,7 +126,7 @@ function Restaurant() {
     (menu) => (menu?.menu_items?.length ?? 0) > 0
   );
 
-  const { data } = useGetRestaurantMenusQuery(param.id, {
+  const { data, isLoading: menuLoading, isError: menuError } = useGetRestaurantMenusQuery(param.id, {
     skip: !param.id || (dineIn?.active && hasDineInMenus),
   });
 
@@ -128,7 +136,7 @@ function Restaurant() {
   if (validatingQrTable || restoringDineIn) {
     return (
       <div className="flex min-h-[70vh] items-center justify-center px-4">
-        <div className="rounded-3xl border border-yellow-400/20 bg-white px-8 py-7 text-center shadow-xl">
+        <div className="rounded-2xl border border-yellow-400/20 bg-white px-8 py-7 text-center shadow-xl">
           <div className="mx-auto mb-3 h-8 w-8 animate-spin rounded-full border-4 border-gray-200 border-t-yellow-500" />
           <p className="font-bold text-gray-900">Opening your table...</p>
           <p className="mt-1 text-xs text-gray-500">
@@ -139,7 +147,37 @@ function Restaurant() {
     );
   }
 
-  if (!restaurant) return null;
+  if (!restaurant) {
+    if (menuError) {
+      return (
+        <div className="flex min-h-[60vh] items-center justify-center px-4">
+          <div className="saas-card w-full max-w-md p-6 text-center shadow-md">
+            <Utensils className="mx-auto mb-3 h-8 w-8 text-gray-300" />
+            <p className="font-bold text-gray-900">Restaurant not found</p>
+            <p className="mt-1 text-xs text-gray-500">This menu link is not available right now. Check the link or scan your table QR again.</p>
+            <a
+              href="/"
+              className="mt-4 inline-flex rounded-lg bg-green-950 px-4 py-2 text-xs font-bold text-yellow-400 transition-colors hover:bg-green-900"
+            >
+              Back to home
+            </a>
+          </div>
+        </div>
+      );
+    }
+    return (
+      <section className="min-h-[70vh] bg-gray-50 py-10" aria-busy={menuLoading}>
+        <div className="mx-auto max-w-7xl animate-pulse space-y-8 px-4 sm:px-6">
+          <div className="h-32 rounded-2xl bg-gray-200/70" />
+          <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
+            {[1, 2, 3, 4].map((i) => (
+              <div key={i} className="h-64 rounded-2xl bg-gray-200/60" />
+            ))}
+          </div>
+        </div>
+      </section>
+    );
+  }
   if (dineIn.active && !dineIn.guests) return null;
 
   return (
@@ -149,7 +187,7 @@ function Restaurant() {
         <motion.div
           initial={{ opacity: 0, y: 15 }}
           animate={{ opacity: 1, y: 0 }}
-          className="mb-10 rounded-3xl border border-gray-200/80 bg-white p-6 shadow-sm sm:p-8"
+          className="mb-8 rounded-2xl border border-gray-200/80 bg-white p-5 shadow-sm"
         >
           <div className="flex flex-col gap-6 sm:flex-row sm:items-center sm:justify-between">
             <div>
@@ -206,7 +244,7 @@ function Restaurant() {
         ))}
 
         {!menus?.length && (
-          <div className="rounded-3xl border border-dashed border-gray-300 bg-white py-16 text-center shadow-sm">
+          <div className="rounded-2xl border border-dashed border-gray-300 bg-white py-16 text-center shadow-sm">
             <Utensils className="mx-auto mb-3 h-10 w-10 text-gray-300" />
             <p className="text-base font-bold text-gray-700">Menu is currently unavailable</p>
             <p className="mt-1 text-xs text-gray-400">Please check back shortly or consult your waiter.</p>

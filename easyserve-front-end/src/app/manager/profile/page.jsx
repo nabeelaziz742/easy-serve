@@ -28,7 +28,7 @@ export default function ManagerProfilePage() {
       <div className="max-w-2xl mx-auto space-y-6">
 
         {/* Profile Card */}
-        <div className="bg-white dark:bg-zinc-900 rounded-3xl shadow-sm border border-zinc-200 dark:border-zinc-800 overflow-hidden">
+        <div className="bg-white dark:bg-zinc-900 rounded-2xl shadow-sm border border-zinc-200 dark:border-zinc-800 overflow-hidden">
           
           {/* Banner */}
           <div className="h-28 bg-gradient-to-r from-green-900 via-green-800 to-green-900 relative">
@@ -59,7 +59,7 @@ export default function ManagerProfilePage() {
         </div>
 
         {/* Info Cards */}
-        <div className="bg-white dark:bg-zinc-900 rounded-3xl shadow-sm border border-zinc-200 dark:border-zinc-800 divide-y divide-zinc-100 dark:divide-zinc-800">
+        <div className="bg-white dark:bg-zinc-900 rounded-2xl shadow-sm border border-zinc-200 dark:border-zinc-800 divide-y divide-zinc-100 dark:divide-zinc-800">
           
           {[
             { icon: User,   label: "Full Name",    value: fullName || "—" },

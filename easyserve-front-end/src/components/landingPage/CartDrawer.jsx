@@ -10,9 +10,9 @@ import { removeItem, increaseQty, decreaseQty, toggleCart, clearCart } from "@/s
 import { clearDineIn } from "@/store/slices/dineInSlice";
 import MenuPic from "@/assets/menuImgs/menu-pic.jpg";
 import { useAddOrderMutation } from "@/services/private/orders";
+import { useGetRestaurantBillingQuery } from "@/services/public/resturants";
 import { getAccessToken } from "@/utilities/authStorage";
-
-const DINE_IN_STORAGE_KEY = "easyserve:dine-in-context";
+import { clearSavedDineIn, readSavedDineIn } from "@/utilities/dineInStorage";
 
 // RTK Query errors are { status, data }; the Next.js overlay printed them as
 // "{}", hiding the server's reason. Turn them into one readable sentence.
@@ -24,7 +24,6 @@ const checkoutErrorMessage = (error) => {
     if (first) return first;
   }
   if (error?.status === "FETCH_ERROR") return "Cannot reach the server. Please check that the backend is running.";
-  if (error?.status === 401) return "Please log in again to place your order.";
   return "Checkout failed. Please try again.";
 };
 
@@ -32,21 +31,26 @@ export default function CartDrawer() {
   const dispatch = useDispatch();
   const router = useRouter();
   const [addOrder, { isLoading }] = useAddOrderMutation();
-  const { isOpen, items } = useSelector((state) => state.cart);
+  const { isOpen, items, restaurant: cartRestaurantId } = useSelector((state) => state.cart);
   const dineIn = useSelector((state) => state.dineIn);
 
-  const subtotal = items.reduce((acc, item) => acc + item.price * item.qty, 0);
-  const discount = subtotal * 0.15;
-  const tax = subtotal * 0.15;
-  const deliveryFee = dineIn?.active ? 0 : 120;
-  const total = subtotal + tax + deliveryFee - discount;
+  // Same rates the server applies at checkout (manager Settings page).
+  const restaurantId = (dineIn?.active && dineIn.restaurant?.id) || cartRestaurantId;
+  const { data: billing } = useGetRestaurantBillingQuery(restaurantId, { skip: !restaurantId || !isOpen });
+  const round = (n) => Math.round(n * 100) / 100;
+  const subtotal = round(items.reduce((acc, item) => acc + item.price * item.qty, 0));
+  const servicePercent = dineIn?.active ? Number(billing?.service_charge_percent) || 0 : 0;
+  const taxPercent = Number(billing?.tax_percent) || 0;
+  const serviceCharge = round((subtotal * servicePercent) / 100);
+  const tax = round((subtotal * taxPercent) / 100);
+  const total = round(subtotal + serviceCharge + tax);
+  const fmt = (n) => n.toFixed(2);
 
   const authToken = useSelector((state) => state.auth?.token);
 
-  // Ordering needs a customer account. A guest who scanned the QR code, or a
-  // tab that was signed out, used to send the order anyway and only got
-  // "Authentication credentials were not provided." Send them to log in and
-  // bring them back to this menu; the cart and table stay in place.
+  // Dine-in guests order with their table session, no account needed.
+  // A delivery order needs a customer account: send a signed-out visitor
+  // to log in and bring them back here with the cart in place.
   const sendToLogin = () => {
     toast.info("Please log in to place your order. Your cart is saved.");
     dispatch(toggleCart());
@@ -55,22 +59,32 @@ export default function CartDrawer() {
   };
 
   const handleCheckout = async () => {
-    if (!authToken && !getAccessToken()) {
+    // The table session also lives in localStorage, so a guest whose page
+    // was reloaded or opened without "?mode=dine-in" still orders as the
+    // table's guest instead of being sent to log in.
+    const saved = readSavedDineIn();
+    const seated = dineIn?.active
+      ? dineIn
+      : saved?.active && saved?.sessionToken
+        ? saved
+        : null;
+
+    if (!seated && !authToken && !getAccessToken()) {
       sendToLogin();
       return;
     }
 
     let body;
 
-    if (dineIn?.active) {
+    if (seated) {
       body = {
         order_type: "DINE_IN",
-        restaurant: dineIn.restaurant?.id,
-        table: dineIn.table?.number ?? dineIn.table,
-        guests: Number(dineIn.guests) || 1,
-        name: dineIn.name || "",
-        phone: dineIn.phone || "",
-        session_token: dineIn.sessionToken || dineIn.session?.token || "",
+        restaurant: seated.restaurant?.id,
+        table: seated.table?.number ?? seated.table,
+        guests: Number(seated.guests) || 1,
+        name: seated.name || "",
+        phone: seated.phone || "",
+        session_token: seated.sessionToken || seated.session?.token || "",
         items: items.map((i) => ({
           menu_item: i.id,
           quantity: i.qty,
@@ -97,8 +111,7 @@ export default function CartDrawer() {
       console.log("Order created:", res);
       router.push("/orders");
     } catch (error) {
-
-      if (error?.status === 401) {
+      if (error?.status === 401 && !seated) {
         sendToLogin();
         return;
       }
@@ -114,14 +127,10 @@ export default function CartDrawer() {
       // QR link, which starts a fresh session (guest count, then menu) and
       // keeps the cart.
       if (error?.data?.code === "dine_in_session_ended") {
-        const restaurantId = dineIn.restaurant?.id;
-        const tableNumber = dineIn.table?.number ?? dineIn.table;
+        const restaurantId = seated?.restaurant?.id;
+        const tableNumber = seated?.table?.number ?? seated?.table;
         dispatch(clearDineIn());
-        try {
-          window.localStorage.removeItem(DINE_IN_STORAGE_KEY);
-        } catch (_) {
-          // Storage can be unavailable (private mode); the Redux state is cleared.
-        }
+        clearSavedDineIn();
         dispatch(toggleCart());
         if (restaurantId && tableNumber) {
           router.push(`/restaurant/${restaurantId}?mode=dine-in&table=${tableNumber}`);
@@ -129,6 +138,7 @@ export default function CartDrawer() {
       }
     }
   };
+
 
   return (
     <>
@@ -168,7 +178,7 @@ export default function CartDrawer() {
             </div>
           ) : (
             items.map((item) => (
-              <motion.div key={item.id} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="rounded-3xl border border-gray-200 bg-white p-4 shadow-sm">
+              <motion.div key={item.id} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="rounded-xl border border-gray-200 bg-white p-3 shadow-xs">
                 <div className="flex gap-4">
                   <Image src={item.image || MenuPic} alt="Food" width={90} height={90} className="h-24 w-24 rounded-2xl object-cover" />
                   <div className="flex flex-1 flex-col">
@@ -213,15 +223,19 @@ export default function CartDrawer() {
             </div>
 
             <div className="space-y-3 text-sm">
-              <div className="flex justify-between"><span className="text-gray-500">Subtotal</span><span className="font-medium">Rs. {subtotal}</span></div>
-              <div className="flex justify-between"><span className="text-gray-500">Tax 15%</span><span className="font-medium">Rs. {tax}</span></div>
-              {!dineIn.active && <div className="flex justify-between"><span className="text-gray-500">Delivery Fee</span><span className="font-medium">Rs. {deliveryFee}</span></div>}
-              <div className="flex justify-between text-green-600"><span>Discount 15%</span><span>- Rs. {discount}</span></div>
+              <div className="flex justify-between"><span className="text-gray-500">Subtotal</span><span className="font-medium">Rs. {fmt(subtotal)}</span></div>
+              {servicePercent > 0 && (
+                <div className="flex justify-between"><span className="text-gray-500">Service charge {servicePercent}%</span><span className="font-medium">Rs. {fmt(serviceCharge)}</span></div>
+              )}
+              {taxPercent > 0 && (
+                <div className="flex justify-between"><span className="text-gray-500">{billing?.tax_label || "Tax"} {taxPercent}%</span><span className="font-medium">Rs. {fmt(tax)}</span></div>
+              )}
+              {!restaurantId && <p className="text-xs text-gray-400">Taxes, if any, are added on your bill.</p>}
             </div>
 
             <div className="mt-5 flex items-center justify-between border-t pt-4">
               <span className="text-lg font-bold">Grand Total</span>
-              <span className="text-2xl font-extrabold text-green-900">Rs. {total}</span>
+              <span className="text-2xl font-extrabold text-green-900">Rs. {fmt(total)}</span>
             </div>
 
             <button

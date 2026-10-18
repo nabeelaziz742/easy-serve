@@ -11,8 +11,8 @@ import RoleGuard from "@/components/auth/RoleGuard";
 export function ProfileSkeleton() {
   return (
     <div className="mx-auto max-w-5xl px-4 py-10 space-y-6">
-      <Skeleton className="h-44 w-full rounded-3xl" />
-      <Skeleton className="h-96 w-full rounded-3xl" />
+      <Skeleton className="h-44 w-full rounded-2xl" />
+      <Skeleton className="h-96 w-full rounded-2xl" />
     </div>
   );
 }

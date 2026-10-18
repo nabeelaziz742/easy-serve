@@ -15,14 +15,14 @@ export default function ProfileOrders() {
 
   if (!data?.length) {
     return (
-      <Card className="p-6 text-center text-gray-500">
+      <Card className="p-5 text-center text-gray-500 gap-3">
         No orders found
       </Card>
     );
   }
 
   return (
-    <Card className="p-4">
+    <Card className="p-4 gap-1.5">
       <Table>
         <thead>
           <tr>

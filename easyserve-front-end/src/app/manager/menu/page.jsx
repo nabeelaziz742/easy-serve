@@ -137,7 +137,7 @@ export default function ManagerMenuPage() {
   const loadError = menusError || itemsError;
 
   return (
-    <div className="min-h-screen bg-zinc-50/50 p-4 font-sans md:p-8 lg:p-10">
+    <div className="min-h-screen bg-zinc-50/50 p-4 font-sans md:p-6">
       <div className="mx-auto max-w-5xl space-y-8">
         {/* Page Header */}
         <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-center">
@@ -165,7 +165,7 @@ export default function ManagerMenuPage() {
         <motion.div
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
-          className="rounded-3xl border border-zinc-200/80 bg-white p-6 shadow-sm md:p-8"
+          className="rounded-2xl border border-zinc-200/80 bg-white p-5 shadow-sm"
         >
           <div className="mb-6 flex items-center justify-between gap-3">
             <div>
@@ -278,11 +278,11 @@ export default function ManagerMenuPage() {
               ))}
             </div>
           ) : loadError ? (
-            <div className="rounded-3xl border border-red-200 bg-red-50 p-6 text-sm font-medium text-red-700">
+            <div className="rounded-2xl border border-red-200 bg-red-50 p-6 text-sm font-medium text-red-700">
               Unable to load the restaurant menu. Please try again.
             </div>
           ) : !menuId ? null : menuItems.length === 0 ? (
-            <div className="rounded-3xl border border-dashed border-zinc-200 bg-white p-12 text-center shadow-xs">
+            <div className="rounded-2xl border border-dashed border-zinc-200 bg-white p-8 text-center shadow-xs">
               <UtensilsCrossed className="mx-auto h-8 w-8 text-zinc-300" />
               <p className="mt-2 text-sm font-medium text-zinc-500">No dishes on the menu yet. Add your first item above.</p>
             </div>

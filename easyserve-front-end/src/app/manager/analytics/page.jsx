@@ -203,7 +203,7 @@ export default function AnalyticsPage() {
         >
           {statCards.map(({ label, value, icon: Icon, bg, text, ring }) => (
             <motion.div key={label} variants={itemVariants}>
-              <Card className="smooth-card rounded-3xl border border-gray-200/80 bg-white p-5 shadow-sm">
+              <Card className="smooth-card rounded-2xl border border-gray-200/80 bg-white p-5 shadow-sm gap-3">
                 <div className="flex items-center justify-between">
                   <div>
                     <p className="text-xs font-bold uppercase tracking-widest text-gray-400">
@@ -230,7 +230,7 @@ export default function AnalyticsPage() {
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.2 }}
           >
-            <Card className="rounded-3xl border border-gray-200/80 bg-white p-6 shadow-sm">
+            <Card className="rounded-2xl border border-gray-200/80 bg-white p-5 shadow-sm gap-3">
               <div className="mb-5 flex items-center justify-between">
                 <div>
                   <h3 className="flex items-center gap-2 text-lg font-bold text-green-950">
@@ -262,13 +262,13 @@ export default function AnalyticsPage() {
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.3 }}
           >
-            <Card className="rounded-3xl border border-gray-200/80 bg-white p-6 shadow-sm">
+            <Card className="rounded-2xl border border-gray-200/80 bg-white p-5 shadow-sm gap-3">
               <div className="mb-5 flex items-center justify-between">
                 <div>
                   <h3 className="flex items-center gap-2 text-lg font-bold text-green-950">
-                    <TrendingUp className="h-5 w-5 text-emerald-600" /> Kitchen Pipeline
+                    <TrendingUp className="h-5 w-5 text-emerald-600" /> Kitchen Flow
                   </h3>
-                  <p className="text-xs text-gray-500">Real-time status conversion funnel</p>
+                  <p className="text-xs text-gray-500">How orders move from placed to served</p>
                 </div>
                 <span className="rounded-full border border-emerald-200 bg-emerald-50 px-2.5 py-1 text-xs font-bold text-emerald-800">
                   {data?.total_orders || 0} Total

@@ -17,7 +17,7 @@ export default function GuestPage() {
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.4 }}
-        className="w-full max-w-md rounded-3xl border border-gray-200/80 bg-white p-6 shadow-xl sm:p-8"
+        className="w-full max-w-md rounded-2xl border border-gray-200/80 bg-white p-6 shadow-xl sm:p-8"
       >
         <GuestSelector
           onContinue={() =>

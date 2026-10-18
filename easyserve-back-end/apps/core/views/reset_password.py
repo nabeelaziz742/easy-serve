@@ -29,7 +29,7 @@ class ResetPasswordAPIView(APIView):
             if token.token == secret_key and token.activated and not token.is_expired:
                 serializer = ResetPasswordSerializer(data=request.data)
                 serializer.is_valid(raise_exception=True)
-                password = serializer.validated_data.get('password', None)
+                password = serializer.validated_data.get('new_password')
                 token.user.set_password(password)
                 token.user.save()
                 token.delete()

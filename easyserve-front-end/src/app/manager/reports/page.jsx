@@ -337,14 +337,14 @@ export default function FinancialReportsPage() {
           <div className="text-right text-xs text-stone-600 space-y-1">
             <div><b>Period:</b> {reportData?.period?.start_date} to {reportData?.period?.end_date}</div>
             <div><b>Generated:</b> {reportData?.metadata?.generated_at}</div>
-            <div><b>System:</b> EasyServe SaaS (Confidential)</div>
+            <div><b>System:</b> Easy Serve (Confidential)</div>
           </div>
         </div>
       </div>
 
       {/* 4. Report Content Body */}
       {isReportLoading ? (
-        <div className="bg-white rounded-2xl p-12 text-center border border-stone-200">
+        <div className="bg-white rounded-2xl p-8 text-center border border-stone-200">
           <RefreshCw className="w-8 h-8 text-[#063B2E] animate-spin mx-auto mb-3" />
           <h3 className="text-base font-semibold text-stone-800">Compiling database report...</h3>
           <p className="text-xs text-stone-600 mt-1">Aggregating historical transactions and calculating financial totals.</p>
@@ -364,7 +364,8 @@ export default function FinancialReportsPage() {
                     {formatCurrency(reportData?.overview?.revenue?.gross_sales || 0)}
                   </div>
                   <div className="text-xs text-stone-600 mt-1">
-                    {reportData?.overview?.revenue?.orders_count || 0} confirmed orders
+                    {reportData?.overview?.revenue?.orders_count || 0} confirmed orders · excl. tax{" "}
+                    {formatCurrency(reportData?.overview?.revenue?.tax_collected || 0)}
                   </div>
                 </div>
 
@@ -428,6 +429,10 @@ export default function FinancialReportsPage() {
                       <div className="flex justify-between font-semibold text-stone-900 pt-1 border-t border-emerald-100">
                         <span>Net Sales</span>
                         <span>{formatCurrency(reportData?.overview?.revenue?.net_sales || 0)}</span>
+                      </div>
+                      <div className="flex justify-between pt-1 text-stone-500">
+                        <span>Tax collected on bills (payable, not income)</span>
+                        <span className="font-medium">{formatCurrency(reportData?.overview?.revenue?.tax_collected || 0)}</span>
                       </div>
                     </div>
                   </div>
@@ -531,6 +536,9 @@ export default function FinancialReportsPage() {
                   <div className="text-xl font-bold text-[#063B2E]">
                     {formatCurrency(reportData?.summary?.total_gross_sales || 0)}
                   </div>
+                  <div className="text-[11px] text-stone-500">
+                    Excl. tax {formatCurrency(reportData?.summary?.total_tax_collected || 0)}
+                  </div>
                 </div>
                 <div className="bg-white p-4 rounded-xl border border-stone-200">
                   <div className="text-xs text-stone-600 font-medium">Historical COGS</div>
@@ -563,7 +571,8 @@ export default function FinancialReportsPage() {
                         <th className="py-3 px-3">Table</th>
                         <th className="py-3 px-3">Payment</th>
                         <th className="py-3 px-3">Status</th>
-                        <th className="py-3 px-3 text-right">Gross Amount</th>
+                        <th className="py-3 px-3 text-right">Sales (excl. tax)</th>
+                        <th className="py-3 px-3 text-right">Tax</th>
                         <th className="py-3 px-3 text-right">COGS</th>
                         <th className="py-3 px-3 text-right">Gross Profit</th>
                         <th className="py-3 px-3 text-right">Margin %</th>
@@ -572,7 +581,7 @@ export default function FinancialReportsPage() {
                     <tbody className="divide-y divide-stone-200 font-medium">
                       {(reportData?.orders || []).length === 0 ? (
                         <tr>
-                          <td colSpan={10} className="py-8 text-center text-stone-600">
+                          <td colSpan={11} className="py-8 text-center text-stone-600">
                             No sales recorded for the selected period.
                           </td>
                         </tr>
@@ -596,6 +605,7 @@ export default function FinancialReportsPage() {
                             <td className="py-2.5 px-3 text-right font-semibold text-stone-900">
                               {formatCurrency(ord.gross_amount)}
                             </td>
+                            <td className="py-2.5 px-3 text-right text-stone-500">{formatCurrency(ord.tax_amount || 0)}</td>
                             <td className="py-2.5 px-3 text-right text-amber-700">{formatCurrency(ord.cogs)}</td>
                             <td className="py-2.5 px-3 text-right text-emerald-700 font-semibold">
                               {formatCurrency(ord.gross_profit)}

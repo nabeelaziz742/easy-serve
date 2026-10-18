@@ -170,3 +170,13 @@ export const clearSession = () => {
   clearFrom(window.sessionStorage);
   safeSet(window.sessionStorage, SIGNED_OUT_KEY, '1');
 };
+
+// Turns only this tab into a signed-out guest, leaving every other tab and
+// the shared login alone. Used when a table QR code is opened in a browser
+// where staff are signed in: the person ordering is a customer, not the
+// manager whose login a new tab would otherwise adopt.
+export const detachTabAsGuest = () => {
+  if (!isBrowser()) return;
+  clearFrom(window.sessionStorage);
+  safeSet(window.sessionStorage, SIGNED_OUT_KEY, '1');
+};

@@ -4,13 +4,14 @@ import React from "react";
 import { motion } from "framer-motion";
 import { Sparkles, Utensils } from "lucide-react";
 import { MenuItemCard } from "@/components/landingPage/MenuItemCard";
+import EmptyState from "@/components/feedback/EmptyState";
 import {
   useGetTopAIMenuItemSuggestionsQuery,
   useGetAIRecommendedMenuItemQuery,
 } from "@/services/public/resturants";
 
 const MenuSkeletonCard = () => (
-  <div className="rounded-3xl border border-gray-200 bg-white p-4 shadow-sm animate-pulse">
+  <div className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm animate-pulse">
     <div className="h-40 w-full rounded-2xl bg-gray-200 mb-4" />
     <div className="h-5 w-3/4 rounded bg-gray-200 mb-2" />
     <div className="h-4 w-1/2 rounded bg-gray-100 mb-4" />
@@ -25,8 +26,10 @@ export default function MenuSection() {
   const { data: aiRecommendResponse, isLoading: aiRLoading } =
     useGetAIRecommendedMenuItemQuery();
 
-  const aiMenuItemSuggestions = aiResponse || [];
-  const aiRecommendMenuItemSuggestions = aiRecommendResponse || [];
+  const asList = (value) =>
+    Array.isArray(value) ? value : Array.isArray(value?.results) ? value.results : [];
+  const aiMenuItemSuggestions = asList(aiResponse);
+  const aiRecommendMenuItemSuggestions = asList(aiRecommendResponse);
 
   const isLoading = aiLoading || aiRLoading;
 
@@ -79,6 +82,14 @@ export default function MenuSection() {
                 title="Recommended For You"
                 emoji="✨"
                 items={aiRecommendMenuItemSuggestions}
+              />
+            )}
+
+            {aiMenuItemSuggestions.length === 0 && aiRecommendMenuItemSuggestions.length === 0 && (
+              <EmptyState
+                icon={Utensils}
+                title="Dishes are on their way"
+                description="Recommended dishes show up here once restaurants publish their menus."
               />
             )}
           </>

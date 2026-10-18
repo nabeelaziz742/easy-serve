@@ -4,7 +4,7 @@ from django.shortcuts import get_object_or_404
 from django.utils.timezone import now
 from rest_framework import status
 from rest_framework.generics import ListAPIView
-from rest_framework.permissions import IsAuthenticated
+from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
@@ -12,18 +12,24 @@ from apps.restaurants.constants import PaymentMethod, PaymentStatus, OrderStatus
 from apps.restaurants.models import Orders, PaymentDetails
 from apps.restaurants.permissions import IsManager, IsWaiter
 from apps.restaurants.serializers import OrderDetailSerializer
+from apps.restaurants.services.dine_in_guest import guest_owns_order
 from apps.restaurants.services.table_lifecycle import release_table_after_payment
 
 
 class RequestCashPaymentAPIView(APIView):
-    """Customer requests cash payment; this NEVER confirms the payment."""
-    permission_classes = [IsAuthenticated]
+    """Customer requests cash payment; this NEVER confirms the payment.
+
+    Allowed for the logged-in customer who placed the order, or for the
+    guest at the table (the dine-in session token proves it).
+    """
+    permission_classes = [AllowAny]
 
     @transaction.atomic
     def post(self, request, order_id):
         order = get_object_or_404(Orders.objects.select_for_update(), id=order_id)
-        profile = request.user.profile
-        if order.user_id != profile.id:
+        profile = getattr(request.user, "profile", None) if request.user.is_authenticated else None
+        is_owner = profile is not None and order.user_id == profile.id
+        if not (is_owner or guest_owns_order(request, order)):
             return Response({"detail": "You are not allowed to pay for this order."}, status=status.HTTP_403_FORBIDDEN)
         if order.order_cancelled:
             return Response({"detail": "Cannot pay for a cancelled order."}, status=status.HTTP_400_BAD_REQUEST)
@@ -45,7 +51,7 @@ class RequestCashPaymentAPIView(APIView):
         PaymentDetails.objects.update_or_create(
             order=order,
             defaults={
-                "user": profile,
+                "user": order.user,
                 "payment_method": PaymentMethod.CATCH_ON_DELIVERY.value,
                 "payment_status": PaymentStatus.PENDING.value,
                 "cash_received_by": None,
@@ -236,4 +242,3 @@ class ManagerCashOrdersAPIView(ListAPIView):
             paymentdetails__cash_received_by__isnull=False,
             paymentdetails__cash_settled_by__isnull=True,
         ).select_related("table", "user", "waiter").prefetch_related("items__menu_item").distinct().order_by("-created_at")
-

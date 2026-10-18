@@ -81,7 +81,7 @@ export default function ManagerDashboardPage() {
   if (isLoading) {
     return (
       <div className="space-y-6">
-        <Skeleton className="h-32 w-full rounded-3xl" />
+        <Skeleton className="h-32 w-full rounded-2xl" />
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
           {[1, 2, 3, 4].map((i) => (
             <Skeleton key={i} className="h-28 rounded-2xl" />
@@ -94,7 +94,7 @@ export default function ManagerDashboardPage() {
   return (
     <div className="space-y-8">
       {/* Manager Profile & Status Hero Card */}
-      <section className="smooth-card relative overflow-hidden rounded-3xl border border-gray-200/80 bg-white p-6 shadow-sm">
+      <section className="smooth-card relative overflow-hidden rounded-2xl border border-gray-200/80 bg-white p-5 shadow-sm">
         <div className="absolute inset-y-0 left-0 w-2 bg-gradient-to-b from-yellow-400 to-green-900" />
         <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-6">
           <div className="flex items-center gap-4">
@@ -111,7 +111,7 @@ export default function ManagerDashboardPage() {
                 </span>
               </div>
               <p className="text-xs text-gray-500 mt-1">
-                EasyServe Executive Operations & Telemetry
+                Restaurant operations overview
               </p>
             </div>
           </div>
@@ -136,7 +136,7 @@ export default function ManagerDashboardPage() {
           const Icon = s.icon;
           return (
             <motion.div key={s.title} variants={itemVariants}>
-              <Card className="smooth-card rounded-3xl border border-gray-200/80 bg-white p-5 shadow-sm hover:shadow-lg transition-all">
+              <Card className="smooth-card rounded-2xl border border-gray-200/80 bg-white p-5 shadow-sm hover:shadow-lg transition-all gap-3">
                 <div className="flex items-center justify-between">
                   <div>
                     <p className="text-[11px] font-bold uppercase tracking-wider text-gray-400">
@@ -157,8 +157,8 @@ export default function ManagerDashboardPage() {
       </motion.div>
 
       {/* Staff Overview */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        <Card className="rounded-3xl border border-gray-200/80 bg-white p-6 shadow-sm">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <Card className="rounded-2xl border border-gray-200/80 bg-white p-5 shadow-sm gap-3">
           <div className="flex items-center justify-between mb-4">
             <div className="flex items-center gap-2">
               <Users className="h-5 w-5 text-yellow-600" />
@@ -173,7 +173,7 @@ export default function ManagerDashboardPage() {
           </p>
         </Card>
 
-        <Card className="rounded-3xl border border-gray-200/80 bg-white p-6 shadow-sm">
+        <Card className="rounded-2xl border border-gray-200/80 bg-white p-5 shadow-sm gap-3">
           <div className="flex items-center justify-between mb-4">
             <div className="flex items-center gap-2">
               <ChefHat className="h-5 w-5 text-yellow-600" />

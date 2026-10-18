@@ -89,7 +89,7 @@ export default function AddChefPage() {
         <motion.div
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
-          className="rounded-3xl border border-zinc-200/80 bg-white p-6 shadow-sm sm:p-8"
+          className="rounded-2xl border border-zinc-200/80 bg-white p-6 shadow-sm sm:p-8"
         >
           <form onSubmit={handleSubmit} className="space-y-5">
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
@@ -223,4 +223,4 @@ export default function AddChefPage() {
     </div>
   );
 }
-
+

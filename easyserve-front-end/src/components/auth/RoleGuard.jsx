@@ -2,7 +2,7 @@
 
 import { useSelector, useDispatch } from "react-redux";
 import { useRouter } from "next/navigation";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { onAuthorized, onLoggedOut } from "@/store/slices/authSlice";
 import { useGetMeQuery } from "@/services/private/me";
 import { getAccessToken } from "@/utilities/authStorage";
@@ -11,7 +11,14 @@ import { getRoleHome } from "@/utilities/roleRoutes";
 export default function RoleGuard({ allowedRoles, children }) {
   const router = useRouter();
   const dispatch = useDispatch();
-  const { user, isAuthenticated, initialized } = useSelector((state) => state.auth);
+  const { user, isAuthenticated, initialized: sessionRestored } = useSelector((state) => state.auth);
+
+  // A page segment can hydrate after the session was already restored into
+  // the store, so it must still start from the server's "verifying" markup
+  // and switch only once this guard itself has mounted.
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => setMounted(true), []);
+  const initialized = mounted && sessionRestored;
 
   // No routing decision is made until the persisted session has been
   // restored into the store (see StateProvider).

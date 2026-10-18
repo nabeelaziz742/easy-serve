@@ -676,7 +676,7 @@ function RecipesContent() {
       {/* ========================================================= */}
       {showRecipeModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm overflow-y-auto">
-          <div className="bg-white rounded-3xl shadow-2xl border border-gray-100 w-full max-w-4xl overflow-hidden my-8 animate-in fade-in zoom-in-95 duration-200">
+          <div className="bg-white rounded-2xl shadow-2xl border border-gray-100 w-full max-w-4xl overflow-hidden my-8 animate-in fade-in zoom-in-95 duration-200">
             {/* Modal Header */}
             <div className="bg-[#063B2E] text-white px-6 py-5 flex items-center justify-between">
               <div className="flex items-center gap-3">
@@ -931,7 +931,7 @@ function RecipesContent() {
       {/* ========================================================= */}
       {showDetailModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm overflow-y-auto">
-          <div className="bg-white rounded-3xl shadow-2xl border border-gray-100 w-full max-w-3xl overflow-hidden my-8 animate-in fade-in zoom-in-95 duration-200">
+          <div className="bg-white rounded-2xl shadow-2xl border border-gray-100 w-full max-w-3xl overflow-hidden my-8 animate-in fade-in zoom-in-95 duration-200">
             {/* Header */}
             <div className="bg-[#063B2E] text-white px-6 py-5 flex items-center justify-between">
               <div className="flex items-center gap-3">
@@ -1086,7 +1086,7 @@ export default function RecipesPage() {
   return (
     <Suspense
       fallback={
-        <div className="p-12 text-center text-gray-400">
+        <div className="p-8 text-center text-gray-400">
           <RefreshCw size={32} className="animate-spin text-[#063B2E] mx-auto mb-2" />
           <p className="text-sm font-bold text-gray-700">Loading Recipes module...</p>
         </div>

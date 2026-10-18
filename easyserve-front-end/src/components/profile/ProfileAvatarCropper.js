@@ -18,7 +18,7 @@ export default function AvatarCropper({ image, onClose }) {
 
   return (
     <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center">
-      <Card className="w-[90vw] max-w-md p-4 space-y-4">
+      <Card className="w-[90vw] max-w-md p-4 space-y-4 gap-1.5">
         <h3 className="font-semibold text-lg">Crop your avatar</h3>
 
         <div className="relative w-full h-64 bg-black rounded-lg overflow-hidden">

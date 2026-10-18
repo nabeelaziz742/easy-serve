@@ -81,7 +81,7 @@ function ReservationPageContent() {
         transition={{ duration: 0.4 }}
         className="w-full max-w-lg"
       >
-        <Card className="rounded-3xl border border-gray-200/80 bg-white shadow-xl overflow-hidden">
+        <Card className="rounded-2xl border border-gray-200/80 bg-white shadow-xl overflow-hidden">
           <CardHeader className="bg-green-950 text-white p-6 sm:p-8">
             <div className="flex items-center gap-2 mb-2">
               <span className="inline-flex items-center gap-1 rounded-full bg-yellow-400/20 px-3 py-0.5 text-xs font-bold text-yellow-300 border border-yellow-400/30">

@@ -3,7 +3,6 @@ import "./globals.css";
 import { Toaster } from "sonner";
 import StateProvider from "@/providers/StateProvider";
 import LayoutClient from "./layoutClient";
-import AIChatbot from "@/components/Aichatbot";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -15,14 +14,32 @@ const geistMono = Geist_Mono({
   subsets: ["latin"],
 });
 
+export const metadata = {
+  title: {
+    default: "Easy Serve | Smart Restaurant Management",
+    template: "%s | Easy Serve",
+  },
+  description:
+    "QR table ordering, kitchen display, waiter app, cash settlement, inventory and reports for restaurants, in one system.",
+  applicationName: "Easy Serve",
+  openGraph: {
+    title: "Easy Serve | Smart Restaurant Management",
+    description:
+      "QR table ordering, kitchen display, waiter app, cash settlement, inventory and reports for restaurants.",
+    type: "website",
+  },
+};
+
+export const viewport = {
+  themeColor: "#063B2E",
+};
+
 export default function RootLayout({ children }) {
   return (
     <html lang="en">
       <body className={`${geistSans.variable} ${geistMono.variable} antialiased`}>
         <StateProvider>
           <LayoutClient>{children}</LayoutClient>
-
-          <AIChatbot />
           <Toaster richColors position="top-right" />
         </StateProvider>
       </body>

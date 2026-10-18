@@ -133,6 +133,12 @@ class Orders(AbstractTimeStampModel):
         default=0
     )
 
+    # Bill breakdown captured at checkout: total_price = subtotal +
+    # service_charge_amount + tax_amount, using the restaurant's rates then.
+    subtotal = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+    service_charge_amount = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+    tax_amount = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+
     order_cancelled = models.BooleanField(default=False)
 
     ordered = models.BooleanField(default=False)

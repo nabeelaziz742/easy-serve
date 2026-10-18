@@ -1125,7 +1125,7 @@ function AddExpenseModal({ isOpen, onClose, categories, onOpenCategoryModal, onS
 
   return (
     <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto">
-      <div className="bg-white rounded-3xl w-full max-w-2xl overflow-hidden shadow-2xl border border-zinc-100 my-8">
+      <div className="bg-white rounded-2xl w-full max-w-2xl overflow-hidden shadow-2xl border border-zinc-100 my-8">
         {/* Header */}
         <div className="bg-[#063B2E] text-white p-6 flex items-center justify-between">
           <div className="flex items-center gap-3">
@@ -1381,7 +1381,7 @@ function EditExpenseModal({ isOpen, expense, categories, onClose, onSubmit, isLo
 
   return (
     <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto">
-      <div className="bg-white rounded-3xl w-full max-w-xl overflow-hidden shadow-2xl border border-zinc-100 my-8">
+      <div className="bg-white rounded-2xl w-full max-w-xl overflow-hidden shadow-2xl border border-zinc-100 my-8">
         <div className="bg-[#063B2E] text-white p-6 flex items-center justify-between">
           <div>
             <h2 className="text-xl font-black">Edit Expense</h2>
@@ -1534,7 +1534,7 @@ function VoidExpenseModal({ isOpen, expense, onClose, onSubmit, isLoading }) {
 
   return (
     <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4">
-      <div className="bg-white rounded-3xl w-full max-w-md overflow-hidden shadow-2xl border border-zinc-100">
+      <div className="bg-white rounded-2xl w-full max-w-md overflow-hidden shadow-2xl border border-zinc-100">
         <div className="bg-red-600 text-white p-6">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-xl bg-white/20 flex items-center justify-center">
@@ -1791,7 +1791,7 @@ function CategoriesModal({ isOpen, categories, onClose, onAdd, onUpdate, isAddin
 
   return (
     <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4">
-      <div className="bg-white rounded-3xl w-full max-w-lg overflow-hidden shadow-2xl border border-zinc-100 max-h-[85vh] flex flex-col justify-between">
+      <div className="bg-white rounded-2xl w-full max-w-lg overflow-hidden shadow-2xl border border-zinc-100 max-h-[85vh] flex flex-col justify-between">
         {/* Header */}
         <div className="bg-[#063B2E] text-white p-6 flex items-center justify-between">
           <div className="flex items-center gap-3">

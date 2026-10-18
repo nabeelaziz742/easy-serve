@@ -3,6 +3,7 @@
 import { motion } from "framer-motion";
 import { Star, MessageSquare, RefreshCw, Sparkles } from "lucide-react";
 import { useGetReviewsQuery } from "@/services/private/reviews";
+import RoleGuard from "@/components/auth/RoleGuard";
 
 const containerVariants = {
   hidden: { opacity: 0 },
@@ -32,6 +33,14 @@ function StarRating({ rating }) {
 }
 
 export default function ReviewsPage() {
+  return (
+    <RoleGuard allowedRoles={["manager", "restaurant_owner", "super_admin"]}>
+      <Reviews />
+    </RoleGuard>
+  );
+}
+
+function Reviews() {
   const { data, isLoading, isFetching, isError, refetch } = useGetReviewsQuery(undefined, {
     pollingInterval: 5000,
     refetchOnFocus: true,
@@ -65,7 +74,7 @@ export default function ReviewsPage() {
       </div>
 
       {isError ? (
-        <div className="rounded-3xl border border-red-200 bg-red-50 p-6 text-sm font-medium text-red-700">
+        <div className="rounded-2xl border border-red-200 bg-red-50 p-6 text-sm font-medium text-red-700">
           Failed to load reviews. Please refresh and try again.
         </div>
       ) : isLoading ? (
@@ -75,7 +84,7 @@ export default function ReviewsPage() {
           ))}
         </div>
       ) : reviews.length === 0 ? (
-        <div className="flex flex-col items-center justify-center rounded-3xl border border-dashed border-zinc-200 bg-white px-6 py-16 text-center shadow-xs">
+        <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-zinc-200 bg-white px-6 py-16 text-center shadow-xs">
           <div className="mb-3 flex h-14 w-14 items-center justify-center rounded-2xl bg-amber-50 text-amber-600">
             <MessageSquare className="h-6 w-6" />
           </div>

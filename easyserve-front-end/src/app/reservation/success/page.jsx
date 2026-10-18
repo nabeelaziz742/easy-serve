@@ -38,7 +38,7 @@ function ReservationSuccessContent() {
   if (isLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
-        <div className="rounded-3xl border border-yellow-400/20 bg-white px-8 py-7 text-center shadow-xl">
+        <div className="rounded-2xl border border-yellow-400/20 bg-white px-8 py-7 text-center shadow-xl">
           <div className="mx-auto mb-3 h-8 w-8 animate-spin rounded-full border-4 border-gray-200 border-t-yellow-500" />
           <p className="font-bold text-gray-900">Loading reservation details...</p>
         </div>
@@ -49,7 +49,7 @@ function ReservationSuccessContent() {
   if (!reservation) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50 px-4">
-        <Card className="max-w-md w-full rounded-3xl p-8 text-center shadow-lg border-gray-200">
+        <Card className="max-w-md w-full rounded-2xl p-5 text-center shadow-lg border-gray-200 gap-3">
           <p className="font-bold text-gray-800 text-lg">Reservation not found</p>
           <p className="text-xs text-gray-500 mt-1">Please check your reservation link or profile.</p>
           <Button
@@ -73,7 +73,7 @@ function ReservationSuccessContent() {
         transition={{ duration: 0.5, ease: "easeOut" }}
         className="w-full max-w-lg"
       >
-        <Card className="rounded-3xl border border-gray-200/80 bg-white shadow-2xl overflow-hidden">
+        <Card className="rounded-2xl border border-gray-200/80 bg-white shadow-2xl overflow-hidden">
           {/* Header Banner */}
           <CardHeader className="text-center space-y-3 p-6 sm:p-8 bg-green-950 text-white relative">
             <motion.div
@@ -210,7 +210,7 @@ export default function ReservationSuccessPage() {
     <Suspense
       fallback={
         <div className="min-h-screen flex items-center justify-center bg-gray-50">
-          <div className="rounded-3xl border border-yellow-400/20 bg-white px-8 py-7 text-center shadow-xl">
+          <div className="rounded-2xl border border-yellow-400/20 bg-white px-8 py-7 text-center shadow-xl">
             <div className="mx-auto mb-3 h-8 w-8 animate-spin rounded-full border-4 border-gray-200 border-t-yellow-500" />
             <p className="font-bold text-gray-900">Loading reservation details...</p>
           </div>

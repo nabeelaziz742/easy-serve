@@ -74,7 +74,7 @@ export default function ChefsPage() {
   };
 
   return (
-    <div className="p-4 sm:p-8">
+    <div className="p-4 sm:p-6">
       {/* Header */}
       <div className="mb-8 flex flex-col justify-between gap-4 sm:flex-row sm:items-center">
         <div>
@@ -104,7 +104,7 @@ export default function ChefsPage() {
           <Loader2 className="h-8 w-8 animate-spin text-zinc-400" />
         </div>
       ) : chefs.length === 0 ? (
-        <div className="flex flex-col items-center justify-center rounded-3xl border border-dashed border-zinc-200 bg-white p-12 text-center shadow-xs">
+        <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-zinc-200 bg-white p-8 text-center shadow-xs">
           <ChefHat className="mx-auto h-10 w-10 text-zinc-300" />
           <h3 className="mt-3 text-base font-bold text-zinc-800">No chefs registered yet</h3>
           <p className="mt-1 text-sm text-zinc-500">Add chefs to assign kitchen ticket preparation.</p>
@@ -116,7 +116,7 @@ export default function ChefsPage() {
           </Link>
         </div>
       ) : (
-        <div className="overflow-hidden rounded-3xl border border-zinc-200/80 bg-white shadow-xs">
+        <div className="overflow-hidden rounded-2xl border border-zinc-200/80 bg-white shadow-xs">
           <div className="overflow-x-auto">
             <table className="w-full text-left">
               <thead className="border-b border-zinc-100 bg-zinc-50/70">
@@ -183,7 +183,7 @@ export default function ChefsPage() {
               initial={{ opacity: 0, scale: 0.95 }}
               animate={{ opacity: 1, scale: 1 }}
               exit={{ opacity: 0, scale: 0.95 }}
-              className="relative w-full max-w-md rounded-3xl border border-zinc-200 bg-white p-6 shadow-2xl"
+              className="relative w-full max-w-md rounded-2xl border border-zinc-200 bg-white p-6 shadow-2xl"
             >
               <button
                 onClick={() => setEditingUser(null)}
@@ -260,4 +260,4 @@ export default function ChefsPage() {
     </div>
   );
 }
-
+

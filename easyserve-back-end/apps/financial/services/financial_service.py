@@ -20,6 +20,15 @@ from apps.financial.constants import (
     NET_MARGIN_HEALTHY_MIN_PERCENT,
 )
 
+_MONEY = DecimalField(max_digits=12, decimal_places=2)
+# Sales exclude the tax collected on the bill: it is owed to the tax
+# authority, not restaurant income. Service charge stays in sales.
+NET_SALES = ExpressionWrapper(F('total_price') - F('tax_amount'), output_field=_MONEY)
+# The item total of a bill, before service charge and tax.
+ITEMS_TOTAL = ExpressionWrapper(
+    F('total_price') - F('tax_amount') - F('service_charge_amount'), output_field=_MONEY
+)
+
 
 class FinancialReportService:
     """
@@ -160,12 +169,14 @@ class FinancialReportService:
         # Current period orders
         current_orders = cls.get_restaurant_orders_queryset(restaurant, start_date, end_date, valid_only=True)
         order_stats = current_orders.aggregate(
-            gross_revenue=Sum('total_price'),
+            gross_revenue=Sum(NET_SALES),
+            tax_collected=Sum('tax_amount'),
             cogs=Sum('total_cogs'),
             order_count=Count('id')
         )
 
         gross_revenue = order_stats['gross_revenue'] or Decimal('0.00')
+        tax_collected = order_stats['tax_collected'] or Decimal('0.00')
         discounts = Decimal('0.00')
         net_sales = gross_revenue - discounts
         cogs = order_stats['cogs'] or Decimal('0.00')
@@ -230,7 +241,7 @@ class FinancialReportService:
         if prev_start_date and prev_end_date:
             prev_orders = cls.get_restaurant_orders_queryset(restaurant, prev_start_date, prev_end_date, valid_only=True)
             prev_stats = prev_orders.aggregate(
-                gross_revenue=Sum('total_price'),
+                gross_revenue=Sum(NET_SALES),
                 cogs=Sum('total_cogs'),
                 order_count=Count('id')
             )
@@ -278,6 +289,7 @@ class FinancialReportService:
                 "gross_sales": gross_revenue,
                 "discounts": discounts,
                 "net_sales": net_sales,
+                "tax_collected": tax_collected,
                 "orders_count": order_count,
                 "average_order_value": avg_order_value,
             },
@@ -328,7 +340,7 @@ class FinancialReportService:
                 Q(ordered_date__date=day) |
                 Q(ordered_date__isnull=True, created_at__date=day)
             ).aggregate(
-                sales=Sum('total_price'),
+                sales=Sum(NET_SALES),
                 cogs=Sum('total_cogs'),
                 orders=Count('id')
             )
@@ -363,13 +375,13 @@ class FinancialReportService:
         Calculates revenue breakdown by payment method and order type.
         """
         orders = cls.get_restaurant_orders_queryset(restaurant, start_date, end_date, valid_only=True)
-        total_revenue = orders.aggregate(total=Sum('total_price'))['total'] or Decimal('0.00')
+        total_revenue = orders.aggregate(total=Sum(NET_SALES))['total'] or Decimal('0.00')
 
         # By Order Type
         order_types = []
         for o_type in OrderType:
             sub_qs = orders.filter(order_type=o_type.value)
-            rev = sub_qs.aggregate(total=Sum('total_price'))['total'] or Decimal('0.00')
+            rev = sub_qs.aggregate(total=Sum(NET_SALES))['total'] or Decimal('0.00')
             cnt = sub_qs.count()
             pct = (
                 float(((rev / total_revenue) * Decimal('100.0')).quantize(Decimal('0.1')))
@@ -418,7 +430,7 @@ class FinancialReportService:
             else:
                 bucket = "CASH"
 
-            method_buckets[bucket]["revenue"] += order.total_price
+            method_buckets[bucket]["revenue"] += order.total_price - order.tax_amount
             method_buckets[bucket]["count"] += 1
 
         for code, bdata in method_buckets.items():
@@ -618,8 +630,9 @@ class FinancialReportService:
         """
         orders = cls.get_restaurant_orders_queryset(restaurant, start_date, end_date, valid_only=True)
 
-        # 1. Revenue Reconciliation (Order.total_price vs Sum(OrderItem.price * quantity))
-        orders_revenue = orders.aggregate(total=Sum('total_price'))['total'] or Decimal('0.00')
+        # 1. Revenue Reconciliation (order item totals, i.e. the bill before
+        # service charge and tax, vs Sum(OrderItem.price * quantity))
+        orders_revenue = orders.aggregate(total=Sum(ITEMS_TOTAL))['total'] or Decimal('0.00')
         item_revenue = OrderItem.objects.filter(
             order__in=orders
         ).aggregate(

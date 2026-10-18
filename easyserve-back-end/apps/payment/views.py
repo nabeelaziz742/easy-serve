@@ -5,16 +5,25 @@ from django.shortcuts import get_object_or_404
 from django.utils import timezone
 
 from rest_framework import status
-from rest_framework.permissions import AllowAny, IsAuthenticated
+from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from apps.payment.models import Payment
 from apps.restaurants.constants import PaymentStatus
 from apps.restaurants.models import Orders
+from apps.restaurants.services.dine_in_guest import guest_owns_order
 from apps.restaurants.services.table_lifecycle import release_table_after_payment
 
 stripe.api_key = settings.STRIPE_SECRET_KEY
+
+
+def can_pay_for_order(request, order):
+    """The logged-in customer who placed the order, or the guest at its table."""
+    profile = getattr(request.user, "profile", None) if request.user.is_authenticated else None
+    if profile is not None and order.user_id == profile.id:
+        return True
+    return guest_owns_order(request, order)
 
 
 class CreatePaymentIntentAPIView(APIView):
@@ -26,7 +35,8 @@ class CreatePaymentIntentAPIView(APIView):
     body: {"order_id": 12}
     """
 
-    permission_classes = [IsAuthenticated]
+    # Dine-in guests pay without an account (table session token).
+    permission_classes = [AllowAny]
 
     def post(self, request):
         order_id = request.data.get("order_id")
@@ -45,8 +55,7 @@ class CreatePaymentIntentAPIView(APIView):
 
         order = get_object_or_404(Orders, id=order_id)
 
-        profile = getattr(request.user, "profile", None)
-        if profile is None or order.user_id != profile.id:
+        if not can_pay_for_order(request, order):
             return Response(
                 {"detail": "You are not allowed to pay for this order."},
                 status=status.HTTP_403_FORBIDDEN,
@@ -120,14 +129,14 @@ class ConfirmPaymentAPIView(APIView):
     body: {"order_id": 12}
     """
 
-    permission_classes = [IsAuthenticated]
+    # Dine-in guests pay without an account (table session token).
+    permission_classes = [AllowAny]
 
     def post(self, request):
         order_id = request.data.get("order_id")
         order = get_object_or_404(Orders, id=order_id)
 
-        profile = getattr(request.user, "profile", None)
-        if profile is None or order.user_id != profile.id:
+        if not can_pay_for_order(request, order):
             return Response(
                 {"detail": "You are not allowed to confirm payment for this order."},
                 status=status.HTTP_403_FORBIDDEN,

@@ -49,7 +49,7 @@ export default function MenuItemDetail() {
     return (
       <div className="mx-auto max-w-4xl px-4 py-10 space-y-6">
         <Skeleton className="h-10 w-32 rounded-xl" />
-        <div className="overflow-hidden rounded-3xl border border-gray-200 bg-white p-6 shadow-sm space-y-6">
+        <div className="overflow-hidden rounded-2xl border border-gray-200 bg-white p-6 shadow-sm space-y-6">
           <Skeleton className="h-80 w-full rounded-2xl" />
           <Skeleton className="h-10 w-2/3 rounded-xl" />
           <Skeleton className="h-20 w-full rounded-xl" />
@@ -76,7 +76,7 @@ export default function MenuItemDetail() {
           initial={{ opacity: 0, y: 24 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.4 }}
-          className="overflow-hidden rounded-3xl border border-gray-200/80 bg-white shadow-xl"
+          className="overflow-hidden rounded-2xl border border-gray-200/80 bg-white shadow-xl"
         >
           {/* Image */}
           <div className="relative">

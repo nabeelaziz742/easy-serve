@@ -1,5 +1,5 @@
 import { createSlice } from '@reduxjs/toolkit';
-import { clearSession, isSignedOut, readSession, saveLogin, updateSession } from '@/utilities/authStorage';
+import { clearSession, detachTabAsGuest, isSignedOut, readSession, saveLogin, updateSession } from '@/utilities/authStorage';
 
 // The server render and the first client render must agree, so the
 // persisted session is not read here. StateProvider restores it right after
@@ -69,6 +69,19 @@ const authSlice = createSlice({
       }
     },
 
+    // The table QR was opened in a tab that picked up a staff login: only
+    // this tab becomes a signed-out guest, other tabs keep their logins.
+    onBecameGuest: (state) => {
+      state.initialized = true;
+      state.isAuthenticated = false;
+      state.user = null;
+      state.token = null;
+
+      if (typeof window !== 'undefined') {
+        detachTabAsGuest();
+      }
+    },
+
     onLoggedOut: (state) => {
       state.initialized = true;
       state.isAuthenticated = false;
@@ -83,5 +96,4 @@ const authSlice = createSlice({
 });
 
 export default authSlice.reducer;
-export const { onSessionRestored, onAuthorized, onLoggedIn, onTokenRefreshed, onLoggedOut } = authSlice.actions;
-
+export const { onSessionRestored, onAuthorized, onLoggedIn, onTokenRefreshed, onLoggedOut, onBecameGuest } = authSlice.actions;

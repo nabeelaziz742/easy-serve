@@ -28,7 +28,7 @@ export default function ProfileFiles() {
 
   if (isLoading) {
     return (
-      <Card className="rounded-3xl border border-gray-200/80 bg-white p-6 sm:p-8 shadow-xl max-w-2xl space-y-4">
+      <Card className="rounded-2xl border border-gray-200/80 bg-white p-5 sm:p-8 shadow-xl max-w-2xl space-y-4 gap-3">
         <Skeleton className="h-8 w-48 rounded-xl" />
         <Skeleton className="h-40 w-full rounded-2xl" />
       </Card>
@@ -38,7 +38,7 @@ export default function ProfileFiles() {
   const files = Array.isArray(data) ? data : data?.results || [];
 
   return (
-    <Card className="rounded-3xl border border-gray-200/80 bg-white p-6 sm:p-8 shadow-xl max-w-2xl">
+    <Card className="rounded-2xl border border-gray-200/80 bg-white p-5 sm:p-8 shadow-xl max-w-2xl gap-3">
       <CardHeader className="p-0 pb-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
           <div className="flex items-center gap-2 mb-1">

@@ -1,0 +1,1771 @@
+diff --git a/easyserve-back-end/apps/dashboard/repositories/table_repository.py b/easyserve-back-end/apps/dashboard/repositories/table_repository.py
+index 7a30f7c..a8f6838 100644
+--- a/easyserve-back-end/apps/dashboard/repositories/table_repository.py
++++ b/easyserve-back-end/apps/dashboard/repositories/table_repository.py
+@@ -15,6 +15,17 @@ class TableRepository:
+     def get_latest_order_for_table(table):
+         return Orders.objects.filter(table=table).order_by("-created_at").first()
+ 
++    @staticmethod
++    def get_current_order_for_table(table, session=None):
++        """Latest order of the guests now at the table, if any."""
++        from apps.restaurants.services.table_lifecycle import open_orders
++
++        if session is not None:
++            order = session.orders.filter(order_cancelled=False).order_by("-created_at").first()
++            if order:
++                return order
++        return open_orders(Orders.objects.filter(table=table)).order_by("-created_at").first()
++
+     @staticmethod
+     def get_order_items(order):
+         return OrderItem.objects.filter(order=order)
+diff --git a/easyserve-back-end/apps/dashboard/repositories/waiter_repo.py b/easyserve-back-end/apps/dashboard/repositories/waiter_repo.py
+index 432c5e3..16a9bcd 100644
+--- a/easyserve-back-end/apps/dashboard/repositories/waiter_repo.py
++++ b/easyserve-back-end/apps/dashboard/repositories/waiter_repo.py
+@@ -1,6 +1,7 @@
+ from django.utils.timezone import now
+ from apps.restaurants.models import Orders, Table
+-from apps.restaurants.constants import OrderStatus, TableState, PaymentStatus
++from apps.restaurants.constants import OrderStatus, PaymentStatus
++from apps.restaurants.services.table_lifecycle import table_is_busy
+ 
+ 
+ class WaiterRepository:
+@@ -20,48 +21,32 @@ class WaiterRepository:
+ 
+     @staticmethod
+     def get_active_table_count(user_profile):
+-        """Count distinct tables currently requiring waiter attention.
+-
+-        The latest order is authoritative when a stale TableState conflicts
+-        with the order lifecycle. A served + confirmed order releases the
+-        table from the active count; a served order awaiting cash settlement
+-        remains active until the manager settles it.
++        """Count tables this waiter is looking after that are in use now.
++
++        Candidates are the waiter's assigned tables plus any table where the
++        waiter still has an unpaid order. Whether a table is in use comes
++        from the shared table lifecycle (active dine-in session or open
++        order), the same rule that frees the table on settlement. The old
++        count mixed raw table_state with "latest order" checks, so a table
++        could stay "active" here after the manager had settled it.
+         """
+-        inactive_states = {
+-            TableState.EMPTY.value,
+-            TableState.CLEANING.value,
+-            TableState.UNAVAILABLE.value,
+-        }
+-        active_ids = set()
+-
+-        for table in WaiterRepository.get_assigned_tables(user_profile):
+-            latest_order = (
+-                Orders.objects
+-                .filter(table=table, order_cancelled=False)
+-                .order_by("-created_at")
+-                .first()
+-            )
+-
+-            if latest_order and (
+-                latest_order.order_status == OrderStatus.SERVED.value
+-                and latest_order.payment_status == PaymentStatus.CONFIRMED.value
+-            ):
+-                continue
+-
+-            if table.table_state not in inactive_states:
+-                active_ids.add(table.id)
+-
+-        active_order_table_ids = Orders.objects.filter(
+-            waiter=user_profile,
+-            table__isnull=False,
+-            order_cancelled=False,
+-        ).exclude(
+-            order_status=OrderStatus.SERVED.value,
+-            payment_status=PaymentStatus.CONFIRMED.value,
+-        ).values_list("table_id", flat=True).distinct()
+-
+-        active_ids.update(active_order_table_ids)
+-        return len(active_ids)
++        candidate_ids = set(
++            WaiterRepository.get_assigned_tables(user_profile).values_list("id", flat=True)
++        )
++        candidate_ids.update(
++            Orders.objects.filter(
++                waiter=user_profile,
++                table__isnull=False,
++                order_cancelled=False,
++                payment_status=PaymentStatus.PENDING.value,
++            ).values_list("table_id", flat=True)
++        )
++
++        return sum(
++            1
++            for table in Table.objects.filter(id__in=candidate_ids, is_active=True)
++            if table_is_busy(table)
++        )
+ 
+     @staticmethod
+     def get_today_stats(user_profile):
+diff --git a/easyserve-back-end/apps/dashboard/services/table_service.py b/easyserve-back-end/apps/dashboard/services/table_service.py
+index afdfca1..4d0ee01 100644
+--- a/easyserve-back-end/apps/dashboard/services/table_service.py
++++ b/easyserve-back-end/apps/dashboard/services/table_service.py
+@@ -1,5 +1,6 @@
+ from apps.dashboard.repositories import TableRepository
+-from apps.restaurants.constants import OrderStatus, PaymentStatus, TableState
++from apps.restaurants.constants import TableState
++from apps.restaurants.services.table_lifecycle import clean_and_get_active_session
+ 
+ 
+ class TableService:
+@@ -11,14 +12,23 @@ class TableService:
+         tables = TableRepository.get_all_tables(restaurant_id)
+ 
+         for table in tables:
+-            order = TableRepository.get_latest_order_for_table(table)
+-            status = table.get_table_state_display().upper().replace(" ", "_")
++            # The shared lifecycle decides whether the table is in use and
++            # heals a table left busy after its bill was settled. The page
++            # used to guess from the latest order instead, so it could show
++            # EMPTY while the waiter dashboard still counted the table.
++            session = clean_and_get_active_session(table)
++            table.refresh_from_db(fields=["table_state", "customer_count"])
++            order = TableRepository.get_current_order_for_table(table, session)
++
++            # Enum names match the keys the Tables page styles (READY,
++            # PREPARING, PAYMENT_PENDING); the display labels did not.
++            status = TableState(table.table_state).name
+ 
+             table_info = {
+                 "id": table.id,
+                 "number": table.table_number,
+                 "status": status,
+-                "customers": table.customer_count,
++                "customers": table.customer_count if status != TableState.EMPTY.name else 0,
+                 "orderItems": [],
+                 "orderTime": None,
+                 "orderId": None,
+@@ -26,52 +36,32 @@ class TableService:
+                 "review": None,
+             }
+ 
+-            if order:
++            if order and status != TableState.EMPTY.name:
+                 items = TableRepository.get_order_items(order)
+-
+-                # Order/payment lifecycle is authoritative for a completed
+-                # dine-in order. Never let a stale table_state keep a served
+-                # table looking OCCUPIED.
+-                if order.order_status == OrderStatus.SERVED.value:
+-                    if order.payment_status == PaymentStatus.CONFIRMED.value:
+-                        status = TableState.EMPTY.name
+-                    else:
+-                        status = TableState.PAYMENT_PENDING.name
+-                else:
+-                    status = order.table.get_table_state_display().upper().replace(" ", "_")
+-
+-                table_info["status"] = status
+-
+-                # Once payment is confirmed, the previous order must no
+-                # longer make the table look active or occupied.
+-                if status == TableState.EMPTY.name:
+-                    table_info["customers"] = 0
+-                else:
+-                    table_info.update({
+-                        "customers": order.table.customer_count,
+-                        "orderItems": [
+-                            {
+-                                "item_name": i.menu_item.name,
+-                                "quantity": i.quantity,
+-                                "price": str(i.price),
+-                                "comments": i.comments or "",
+-                            }
+-                            for i in items
+-                        ],
+-                        "orderTime": order.created_at,
+-                        "orderId": order.id,
+-                        "customer_name": getattr(order.user, "full_name", None),
+-                        "review": (
+-                            {
+-                                "rate": order.review.rate,
+-                                "comment": order.review.comment,
+-                                "created_by": order.review.created_by,
+-                                "created_at": order.review.created_at,
+-                            }
+-                            if hasattr(order, "review") and order.review
+-                            else None
+-                        ),
+-                    })
++                table_info.update({
++                    "orderItems": [
++                        {
++                            "item_name": i.menu_item.name,
++                            "quantity": i.quantity,
++                            "price": str(i.price),
++                            "comments": i.comments or "",
++                        }
++                        for i in items
++                    ],
++                    "orderTime": order.created_at,
++                    "orderId": order.id,
++                    "customer_name": getattr(order.user, "full_name", None),
++                    "review": (
++                        {
++                            "rate": order.review.rate,
++                            "comment": order.review.comment,
++                            "created_by": order.review.created_by,
++                            "created_at": order.review.created_at,
++                        }
++                        if hasattr(order, "review") and order.review
++                        else None
++                    ),
++                })
+ 
+             tables_data.append(table_info)
+ 
+diff --git a/easyserve-back-end/apps/payment/views.py b/easyserve-back-end/apps/payment/views.py
+index 28092e6..f3ff181 100644
+--- a/easyserve-back-end/apps/payment/views.py
++++ b/easyserve-back-end/apps/payment/views.py
+@@ -5,18 +5,27 @@ from django.shortcuts import get_object_or_404
+ from django.utils import timezone
+ 
+ from rest_framework import status
+-from rest_framework.permissions import AllowAny, IsAuthenticated
++from rest_framework.permissions import AllowAny
+ from rest_framework.response import Response
+ from rest_framework.views import APIView
+ 
+ from apps.payment.models import Payment
+ from apps.restaurants.constants import PaymentStatus
+ from apps.restaurants.models import Orders
++from apps.restaurants.services.dine_in_guest import guest_owns_order
+ from apps.restaurants.services.table_lifecycle import release_table_after_payment
+ 
+ stripe.api_key = settings.STRIPE_SECRET_KEY
+ 
+ 
++def can_pay_for_order(request, order):
++    """The logged-in customer who placed the order, or the guest at its table."""
++    profile = getattr(request.user, "profile", None) if request.user.is_authenticated else None
++    if profile is not None and order.user_id == profile.id:
++        return True
++    return guest_owns_order(request, order)
++
++
+ class CreatePaymentIntentAPIView(APIView):
+     """
+     Creates (or re-uses) a Stripe PaymentIntent for an order and returns
+@@ -26,7 +35,8 @@ class CreatePaymentIntentAPIView(APIView):
+     body: {"order_id": 12}
+     """
+ 
+-    permission_classes = [IsAuthenticated]
++    # Dine-in guests pay without an account (table session token).
++    permission_classes = [AllowAny]
+ 
+     def post(self, request):
+         order_id = request.data.get("order_id")
+@@ -45,8 +55,7 @@ class CreatePaymentIntentAPIView(APIView):
+ 
+         order = get_object_or_404(Orders, id=order_id)
+ 
+-        profile = getattr(request.user, "profile", None)
+-        if profile is None or order.user_id != profile.id:
++        if not can_pay_for_order(request, order):
+             return Response(
+                 {"detail": "You are not allowed to pay for this order."},
+                 status=status.HTTP_403_FORBIDDEN,
+@@ -120,14 +129,14 @@ class ConfirmPaymentAPIView(APIView):
+     body: {"order_id": 12}
+     """
+ 
+-    permission_classes = [IsAuthenticated]
++    # Dine-in guests pay without an account (table session token).
++    permission_classes = [AllowAny]
+ 
+     def post(self, request):
+         order_id = request.data.get("order_id")
+         order = get_object_or_404(Orders, id=order_id)
+ 
+-        profile = getattr(request.user, "profile", None)
+-        if profile is None or order.user_id != profile.id:
++        if not can_pay_for_order(request, order):
+             return Response(
+                 {"detail": "You are not allowed to confirm payment for this order."},
+                 status=status.HTTP_403_FORBIDDEN,
+diff --git a/easyserve-back-end/apps/restaurants/management/__init__.py b/easyserve-back-end/apps/restaurants/management/__init__.py
+new file mode 100644
+index 0000000..e69de29
+diff --git a/easyserve-back-end/apps/restaurants/management/commands/__init__.py b/easyserve-back-end/apps/restaurants/management/commands/__init__.py
+new file mode 100644
+index 0000000..e69de29
+diff --git a/easyserve-back-end/apps/restaurants/management/commands/heal_tables.py b/easyserve-back-end/apps/restaurants/management/commands/heal_tables.py
+new file mode 100644
+index 0000000..07aaec2
+--- /dev/null
++++ b/easyserve-back-end/apps/restaurants/management/commands/heal_tables.py
+@@ -0,0 +1,36 @@
++from django.core.management.base import BaseCommand
++from django.db import transaction
++
++from apps.restaurants.models import Table
++from apps.restaurants.services.table_lifecycle import table_is_busy
++
++
++class Command(BaseCommand):
++    help = (
++        "Free tables left busy after their bill was settled. Uses the same "
++        "rule the dashboards use, so it only changes tables with no active "
++        "guests and no open order."
++    )
++
++    def add_arguments(self, parser):
++        parser.add_argument("--dry-run", action="store_true", help="Report only, change nothing.")
++
++    def handle(self, *args, dry_run=False, **options):
++        freed = 0
++        for table in Table.objects.select_related("restaurant").order_by("restaurant_id", "table_number"):
++            before = table.get_table_state_display()
++            with transaction.atomic():
++                sid = transaction.savepoint()
++                busy = table_is_busy(table)
++                table.refresh_from_db()
++                after = table.get_table_state_display()
++                if dry_run:
++                    transaction.savepoint_rollback(sid)
++            if before != after:
++                freed += 1
++            self.stdout.write(
++                f"{table.restaurant.name} / Table {table.table_number}: {before} -> {after}"
++                f"{' (in use)' if busy else ''}"
++            )
++        verb = "would be freed" if dry_run else "freed"
++        self.stdout.write(self.style.SUCCESS(f"{freed} table(s) {verb}."))
+diff --git a/easyserve-back-end/apps/restaurants/serializers/orders.py b/easyserve-back-end/apps/restaurants/serializers/orders.py
+index d63bfc5..6223f91 100644
+--- a/easyserve-back-end/apps/restaurants/serializers/orders.py
++++ b/easyserve-back-end/apps/restaurants/serializers/orders.py
+@@ -1,4 +1,5 @@
+ from rest_framework import serializers
++from apps.restaurants.constants import PaymentMethod
+ from apps.restaurants.models import Orders, OrderItem, MenuItem
+ 
+ 
+@@ -113,6 +114,7 @@ class OrderSerializer(serializers.ModelSerializer):
+     waiter_name = serializers.SerializerMethodField()
+     chef_name = serializers.SerializerMethodField()
+     table_number = serializers.SerializerMethodField()
++    cash_requested = serializers.SerializerMethodField()
+ 
+     class Meta:
+         model = Orders
+@@ -130,6 +132,7 @@ class OrderSerializer(serializers.ModelSerializer):
+             'waiter_name',
+             'chef_name',
+             'table_number',
++            'cash_requested',
+             'items',
+         ]
+ 
+@@ -146,4 +149,11 @@ class OrderSerializer(serializers.ModelSerializer):
+     def get_table_number(self, obj):
+         if obj.table:
+             return obj.table.table_number
+-        return None
+\ No newline at end of file
++        return None
++
++    def get_cash_requested(self, obj):
++        # Lets the customer's orders page keep showing "Cash requested"
++        # after a reload instead of offering Pay with cash again.
++        return obj.paymentdetails_set.filter(
++            payment_method=PaymentMethod.CATCH_ON_DELIVERY.value
++        ).exists()
+diff --git a/easyserve-back-end/apps/restaurants/services/dine_in_guest.py b/easyserve-back-end/apps/restaurants/services/dine_in_guest.py
+new file mode 100644
+index 0000000..049a466
+--- /dev/null
++++ b/easyserve-back-end/apps/restaurants/services/dine_in_guest.py
+@@ -0,0 +1,95 @@
++"""Guest (no login) access for dine-in customers.
++
++A customer who scans the table QR code orders and pays without an account.
++The dine-in session token, handed out when the guest count is confirmed,
++is what proves the browser belongs to that table: it is a random UUID that
++only the people at the table ever see. Orders placed this way belong to one
++inactive "guest" account per session, so the existing order, payment and
++reporting code keeps working unchanged.
++"""
++import uuid
++
++from apps.core.models import User
++from apps.userprofile.models import UserProfile
++
++DINE_IN_TOKEN_HEADER = "HTTP_X_DINE_IN_TOKEN"
++GUEST_EMAIL_DOMAIN = "guest.easyserve.invalid"
++
++
++def get_dine_in_token(request):
++    """The table session token sent by the guest's browser, or None.
++
++    Read from the X-Dine-In-Token header (sent on every API call while the
++    guest is seated) or a session_token field. Anything that is not a UUID
++    is ignored so it can never match a session.
++    """
++    raw = request.META.get(DINE_IN_TOKEN_HEADER)
++    if not raw:
++        data = getattr(request, "data", None)
++        raw = data.get("session_token") if hasattr(data, "get") else None
++    if not raw:
++        raw = request.query_params.get("session_token") if hasattr(request, "query_params") else None
++    if not raw:
++        return None
++    try:
++        return str(uuid.UUID(str(raw)))
++    except (TypeError, ValueError):
++        return None
++
++
++def guest_owns_order(request, order):
++    """True when the request carries the token of the order's table session."""
++    token = get_dine_in_token(request)
++    if not token or not order.dine_in_session_id:
++        return False
++    return str(order.dine_in_session.token) == token
++
++
++def is_guest_profile(profile):
++    return profile is not None and profile.user.email.endswith(f"@{GUEST_EMAIL_DOMAIN}")
++
++
++def get_guest_profile(session):
++    """The guest account that owns this dine-in session's orders.
++
++    The account is inactive and has no usable password, so nobody can log
++    in with it; it only gives the orders an owner.
++    """
++    username = f"guest-{session.token}"
++    user = User.objects.filter(username=username).first()
++    if user is None:
++        user = User(
++            username=username,
++            email=f"{username}@{GUEST_EMAIL_DOMAIN}",
++            user_type="user",
++            is_active=False,
++        )
++        user.set_unusable_password()
++        user.save()
++
++    profile = UserProfile.objects.filter(user=user).first()
++    if profile is None:
++        profile = UserProfile.objects.create(
++            user=user,
++            first_name=session.name or "Guest",
++            last_name=f"Table {session.table.table_number}",
++            phone=session.phone or None,
++        )
++    return profile
++
++
++def checkout_customer(request, session):
++    """Who a dine-in order belongs to.
++
++    A logged-in customer keeps their own account. Everyone else, including a
++    browser tab that happens to be signed in as staff, orders as the table's
++    guest so staff accounts never collect customer orders.
++    """
++    user = request.user
++    if (
++        user.is_authenticated
++        and getattr(user, "user_type", None) == "user"
++        and hasattr(user, "profile")
++    ):
++        return user.profile
++    return get_guest_profile(session)
+diff --git a/easyserve-back-end/apps/restaurants/services/table_lifecycle.py b/easyserve-back-end/apps/restaurants/services/table_lifecycle.py
+index 510bcec..3e33648 100644
+--- a/easyserve-back-end/apps/restaurants/services/table_lifecycle.py
++++ b/easyserve-back-end/apps/restaurants/services/table_lifecycle.py
+@@ -1,12 +1,66 @@
+ from datetime import timedelta
+ from django.db import transaction
++from django.db.models import Q
+ from django.utils import timezone
+ 
+-from apps.restaurants.constants import DineInSessionStatus, TableState, PaymentStatus
++from apps.restaurants.constants import DineInSessionStatus, TableState, PaymentStatus, OrderStatus
+ from apps.restaurants.models import DineInSession
+ 
+ STALE_SESSION_MAX_IDLE_HOURS = 2
+ 
++# A checkout the customer never sent on (no cash request, no card payment,
++# never accepted) only holds the table while they could still be on the
++# payment page. After that it is an abandoned cart, not a guest at the table.
++UNSUBMITTED_ORDER_GRACE_MINUTES = 30
++
++# States that mean guests are at the table. RESERVED, CLEANING and
++# UNAVAILABLE are set by staff and are never reset automatically.
++BUSY_TABLE_STATES = (
++    TableState.OCCUPIED.value,
++    TableState.ORDER_PLACED.value,
++    TableState.PREPARING.value,
++    TableState.READY.value,
++    TableState.SERVED.value,
++    TableState.PAYMENT_PENDING.value,
++)
++
++
++def submitted_order_q():
++    """Orders the customer actually sent to the restaurant.
++
++    An order reaches the waiter only once the customer picked a payment
++    method: a cash request creates PaymentDetails, a card payment confirms
++    the order. Accepted or already-cooking orders count too, so older data
++    created before this rule keeps working.
++    """
++    return (
++        Q(paymentdetails__isnull=False)
++        | Q(payment_status=PaymentStatus.CONFIRMED.value)
++        | Q(accepted_by_waiter=True)
++        | ~Q(order_status=OrderStatus.TO_PREPARE.value)
++    )
++
++
++def open_orders(orders_qs):
++    """Orders that still keep a table busy: not cancelled, not paid, and
++    either sent to the restaurant or placed recently enough that the
++    customer may still be choosing how to pay."""
++    cutoff = timezone.now() - timedelta(minutes=UNSUBMITTED_ORDER_GRACE_MINUTES)
++    return (
++        orders_qs
++        .filter(order_cancelled=False)
++        .exclude(payment_status__in=[PaymentStatus.CONFIRMED.value, PaymentStatus.CANCELLED.value])
++        .filter(submitted_order_q() | Q(created_at__gte=cutoff))
++        .distinct()
++    )
++
++
++def _free_table(table):
++    if table.table_state in BUSY_TABLE_STATES or table.customer_count:
++        table.table_state = TableState.EMPTY.value
++        table.customer_count = 0
++        table.save(update_fields=["table_state", "customer_count", "updated_at"])
++
+ 
+ def set_table_awaiting_payment(order):
+     """Move a served dine-in table out of OCCUPIED while payment is pending."""
+@@ -31,15 +85,21 @@ def release_table_after_payment(order):
+ 
+     from apps.restaurants.models import Orders
+ 
+-    still_unpaid = (
++    # Re-saving an old paid order (a review, an admin edit) must not close
++    # the session of the next guests who sat down at the same table.
++    if order.dine_in_session_id and not DineInSession.objects.filter(
++        id=order.dine_in_session_id,
++        status=DineInSessionStatus.ACTIVE.value,
++    ).exists():
++        return
++
++    still_unpaid = open_orders(
+         Orders.objects
+         .filter(
+             table=table,
+             dine_in_session__status=DineInSessionStatus.ACTIVE.value,
+-            order_cancelled=False,
+         )
+         .exclude(id=order.id)
+-        .exclude(payment_status__in=[PaymentStatus.CONFIRMED.value, PaymentStatus.CANCELLED.value])
+     )
+     if still_unpaid.exists():
+         return
+@@ -63,13 +123,15 @@ def release_table_after_payment(order):
+ def clean_and_get_active_session(table, restaurant=None, lock=False):
+     """
+     Evaluates and cleans up any active DineInSession for a table.
+-    
+-    1. If an active session's orders are all paid (PaymentStatus.CONFIRMED) or cancelled,
+-       the session is completed and closed.
+-    2. If an active session has no orders and was opened more than STALE_SESSION_MAX_IDLE_HOURS
+-       ago, it is abandoned/stale and closed.
+-    3. If no genuine active session or active orders remain, the table's state is reset to EMPTY.
+-    
++
++    1. A session whose orders are all paid, cancelled or abandoned before
++       payment (see open_orders) is finished and gets closed.
++    2. A session with no orders that was opened more than
++       STALE_SESSION_MAX_IDLE_HOURS ago is abandoned and gets closed.
++    3. If no genuine session and no open order remain, a table still
++       marked busy is reset to EMPTY. This is what frees tables that an
++       earlier bug left stuck after settlement.
++
+     Returns the genuine active DineInSession if one exists and is currently in progress,
+     or None if the table is free.
+     """
+@@ -83,52 +145,33 @@ def clean_and_get_active_session(table, restaurant=None, lock=False):
+     if lock:
+         qs = qs.select_for_update()
+ 
+-    active_sessions = list(qs)
+-    if not active_sessions:
+-        active_unpaid_orders = table.orders.exclude(
+-            payment_status__in=[PaymentStatus.CONFIRMED.value, PaymentStatus.CANCELLED.value]
+-        )
+-        if not active_unpaid_orders.exists() and table.table_state in [
+-            TableState.OCCUPIED.value,
+-            TableState.PAYMENT_PENDING.value,
+-            TableState.SERVED.value,
+-        ]:
+-            table.table_state = TableState.EMPTY.value
+-            table.customer_count = 0
+-            table.save(update_fields=["table_state", "customer_count", "updated_at"])
+-        return None
+-
+     now = timezone.now()
+     genuine_session = None
+ 
+-    for session in active_sessions:
++    for session in qs:
+         orders = session.orders.all()
+         if orders.exists():
+-            active_orders = orders.exclude(
+-                payment_status__in=[PaymentStatus.CONFIRMED.value, PaymentStatus.CANCELLED.value]
+-            )
+-            if active_orders.exists():
++            if open_orders(orders).exists():
+                 genuine_session = session
+             else:
+                 session.close()
++        elif now - session.opened_at > timedelta(hours=STALE_SESSION_MAX_IDLE_HOURS):
++            session.close()
+         else:
+-            if now - session.opened_at > timedelta(hours=STALE_SESSION_MAX_IDLE_HOURS):
+-                session.close()
+-            else:
+-                genuine_session = session
++            genuine_session = session
+ 
+-    if not genuine_session:
+-        active_unpaid_orders = table.orders.exclude(
+-            payment_status__in=[PaymentStatus.CONFIRMED.value, PaymentStatus.CANCELLED.value]
+-        )
+-        if not active_unpaid_orders.exists() and table.table_state in [
+-            TableState.OCCUPIED.value,
+-            TableState.PAYMENT_PENDING.value,
+-            TableState.SERVED.value,
+-        ]:
+-            table.table_state = TableState.EMPTY.value
+-            table.customer_count = 0
+-            table.save(update_fields=["table_state", "customer_count", "updated_at"])
++    if not genuine_session and not open_orders(table.orders.all()).exists():
++        _free_table(table)
+ 
+     return genuine_session
+ 
++
++def table_is_busy(table):
++    """Single source of truth for "is this table in use right now".
++
++    Heals stale state on the way, so every screen that asks (waiter
++    dashboard, Tables page, QR scan) gets the same answer.
++    """
++    if clean_and_get_active_session(table) is not None:
++        return True
++    return open_orders(table.orders.all()).exists()
+diff --git a/easyserve-back-end/apps/restaurants/signals.py b/easyserve-back-end/apps/restaurants/signals.py
+index 5d3e43b..60d971e 100644
+--- a/easyserve-back-end/apps/restaurants/signals.py
++++ b/easyserve-back-end/apps/restaurants/signals.py
+@@ -3,7 +3,7 @@ from django.dispatch import receiver
+ 
+ from apps.restaurants.constants import OrderStatus, OrderType, PaymentStatus, TableState
+ from apps.restaurants.models import Orders
+-from apps.restaurants.services.table_lifecycle import release_table_after_payment
++from apps.restaurants.services.table_lifecycle import release_table_after_payment, clean_and_get_active_session
+ 
+ 
+ @receiver(post_save, sender=Orders)
+@@ -20,6 +20,12 @@ def sync_dine_in_table_state(sender, instance, **kwargs):
+     if not table or not table.is_active:
+         return
+ 
++    # A cancelled order no longer drives the table; let the shared
++    # lifecycle decide whether anything else still keeps it busy.
++    if instance.order_cancelled:
++        clean_and_get_active_session(table)
++        return
++
+     if instance.order_status == OrderStatus.SERVED.value:
+         if instance.payment_status == PaymentStatus.CONFIRMED.value:
+             release_table_after_payment(instance)
+diff --git a/easyserve-back-end/apps/restaurants/tests.py b/easyserve-back-end/apps/restaurants/tests.py
+index f5fb39d..5c6ca39 100644
+--- a/easyserve-back-end/apps/restaurants/tests.py
++++ b/easyserve-back-end/apps/restaurants/tests.py
+@@ -76,6 +76,9 @@ class OrderFlowTestCase(TestCase):
+     # --- Waiter accept (consolidated in F-11) ---
+ 
+     def test_waiter_sees_pending_order_for_their_restaurant(self):
++        # The order reaches the waiter once the customer chose Pay with cash.
++        self.client.force_authenticate(user=self.customer_user)
++        self.client.post(f"/api/restaurants/orders/{self.order.id}/cash-request/")
+         self.client.force_authenticate(user=self.waiter_user)
+         response = self.client.get("/api/restaurants/orders/pending/")
+         self.assertEqual(response.status_code, status.HTTP_200_OK)
+@@ -475,7 +478,10 @@ class FullAcceptanceWorkflowTestCase(TestCase):
+         OrderItem.objects.create(order=order, menu_item=self.item1, quantity=1, price=25)
+         OrderItem.objects.create(order=order, menu_item=self.item2, quantity=1, price=5)
+ 
+-        # Step 2: Waiter polls pending orders and sees the new order
++        # Step 2: Customer picks Pay with cash; the waiter polls pending
++        # orders and sees the new order
++        self.client.force_authenticate(user=self.customer_user)
++        self.client.post(f"/api/restaurants/orders/{order.id}/cash-request/")
+         self.client.force_authenticate(user=self.waiter_user)
+         res = self.client.get("/api/restaurants/orders/pending/")
+         self.assertEqual(res.status_code, status.HTTP_200_OK)
+diff --git a/easyserve-back-end/apps/restaurants/tests_e2e_workflow.py b/easyserve-back-end/apps/restaurants/tests_e2e_workflow.py
+index 084ac5e..8ba232d 100644
+--- a/easyserve-back-end/apps/restaurants/tests_e2e_workflow.py
++++ b/easyserve-back-end/apps/restaurants/tests_e2e_workflow.py
+@@ -204,7 +204,10 @@ class RealtimeWorkflowAndFinancialTests(TestCase):
+                 return [o["id"] for o in resp_data]
+             return []
+ 
+-        # 2. Verify Waiter sees new order in Pending Orders (Requirement A)
++        # 2. Customer picks Pay with cash, then the waiter sees the new
++        # order in Pending Orders (Requirement A)
++        self.client.force_authenticate(user=self.customer_user)
++        self.client.post(f"/api/restaurants/orders/{order.id}/cash-request/")
+         self.client.force_authenticate(user=self.waiter_user)
+         pending_resp = self.client.get("/api/restaurants/orders/pending/")
+         self.assertEqual(pending_resp.status_code, status.HTTP_200_OK)
+diff --git a/easyserve-back-end/apps/restaurants/tests_order_flow.py b/easyserve-back-end/apps/restaurants/tests_order_flow.py
+new file mode 100644
+index 0000000..7cf28af
+--- /dev/null
++++ b/easyserve-back-end/apps/restaurants/tests_order_flow.py
+@@ -0,0 +1,310 @@
++"""
++End-to-end order flow from the customer's QR scan to the manager's cash
++settlement, as the user described it:
++
++scan Table 1 -> menu -> checkout -> Pay with cash -> waiter receives ->
++chef prepares -> waiter serves -> waiter collects cash -> manager settles
++-> Net Sales updated and the table is free again everywhere.
++"""
++from datetime import timedelta
++from io import StringIO
++
++from django.core.management import call_command
++from django.utils import timezone
++
++from apps.restaurants.constants import DineInSessionStatus, OrderStatus, PaymentStatus, TableState
++from apps.restaurants.models import DineInSession, Orders
++from apps.restaurants.tests_qa_regression import QAWorkflowBase
++
++
++def rows(data):
++    return data.get("results", data) if isinstance(data, dict) else data
++
++
++class OrderFlowBase(QAWorkflowBase):
++    def setUp(self):
++        super().setUp()
++        self.table.assigned_waiter = self.waiter_p
++        self.table.save()
++
++    def get(self, user, url):
++        self.as_user(user)
++        res = self.client.get(url)
++        self.assertEqual(res.status_code, 200, res.data)
++        return res.data
++
++    def active_tables(self):
++        return self.get(self.waiter, "/api/dashboard/waiter/dashboard/")["stats"]["active_tables"]
++
++    def tables_page_status(self):
++        return rows(self.get(self.manager, "/api/dashboard/tables/"))[0]["status"]
++
++    def waiter_pending_ids(self):
++        return [o["id"] for o in rows(self.get(self.waiter, "/api/restaurants/orders/pending/"))]
++
++    def waiter_cash_ids(self):
++        return [o["id"] for o in rows(self.get(self.waiter, "/api/restaurants/orders/waiter/cash/"))]
++
++    def manager_cash_ids(self):
++        return [o["id"] for o in rows(self.get(self.manager, "/api/restaurants/orders/manager/cash/"))]
++
++    def net_sales(self):
++        return self.get(self.manager, "/api/manager/financial/overview/?period=today")["revenue"]["net_sales"]
++
++    def ok(self, user, url):
++        res = self.post(user, url)
++        self.assertEqual(res.status_code, 200, (url, res.data))
++        return res
++
++
++class FullCashFlowTests(OrderFlowBase):
++    def test_table_1_cash_flow_end_to_end(self):
++        token = self.start_session()
++        self.assertEqual(self.active_tables(), 1)
++        self.assertEqual(self.tables_page_status(), "OCCUPIED")
++
++        oid = self.place_dine_in(token)
++        # Checkout alone does not reach the waiter; the customer is on the
++        # payment page.
++        self.assertNotIn(oid, self.waiter_pending_ids())
++
++        self.ok(self.customer, f"/api/restaurants/orders/{oid}/cash-request/")
++        self.assertIn(oid, self.waiter_pending_ids())
++        # Nothing to collect before the food is served.
++        self.assertNotIn(oid, self.waiter_cash_ids())
++
++        self.ok(self.waiter, f"/api/restaurants/orders/{oid}/accept/")
++        self.assertNotIn(oid, self.waiter_pending_ids())
++        self.ok(self.chef, f"/api/restaurants/orders/{oid}/start-preparing/")
++        self.assertEqual(self.tables_page_status(), "PREPARING")
++        self.ok(self.chef, f"/api/restaurants/orders/{oid}/mark-prepared/")
++        self.assertEqual(self.tables_page_status(), "READY")
++        self.ok(self.waiter, f"/api/restaurants/orders/{oid}/mark-served/")
++
++        self.assertIn(oid, self.waiter_cash_ids())
++        self.ok(self.waiter, f"/api/restaurants/orders/{oid}/cash-receive/")
++        self.assertNotIn(oid, self.waiter_cash_ids())
++        self.assertIn(oid, self.manager_cash_ids())
++        self.assertEqual(self.tables_page_status(), "PAYMENT_PENDING")
++        self.assertEqual(self.active_tables(), 1)
++        self.assertEqual(float(self.net_sales()), 0)
++
++        self.ok(self.manager, f"/api/restaurants/orders/{oid}/cash-settle/")
++        self.assertNotIn(oid, self.manager_cash_ids())
++        self.assertEqual(float(self.net_sales()), 450.0)
++        self.assertEqual(self.active_tables(), 0)
++        self.assertEqual(self.tables_page_status(), "EMPTY")
++        self.table.refresh_from_db()
++        self.assertEqual(self.table.table_state, TableState.EMPTY.value)
++        self.assertFalse(DineInSession.objects.filter(table=self.table, status=DineInSessionStatus.ACTIVE.value).exists())
++
++        # The next guests can scan Table 1 straight away.
++        self.start_session()
++
++    def test_customer_orders_page_remembers_cash_request(self):
++        token = self.start_session()
++        oid = self.place_dine_in(token)
++        self.ok(self.customer, f"/api/restaurants/orders/{oid}/cash-request/")
++        order = [o for o in rows(self.get(self.customer, "/api/restaurants/orders/")) if o["id"] == oid][0]
++        self.assertTrue(order["cash_requested"])
++
++
++class StuckTableTests(OrderFlowBase):
++    def test_abandoned_checkout_does_not_keep_table_busy_after_settlement(self):
++        token = self.start_session()
++        abandoned = self.place_dine_in(token)
++        Orders.objects.filter(id=abandoned).update(created_at=timezone.now() - timedelta(hours=1))
++        oid = self.place_dine_in(token)
++        self.ok(self.customer, f"/api/restaurants/orders/{oid}/cash-request/")
++        self.to_served(oid)
++        self.ok(self.waiter, f"/api/restaurants/orders/{oid}/cash-receive/")
++        self.ok(self.manager, f"/api/restaurants/orders/{oid}/cash-settle/")
++
++        self.table.refresh_from_db()
++        self.assertEqual(self.table.table_state, TableState.EMPTY.value)
++        self.assertEqual(self.active_tables(), 0)
++        self.start_session()
++
++    def test_served_order_without_cash_request_can_still_be_collected(self):
++        # Data from before payment had to be chosen first: served, unpaid,
++        # no payment record. It used to keep the table active with nothing
++        # for the waiter to click.
++        token = self.start_session()
++        oid = self.place_dine_in(token)
++        self.to_served(oid)
++        self.assertEqual(self.active_tables(), 1)
++        self.assertIn(oid, self.waiter_cash_ids())
++        self.ok(self.waiter, f"/api/restaurants/orders/{oid}/cash-receive/")
++        self.ok(self.manager, f"/api/restaurants/orders/{oid}/cash-settle/")
++        self.assertEqual(self.active_tables(), 0)
++        self.assertEqual(self.tables_page_status(), "EMPTY")
++
++    def test_table_stuck_busy_after_settlement_heals_on_dashboard_load(self):
++        token = self.start_session()
++        oid = self.place_dine_in(token)
++        self.ok(self.customer, f"/api/restaurants/orders/{oid}/cash-request/")
++        self.to_served(oid)
++        self.pay_cash_after_request(oid)
++        # Simulate the state left behind by the old code.
++        type(self.table).objects.filter(id=self.table.id).update(
++            table_state=TableState.PAYMENT_PENDING.value, customer_count=2
++        )
++        self.assertEqual(self.active_tables(), 0)
++        self.table.refresh_from_db()
++        self.assertEqual(self.table.table_state, TableState.EMPTY.value)
++
++    def test_heal_tables_command(self):
++        type(self.table).objects.filter(id=self.table.id).update(table_state=TableState.SERVED.value)
++        out = StringIO()
++        call_command("heal_tables", "--dry-run", stdout=out)
++        self.table.refresh_from_db()
++        self.assertEqual(self.table.table_state, TableState.SERVED.value)
++        self.assertIn("1 table(s) would be freed", out.getvalue())
++        call_command("heal_tables", stdout=StringIO())
++        self.table.refresh_from_db()
++        self.assertEqual(self.table.table_state, TableState.EMPTY.value)
++
++    def test_resaving_old_paid_order_does_not_free_next_guests(self):
++        token = self.start_session()
++        oid = self.place_dine_in(token)
++        self.ok(self.customer, f"/api/restaurants/orders/{oid}/cash-request/")
++        self.to_served(oid)
++        self.pay_cash_after_request(oid)
++
++        self.start_session()  # next guests sit down
++        Orders.objects.get(id=oid).save()  # e.g. a review touches the old order
++        self.table.refresh_from_db()
++        self.assertEqual(self.table.table_state, TableState.OCCUPIED.value)
++        self.assertEqual(self.active_tables(), 1)
++
++    def test_fresh_checkout_keeps_table_busy(self):
++        token = self.start_session()
++        self.place_dine_in(token)
++        self.assertEqual(self.active_tables(), 1)
++        self.assertEqual(self.tables_page_status(), "ORDER_PLACED")
++
++    def pay_cash_after_request(self, oid):
++        self.ok(self.waiter, f"/api/restaurants/orders/{oid}/cash-receive/")
++        self.ok(self.manager, f"/api/restaurants/orders/{oid}/cash-settle/")
++
++
++class CheckoutAfterSettlementTests(OrderFlowBase):
++    def test_old_session_token_gets_clear_409_not_404(self):
++        token = self.start_session()
++        oid = self.place_dine_in(token)
++        self.ok(self.customer, f"/api/restaurants/orders/{oid}/cash-request/")
++        self.to_served(oid)
++        self.ok(self.waiter, f"/api/restaurants/orders/{oid}/cash-receive/")
++        self.ok(self.manager, f"/api/restaurants/orders/{oid}/cash-settle/")
++
++        # The customer's browser still holds the closed session's token.
++        self.as_user(self.customer)
++        res = self.client.post(
++            "/api/restaurants/orders/checkout-order/",
++            {
++                "order_type": "DINE_IN",
++                "restaurant": self.restaurant.id,
++                "table": 1,
++                "guests": 2,
++                "session_token": token,
++                "items": [{"menu_item": self.burger.id, "quantity": 1}],
++            },
++            format="json",
++        )
++        self.assertEqual(res.status_code, 409, res.data)
++        self.assertEqual(res.data["code"], "dine_in_session_ended")
++
++        # Scanning again gives a new session that checks out normally.
++        self.place_dine_in(self.start_session())
++
++
++class GuestDineInTests(OrderFlowBase):
++    """The customer at the table never logs in: the QR session token is
++    their authorisation for checkout, My Orders and payment."""
++
++    def guest_checkout(self, token, headers_token=None):
++        self.client.force_authenticate(user=None)
++        return self.client.post(
++            "/api/restaurants/orders/checkout-order/",
++            {
++                "order_type": "DINE_IN",
++                "restaurant": self.restaurant.id,
++                "table": 1,
++                "guests": 2,
++                "session_token": token,
++                "items": [{"menu_item": self.burger.id, "quantity": 1}],
++            },
++            format="json",
++        )
++
++    def guest_post(self, url, token):
++        self.client.force_authenticate(user=None)
++        return self.client.post(url, {}, format="json", HTTP_X_DINE_IN_TOKEN=token)
++
++    def test_guest_full_cash_flow_without_login(self):
++        token = self.start_session()
++        res = self.guest_checkout(token)
++        self.assertEqual(res.status_code, 201, res.data)
++        oid = res.data["id"]
++        order = Orders.objects.get(id=oid)
++        self.assertFalse(order.user.user.is_active)  # guest account, cannot log in
++        self.assertIsNone(order.billing_email)
++
++        self.client.force_authenticate(user=None)
++        mine = rows(self.client.get("/api/restaurants/dine-in/orders/", HTTP_X_DINE_IN_TOKEN=token).data)
++        self.assertEqual([o["id"] for o in mine], [oid])
++
++        self.assertEqual(self.guest_post(f"/api/restaurants/orders/{oid}/cash-request/", token).status_code, 200)
++        self.assertIn(oid, self.waiter_pending_ids())
++        self.to_served(oid)
++        self.assertIn(oid, self.waiter_cash_ids())
++        self.ok(self.waiter, f"/api/restaurants/orders/{oid}/cash-receive/")
++        self.ok(self.manager, f"/api/restaurants/orders/{oid}/cash-settle/")
++        self.assertEqual(float(self.net_sales()), 450.0)
++        self.assertEqual(self.active_tables(), 0)
++        self.assertEqual(self.tables_page_status(), "EMPTY")
++
++    def test_guest_cannot_touch_another_tables_orders(self):
++        token = self.start_session()
++        oid = self.guest_checkout(token).data["id"]
++        import uuid
++        other = str(uuid.uuid4())
++        self.assertEqual(self.guest_post(f"/api/restaurants/orders/{oid}/cash-request/", other).status_code, 403)
++        self.assertEqual(self.guest_post(f"/api/restaurants/orders/{oid}/cash-request/", "not-a-token").status_code, 403)
++        self.client.force_authenticate(user=None)
++        self.assertEqual(rows(self.client.get("/api/restaurants/dine-in/orders/", HTTP_X_DINE_IN_TOKEN=other).data), [])
++        self.assertIn(self.client.get("/api/restaurants/dine-in/orders/").status_code, (401, 403))
++
++    def test_guest_checkout_needs_active_session(self):
++        import uuid
++        self.start_session()
++        res = self.guest_checkout(str(uuid.uuid4()))
++        self.assertEqual(res.status_code, 409, res.data)
++
++    def test_delivery_still_requires_login(self):
++        self.client.force_authenticate(user=None)
++        res = self.client.post(
++            "/api/restaurants/orders/checkout-order/",
++            {"order_type": "DELIVERY", "items": [{"menu_item": self.burger.id, "quantity": 1}]},
++            format="json",
++        )
++        self.assertIn(res.status_code, (401, 403))
++
++    def test_staff_signed_in_tab_orders_as_guest(self):
++        token = self.start_session()
++        self.as_user(self.manager)
++        res = self.client.post(
++            "/api/restaurants/orders/checkout-order/",
++            {
++                "order_type": "DINE_IN", "restaurant": self.restaurant.id, "table": 1, "guests": 2,
++                "session_token": token, "items": [{"menu_item": self.burger.id, "quantity": 1}],
++            },
++            format="json",
++        )
++        self.assertEqual(res.status_code, 201, res.data)
++        self.assertNotEqual(Orders.objects.get(id=res.data["id"]).user_id, self.manager_p.id)
++
++    def test_logged_in_customer_keeps_own_account(self):
++        token = self.start_session()
++        oid = self.place_dine_in(token)
++        self.assertEqual(Orders.objects.get(id=oid).user_id, self.customer_p.id)
+diff --git a/easyserve-back-end/apps/restaurants/urls.py b/easyserve-back-end/apps/restaurants/urls.py
+index a4a2189..bec5aa8 100644
+--- a/easyserve-back-end/apps/restaurants/urls.py
++++ b/easyserve-back-end/apps/restaurants/urls.py
+@@ -16,6 +16,7 @@ from apps.restaurants.views import (
+     WaiterCashOrdersAPIView, ManagerCashOrdersAPIView, PayOrderAPIView,
+ )
+ from apps.restaurants.views.secure_checkout import SecureOrderCheckoutAPIView
++from apps.restaurants.views.dine_in_orders import DineInSessionOrdersAPIView
+ from apps.restaurants.views.ai import RestaurantTopSuggestionsView, RestaurantMenuSuggestionsView
+ 
+ router = DefaultRouter()
+@@ -32,6 +33,7 @@ urlpatterns = [
+     path('tables/scan-qr/', QRScanView.as_view(), name='scan-qr'),
+     path('dine-in/validate/', DineInValidateAPIView.as_view(), name='validate-dine-in'),
+     path('dine-in/start-session/', DineInStartSessionAPIView.as_view(), name='start-dine-in-session'),
++    path('dine-in/orders/', DineInSessionOrdersAPIView.as_view(), name='dine-in-session-orders'),
+     path('ai/restaurants/suggestions/top/', RestaurantTopSuggestionsView.as_view(), name='restaurant-suggestions-top'),
+     path('ai/restaurants/<int:restaurant_id>/menus/suggestions/', RestaurantMenuSuggestionsView.as_view(), name='restaurant-menu-suggestions'),
+     path('cart/create-cart/', CreateCartAPIView.as_view(), name='create-cart'),
+diff --git a/easyserve-back-end/apps/restaurants/views/cash_payments.py b/easyserve-back-end/apps/restaurants/views/cash_payments.py
+index 00ef675..678331a 100644
+--- a/easyserve-back-end/apps/restaurants/views/cash_payments.py
++++ b/easyserve-back-end/apps/restaurants/views/cash_payments.py
+@@ -4,7 +4,7 @@ from django.shortcuts import get_object_or_404
+ from django.utils.timezone import now
+ from rest_framework import status
+ from rest_framework.generics import ListAPIView
+-from rest_framework.permissions import IsAuthenticated
++from rest_framework.permissions import AllowAny
+ from rest_framework.response import Response
+ from rest_framework.views import APIView
+ 
+@@ -12,18 +12,24 @@ from apps.restaurants.constants import PaymentMethod, PaymentStatus, OrderStatus
+ from apps.restaurants.models import Orders, PaymentDetails
+ from apps.restaurants.permissions import IsManager, IsWaiter
+ from apps.restaurants.serializers import OrderDetailSerializer
++from apps.restaurants.services.dine_in_guest import guest_owns_order
+ from apps.restaurants.services.table_lifecycle import release_table_after_payment
+ 
+ 
+ class RequestCashPaymentAPIView(APIView):
+-    """Customer requests cash payment; this NEVER confirms the payment."""
+-    permission_classes = [IsAuthenticated]
++    """Customer requests cash payment; this NEVER confirms the payment.
++
++    Allowed for the logged-in customer who placed the order, or for the
++    guest at the table (the dine-in session token proves it).
++    """
++    permission_classes = [AllowAny]
+ 
+     @transaction.atomic
+     def post(self, request, order_id):
+         order = get_object_or_404(Orders.objects.select_for_update(), id=order_id)
+-        profile = request.user.profile
+-        if order.user_id != profile.id:
++        profile = getattr(request.user, "profile", None) if request.user.is_authenticated else None
++        is_owner = profile is not None and order.user_id == profile.id
++        if not (is_owner or guest_owns_order(request, order)):
+             return Response({"detail": "You are not allowed to pay for this order."}, status=status.HTTP_403_FORBIDDEN)
+         if order.order_cancelled:
+             return Response({"detail": "Cannot pay for a cancelled order."}, status=status.HTTP_400_BAD_REQUEST)
+@@ -45,7 +51,7 @@ class RequestCashPaymentAPIView(APIView):
+         PaymentDetails.objects.update_or_create(
+             order=order,
+             defaults={
+-                "user": profile,
++                "user": order.user,
+                 "payment_method": PaymentMethod.CATCH_ON_DELIVERY.value,
+                 "payment_status": PaymentStatus.PENDING.value,
+                 "cash_received_by": None,
+@@ -179,12 +185,21 @@ class WaiterCashOrdersAPIView(ListAPIView):
+         restaurant = waiter.restaurant
+         restaurant_id = waiter.restaurant_id or getattr(waiter, "selected_restaurant", None)
+ 
+-        base_filter = Q(
++        # Cash is collected after the food is served. A served order with no
++        # payment record at all (placed before payment had to be chosen
++        # first) is also listed, otherwise nobody could ever collect it and
++        # its table stayed active forever.
++        cash_requested = Q(
+             paymentdetails__payment_method=PaymentMethod.CATCH_ON_DELIVERY.value,
+             paymentdetails__payment_status=PaymentStatus.PENDING.value,
+             paymentdetails__cash_received_by__isnull=True,
+             paymentdetails__cash_settled_by__isnull=True,
+         )
++        base_filter = (cash_requested | Q(paymentdetails__isnull=True)) & Q(
++            order_status=OrderStatus.SERVED.value,
++            payment_status=PaymentStatus.PENDING.value,
++            order_cancelled=False,
++        )
+ 
+         target_id = restaurant.id if restaurant else restaurant_id
+         if target_id:
+diff --git a/easyserve-back-end/apps/restaurants/views/dine_in_orders.py b/easyserve-back-end/apps/restaurants/views/dine_in_orders.py
+new file mode 100644
+index 0000000..7a9ea09
+--- /dev/null
++++ b/easyserve-back-end/apps/restaurants/views/dine_in_orders.py
+@@ -0,0 +1,30 @@
++from rest_framework.exceptions import NotAuthenticated
++from rest_framework.generics import ListAPIView
++from rest_framework.permissions import AllowAny
++
++from apps.restaurants.models import Orders
++from apps.restaurants.serializers import OrderSerializer
++from apps.restaurants.services.dine_in_guest import get_dine_in_token
++
++
++class DineInSessionOrdersAPIView(ListAPIView):
++    """Orders of the table session in the guest's browser.
++
++    The guest's "My Orders" page: everything ordered at this table during
++    this visit, so they can pay with cash or card without an account.
++    """
++
++    permission_classes = [AllowAny]
++    serializer_class = OrderSerializer
++
++    def get_queryset(self):
++        token = get_dine_in_token(self.request)
++        if not token:
++            raise NotAuthenticated("Scan the table QR code to see your orders.")
++        return (
++            Orders.objects
++            .filter(dine_in_session__token=token, order_cancelled=False)
++            .select_related("table", "waiter", "assigned_chef")
++            .prefetch_related("items__menu_item")
++            .order_by("-created_at")
++        )
+diff --git a/easyserve-back-end/apps/restaurants/views/orders.py b/easyserve-back-end/apps/restaurants/views/orders.py
+index e391295..cb7fd7c 100644
+--- a/easyserve-back-end/apps/restaurants/views/orders.py
++++ b/easyserve-back-end/apps/restaurants/views/orders.py
+@@ -40,8 +40,11 @@ class OrderCheckoutAPIView(APIView):
+     permission_classes = [IsAuthenticated]
+ 
+     @transaction.atomic
++    def get_customer(self, request):
++        return request.user.profile
++
+     def post(self, request):
+-        user = request.user.profile
++        user = self.get_customer(request)
+         data = request.data
+         items = data.get("items", [])
+ 
+@@ -134,7 +137,9 @@ class OrderCheckoutAPIView(APIView):
+ 
+         order.billing_first_name = user.first_name
+         order.billing_last_name = user.last_name
+-        order.billing_email = request.user.email
++        # Guest accounts have a placeholder address that must not appear on
++        # bills or receipts.
++        order.billing_email = user.user.email if user.user.is_active else None
+         order.billing_phone = user.phone
+         order.billing_address = data.get("billing_address", "N/A")
+         order.shipping_address = data.get("shipping_address", "N/A")
+@@ -315,9 +320,15 @@ class PendingOrderListAPIView(ListAPIView):
+             return Orders.objects.none()
+ 
+         target_id = restaurant.id if restaurant else restaurant_id
++        # The order reaches the waiter once the customer chose how to pay
++        # (Pay with cash creates the payment record, Pay with card confirms
++        # the order). A bare checkout is still on the customer's payment page.
+         return Orders.objects.filter(
+             accepted_by_waiter=False,
+             order_status=OrderStatus.TO_PREPARE,
++            order_cancelled=False,
++        ).filter(
++            Q(paymentdetails__isnull=False) | Q(payment_status=PaymentStatus.CONFIRMED.value)
+         ).filter(
+             Q(table__restaurant_id=target_id)
+             | Q(dine_in_session__restaurant_id=target_id)
+diff --git a/easyserve-back-end/apps/restaurants/views/secure_checkout.py b/easyserve-back-end/apps/restaurants/views/secure_checkout.py
+index 4828c88..9cfecf0 100644
+--- a/easyserve-back-end/apps/restaurants/views/secure_checkout.py
++++ b/easyserve-back-end/apps/restaurants/views/secure_checkout.py
+@@ -1,9 +1,12 @@
+ from django.shortcuts import get_object_or_404
+ from rest_framework import status
++from rest_framework.exceptions import NotAuthenticated
++from rest_framework.permissions import AllowAny
+ from rest_framework.response import Response
+ 
+ from apps.restaurants.constants import DineInSessionStatus, OrderType
+ from apps.restaurants.models import DineInSession, MenuItem, Restaurant, Table
++from apps.restaurants.services.dine_in_guest import checkout_customer
+ 
+ from .orders import OrderCheckoutAPIView
+ 
+@@ -13,10 +16,19 @@ class SecureOrderCheckoutAPIView(OrderCheckoutAPIView):
+     Hardened checkout entry point.
+ 
+     Dine-in orders must prove that they belong to the active QR/session
+-    before the order is created. The validated numeric guest count is also
++    before the order is created; that proof is also what lets a guest order
++    without logging in. The validated numeric guest count is also
+     normalized before handing the request to the existing checkout flow.
+     """
+ 
++    # Dine-in guests order without an account: the active table session
++    # token is their authorisation. Every other order type still needs a
++    # logged-in customer (checked below).
++    permission_classes = [AllowAny]
++
++    def get_customer(self, request):
++        return getattr(self, "_customer", None) or super().get_customer(request)
++
+     def post(self, request):
+         data = request.data
+         order_type_key = data.get("order_type", "DELIVERY")
+@@ -24,9 +36,11 @@ class SecureOrderCheckoutAPIView(OrderCheckoutAPIView):
+         try:
+             order_type = OrderType[order_type_key].value
+         except (KeyError, TypeError):
+-            return super().post(request)
++            order_type = None
+ 
+         if order_type != OrderType.DINE_IN.value:
++            if not request.user.is_authenticated:
++                raise NotAuthenticated()
+             return super().post(request)
+ 
+         restaurant_id = data.get("restaurant")
+@@ -55,13 +69,26 @@ class SecureOrderCheckoutAPIView(OrderCheckoutAPIView):
+             table_number=table_number,
+             is_active=True,
+         )
+-        session = get_object_or_404(
+-            DineInSession,
++        # The session closes when the bill is settled. A browser that still
++        # holds the old token used to get a bare 404 here, which the cart
++        # showed as "Checkout failed: {}" on every attempt.
++        session = DineInSession.objects.filter(
+             restaurant=restaurant,
+             table=table,
+             token=session_token,
+             status=DineInSessionStatus.ACTIVE.value,
+-        )
++        ).first()
++        if session is None:
++            return Response(
++                {
++                    "detail": (
++                        "Your table session has ended. Please scan the "
++                        "table QR code again to order."
++                    ),
++                    "code": "dine_in_session_ended",
++                },
++                status=status.HTTP_409_CONFLICT,
++            )
+ 
+         try:
+             guests = int(data.get("guests", session.guests))
+@@ -123,5 +150,6 @@ class SecureOrderCheckoutAPIView(OrderCheckoutAPIView):
+         normalized_data["guests"] = guests
+         normalized_data["session_token"] = session_token
+         request._full_data = normalized_data
++        self._customer = checkout_customer(request, session)
+ 
+         return super().post(request)
+diff --git a/easyserve-back-end/coresite/settings/base.py b/easyserve-back-end/coresite/settings/base.py
+index f3b7a1e..52100ce 100644
+--- a/easyserve-back-end/coresite/settings/base.py
++++ b/easyserve-back-end/coresite/settings/base.py
+@@ -207,6 +207,12 @@ if DOMAIN:
+ 
+ CORS_ALLOW_CREDENTIALS = True
+ 
++# Dine-in guests identify their table session with this header instead of
++# logging in (see apps/restaurants/services/dine_in_guest.py).
++from corsheaders.defaults import default_headers  # noqa: E402
++
++CORS_ALLOW_HEADERS = (*default_headers, "x-dine-in-token")
++
+ # ==================================================
+ # SECURITY
+ # ==================================================
+diff --git a/easyserve-front-end/src/app/admin/tables/page.jsx b/easyserve-front-end/src/app/admin/tables/page.jsx
+index b4c6458..883fdfa 100644
+--- a/easyserve-front-end/src/app/admin/tables/page.jsx
++++ b/easyserve-front-end/src/app/admin/tables/page.jsx
+@@ -16,7 +16,8 @@ export default function TablesPage() {
+   const tables = data?.results ?? data ?? [];
+   const showError = isError && !isFetching && tables.length === 0;
+ 
+-  const occupiedCount = tables.filter((t) => t.status === "OCCUPIED" || t.status === "ORDER_PLACED" || t.status === "PREPARING").length;
++  const BUSY_STATUSES = ["OCCUPIED", "ORDER_PLACED", "PREPARING", "READY", "SERVED", "PAYMENT_PENDING"];
++  const occupiedCount = tables.filter((t) => BUSY_STATUSES.includes(t.status)).length;
+   const availableCount = tables.filter((t) => t.status === "EMPTY").length;
+ 
+   return (
+diff --git a/easyserve-front-end/src/app/auth/login/page.jsx b/easyserve-front-end/src/app/auth/login/page.jsx
+index c170cc0..da7bb4a 100644
+--- a/easyserve-front-end/src/app/auth/login/page.jsx
++++ b/easyserve-front-end/src/app/auth/login/page.jsx
+@@ -38,7 +38,12 @@ export default function LoginPage() {
+       const result = await login(values).unwrap();
+       dispatch(onLoggedIn(result));
+ 
+-      router.push(getRoleHome(result.user_type));
++      // Return to the page that sent the user here (e.g. the dine-in menu
++      // with a cart waiting). Only same-site paths: "//host" and "/\\host"
++      // would leave the site.
++      const next = new URLSearchParams(window.location.search).get("next");
++      const safeNext = next && /^\/(?![\/\\])/.test(next) ? next : null;
++      router.push(safeNext || getRoleHome(result.user_type));
+     } catch (error) {
+       console.log("FULL ERROR OBJECT:", JSON.stringify(error, null, 2));
+     }
+diff --git a/easyserve-front-end/src/app/orders/page.jsx b/easyserve-front-end/src/app/orders/page.jsx
+index f77ed90..6e5b6ab 100644
+--- a/easyserve-front-end/src/app/orders/page.jsx
++++ b/easyserve-front-end/src/app/orders/page.jsx
+@@ -1,6 +1,7 @@
+ "use client";
+ 
+-import React, { useState } from "react";
++import React, { useEffect, useState } from "react";
++import { useSelector } from "react-redux";
+ import { Card } from "@/components/ui/card";
+ import { Badge } from "@/components/ui/badge";
+ import { Separator } from "@/components/ui/separator";
+@@ -21,7 +22,8 @@ import {
+   ChevronRight,
+   CheckCircle2,
+ } from "lucide-react";
+-import { useGetOrdersQuery, useRequestCashPaymentMutation } from "@/services/private/orders";
++import { useGetOrdersQuery, useGetDineInOrdersQuery, useRequestCashPaymentMutation } from "@/services/private/orders";
++import { getDineInToken } from "@/utilities/dineInStorage";
+ import OrderPayment from "@/components/payment/OrderPayment";
+ import RoleGuard from "@/components/auth/RoleGuard";
+ 
+@@ -43,10 +45,23 @@ const itemVariants = {
+ };
+ 
+ function ClientOrders() {
+-  const { data, isLoading, isFetching, refetch } = useGetOrdersQuery(undefined, {
+-    pollingInterval: 3000,
+-    refetchOnFocus: true,
+-  });
++  // A guest seated through the table QR code has no account: show this
++  // table visit's orders through its session token instead of asking them
++  // to log in. Read after mount, since localStorage is browser-only.
++  const reduxDineInToken = useSelector((state) => state.dineIn?.sessionToken);
++  const [guestToken, setGuestToken] = useState(null);
++  const [modeKnown, setModeKnown] = useState(false);
++  useEffect(() => {
++    setGuestToken(getDineInToken({ dineIn: { sessionToken: reduxDineInToken } }));
++    setModeKnown(true);
++  }, [reduxDineInToken]);
++  const isGuest = !!guestToken;
++
++  const queryOptions = { pollingInterval: 3000, refetchOnFocus: true };
++  const accountOrders = useGetOrdersQuery(undefined, { ...queryOptions, skip: !modeKnown || isGuest });
++  const guestOrders = useGetDineInOrdersQuery(undefined, { ...queryOptions, skip: !modeKnown || !isGuest });
++  const { data, isLoading, isFetching, refetch } = isGuest ? guestOrders : accountOrders;
++  const Guard = isGuest ? React.Fragment : RoleGuard;
+   const [requestCashPayment, { isLoading: isRequestingCash }] = useRequestCashPaymentMutation();
+   const loading = isLoading || isFetching;
+   const [cardPayOrderId, setCardPayOrderId] = useState(null);
+@@ -86,7 +101,7 @@ function ClientOrders() {
+     Takeaway: { label: "Takeaway Pickup", icon: Package, color: "bg-purple-50 text-purple-900 border-purple-200" },
+   };
+ 
+-  if (loading && !data) {
++  if (!modeKnown || (loading && !data)) {
+     return (
+       <div className="mx-auto max-w-6xl px-4 sm:px-6 py-10 space-y-6">
+         <div className="space-y-2">
+@@ -136,7 +151,7 @@ function ClientOrders() {
+   }
+ 
+   return (
+-    <RoleGuard>
++    <Guard>
+       <div className="min-h-screen bg-gradient-to-b from-gray-50 via-white to-gray-50 py-10 px-4 sm:px-6">
+         <div className="mx-auto max-w-6xl space-y-8">
+           {/* Header */}
+@@ -176,7 +191,7 @@ function ClientOrders() {
+                 hour: "2-digit",
+                 minute: "2-digit",
+               });
+-              const cashRequested = cashRequestedIds.includes(order.id);
++              const cashRequested = order.cash_requested || cashRequestedIds.includes(order.id);
+               const paymentMeta = PAYMENT_STATUS_META[order.payment_status] || {
+                 label: order.payment_status,
+                 color: "bg-gray-100 text-gray-700",
+@@ -284,6 +299,11 @@ function ClientOrders() {
+ 
+                       {order.payment_status !== "Confirmed" && !order.order_cancelled && (
+                         <div className="space-y-3 pt-2">
++                          {!cashRequested && order.order_status === "To Prepare" && !order.accepted_by_waiter && (
++                            <p className="rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs font-semibold text-amber-800">
++                              Choose how you will pay to send this order to the kitchen.
++                            </p>
++                          )}
+                           <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2">
+                             <Button
+                               variant="outline"
+@@ -334,7 +354,7 @@ function ClientOrders() {
+           </motion.div>
+         </div>
+       </div>
+-    </RoleGuard>
++    </Guard>
+   );
+ }
+ 
+diff --git a/easyserve-front-end/src/app/restaurant/[id]/page.jsx b/easyserve-front-end/src/app/restaurant/[id]/page.jsx
+index a4c372f..290c61a 100644
+--- a/easyserve-front-end/src/app/restaurant/[id]/page.jsx
++++ b/easyserve-front-end/src/app/restaurant/[id]/page.jsx
+@@ -11,6 +11,8 @@ import AIChatbot from "@/components/Aichatbot";
+ import { useGetRestaurantMenusQuery } from "@/services/public/resturants";
+ import { useValidateTableMutation } from "@/services/public/dineIn";
+ import { setDineInContext } from "@/store/slices/dineInSlice";
++import { onBecameGuest } from "@/store/slices/authSlice";
++import { readSession } from "@/utilities/authStorage";
+ 
+ const DINE_IN_STORAGE_KEY = "easyserve:dine-in-context";
+ 
+@@ -62,6 +64,16 @@ function Restaurant() {
+         );
+ 
+         window.localStorage.removeItem(DINE_IN_STORAGE_KEY);
++
++        // A new tab adopts the browser's latest login, which on a shared or
++        // staff device can be the waiter or manager. The person scanning the
++        // table QR is a customer, so this tab continues as a guest; other
++        // tabs keep their logins. A signed-in customer stays signed in.
++        const role = readSession()?.user?.user_type;
++        if (role && role !== "user") {
++          dispatch(onBecameGuest());
++        }
++
+         router.replace("/dine-in/guests");
+       } catch (error) {
+         if (cancelled) return;
+@@ -79,11 +91,11 @@ function Restaurant() {
+   }, [dispatch, isQrDineIn, param?.id, qrTable, router, validateTableMutation]);
+ 
+   useEffect(() => {
+-    if (
+-      !param?.id ||
+-      !window.location.search.includes("mode=dine-in") ||
+-      isQrDineIn
+-    ) {
++    // Restore a seated guest's table even when the URL lost "?mode=dine-in"
++    // (a shared link, the header's restaurant link); otherwise the cart
++    // treated them as a delivery customer and asked them to log in. Only a
++    // saved session for this same restaurant is restored.
++    if (!param?.id || isQrDineIn) {
+       setRestoringDineIn(false);
+       return;
+     }
+diff --git a/easyserve-front-end/src/components/landingPage/CartDrawer.jsx b/easyserve-front-end/src/components/landingPage/CartDrawer.jsx
+index e7410d3..07c8f28 100644
+--- a/easyserve-front-end/src/components/landingPage/CartDrawer.jsx
++++ b/easyserve-front-end/src/components/landingPage/CartDrawer.jsx
+@@ -3,11 +3,28 @@
+ import { motion } from "framer-motion";
+ import { useRouter } from "next/navigation";
+ import { X, Plus, Minus, Trash2, ShoppingBag } from "lucide-react";
++import { toast } from "sonner";
+ import Image from "next/image";
+ import { useSelector, useDispatch } from "react-redux";
+ import { removeItem, increaseQty, decreaseQty, toggleCart, clearCart } from "@/store/slices/cartSlice";
++import { clearDineIn } from "@/store/slices/dineInSlice";
+ import MenuPic from "@/assets/menuImgs/menu-pic.jpg";
+ import { useAddOrderMutation } from "@/services/private/orders";
++import { getAccessToken } from "@/utilities/authStorage";
++import { clearSavedDineIn, readSavedDineIn } from "@/utilities/dineInStorage";
++
++// RTK Query errors are { status, data }; the Next.js overlay printed them as
++// "{}", hiding the server's reason. Turn them into one readable sentence.
++const checkoutErrorMessage = (error) => {
++  const data = error?.data;
++  if (typeof data?.detail === "string") return data.detail;
++  if (data && typeof data === "object") {
++    const first = Object.values(data).flat().find((v) => typeof v === "string");
++    if (first) return first;
++  }
++  if (error?.status === "FETCH_ERROR") return "Cannot reach the server. Please check that the backend is running.";
++  return "Checkout failed. Please try again.";
++};
+ 
+ export default function CartDrawer() {
+   const dispatch = useDispatch();
+@@ -22,18 +39,45 @@ export default function CartDrawer() {
+   const deliveryFee = dineIn?.active ? 0 : 120;
+   const total = subtotal + tax + deliveryFee - discount;
+ 
++  const authToken = useSelector((state) => state.auth?.token);
++
++  // Dine-in guests order with their table session, no account needed.
++  // A delivery order needs a customer account: send a signed-out visitor
++  // to log in and bring them back here with the cart in place.
++  const sendToLogin = () => {
++    toast.info("Please log in to place your order. Your cart is saved.");
++    dispatch(toggleCart());
++    const here = `${window.location.pathname}${window.location.search}`;
++    router.push(`/auth/login?next=${encodeURIComponent(here)}`);
++  };
++
+   const handleCheckout = async () => {
++    // The table session also lives in localStorage, so a guest whose page
++    // was reloaded or opened without "?mode=dine-in" still orders as the
++    // table's guest instead of being sent to log in.
++    const saved = readSavedDineIn();
++    const seated = dineIn?.active
++      ? dineIn
++      : saved?.active && saved?.sessionToken
++        ? saved
++        : null;
++
++    if (!seated && !authToken && !getAccessToken()) {
++      sendToLogin();
++      return;
++    }
++
+     let body;
+ 
+-    if (dineIn?.active) {
++    if (seated) {
+       body = {
+         order_type: "DINE_IN",
+-        restaurant: dineIn.restaurant?.id,
+-        table: dineIn.table?.number ?? dineIn.table,
+-        guests: Number(dineIn.guests) || 1,
+-        name: dineIn.name || "",
+-        phone: dineIn.phone || "",
+-        session_token: dineIn.sessionToken || dineIn.session?.token || "",
++        restaurant: seated.restaurant?.id,
++        table: seated.table?.number ?? seated.table,
++        guests: Number(seated.guests) || 1,
++        name: seated.name || "",
++        phone: seated.phone || "",
++        session_token: seated.sessionToken || seated.session?.token || "",
+         items: items.map((i) => ({
+           menu_item: i.id,
+           quantity: i.qty,
+@@ -60,7 +104,31 @@ export default function CartDrawer() {
+       console.log("Order created:", res);
+       router.push("/orders");
+     } catch (error) {
+-      console.error("Checkout failed:", error);
++      if (error?.status === 401 && !seated) {
++        sendToLogin();
++        return;
++      }
++
++      const message = checkoutErrorMessage(error);
++      // Handled and shown to the customer, so a warning rather than an
++      // error that opens the Next.js dev overlay.
++      console.warn(`Checkout failed (${error?.status ?? "unknown"}): ${message}`);
++      toast.error(message);
++
++      // The table's session was closed after the bill was settled, so the
++      // saved token can never work again. Forget it and reopen the table's
++      // QR link, which starts a fresh session (guest count, then menu) and
++      // keeps the cart.
++      if (error?.data?.code === "dine_in_session_ended") {
++        const restaurantId = seated?.restaurant?.id;
++        const tableNumber = seated?.table?.number ?? seated?.table;
++        dispatch(clearDineIn());
++        clearSavedDineIn();
++        dispatch(toggleCart());
++        if (restaurantId && tableNumber) {
++          router.push(`/restaurant/${restaurantId}?mode=dine-in&table=${tableNumber}`);
++        }
++      }
+     }
+   };
+ 
+diff --git a/easyserve-front-end/src/services/private/index.js b/easyserve-front-end/src/services/private/index.js
+index 16a7520..0e22f24 100644
+--- a/easyserve-front-end/src/services/private/index.js
++++ b/easyserve-front-end/src/services/private/index.js
+@@ -5,6 +5,7 @@ import {
+   getAccessToken,
+   getRefreshToken,
+ } from '@/utilities/authStorage';
++import { getDineInToken } from '@/utilities/dineInStorage';
+ 
+ const baseQuery = fetchBaseQuery({
+   baseUrl: API_URL,
+@@ -20,6 +21,13 @@ const baseQuery = fetchBaseQuery({
+       headers.set('Authorization', `Bearer ${token}`);
+     }
+ 
++    // A guest seated through the table QR code has no account; the table
++    // session token authorises their checkout, orders list and payment.
++    const dineInToken = getDineInToken(getState());
++    if (dineInToken) {
++      headers.set('X-Dine-In-Token', dineInToken);
++    }
++
+     return headers;
+   },
+ });
+diff --git a/easyserve-front-end/src/services/private/orders.js b/easyserve-front-end/src/services/private/orders.js
+index 28e2731..dcaf443 100644
+--- a/easyserve-front-end/src/services/private/orders.js
++++ b/easyserve-front-end/src/services/private/orders.js
+@@ -6,6 +6,10 @@ export const orderApi = privateAPi.injectEndpoints({
+       query: (params) => ({ url: "/restaurants/orders/", method: "GET", params }),
+       providesTags: ["getOrders"],
+     }),
++    getDineInOrders: build.query({
++      query: () => ({ url: "/restaurants/dine-in/orders/", method: "GET" }),
++      providesTags: ["getOrders"],
++    }),
+     getOrder: build.query({
+       query: (id) => ({ url: `/restaurants/orders/${id}/`, method: "GET" }),
+       providesTags: (result, error, id) => [{ type: "getOrder", id }],
+@@ -128,7 +132,7 @@ export const orderApi = privateAPi.injectEndpoints({
+ });
+ 
+ export const {
+-  useGetOrdersQuery, useGetOrderQuery, useAddOrderMutation, usePayOrderMutation,
++  useGetOrdersQuery, useGetDineInOrdersQuery, useGetOrderQuery, useAddOrderMutation, usePayOrderMutation,
+   useRequestCashPaymentMutation, useSettleCashPaymentMutation, useGetManagerCashOrdersQuery,
+   useUpdateOrderMutation, useGetOrderStatusQuery, usePatchOrderStatusMutation,
+   useGetPendingOrdersQuery, useGetReadyOrdersQuery, useAcceptOrderMutation, useAssignChefMutation,
+diff --git a/easyserve-front-end/src/store/slices/authSlice.js b/easyserve-front-end/src/store/slices/authSlice.js
+index 4f8f8ec..3f82082 100644
+--- a/easyserve-front-end/src/store/slices/authSlice.js
++++ b/easyserve-front-end/src/store/slices/authSlice.js
+@@ -1,5 +1,5 @@
+ import { createSlice } from '@reduxjs/toolkit';
+-import { clearSession, isSignedOut, readSession, saveLogin, updateSession } from '@/utilities/authStorage';
++import { clearSession, detachTabAsGuest, isSignedOut, readSession, saveLogin, updateSession } from '@/utilities/authStorage';
+ 
+ // The server render and the first client render must agree, so the
+ // persisted session is not read here. StateProvider restores it right after
+@@ -69,6 +69,16 @@ const authSlice = createSlice({
+       }
+     },
+ 
++    onBecameGuest: (state) => {
++      state.initialized = true;
++      state.isAuthenticated = false;
++      state.user = null;
++      state.token = null;
++
++      if (typeof window !== 'undefined') {
++        detachTabAsGuest();
++      }
++    },
+     onLoggedOut: (state) => {
+       state.initialized = true;
+       state.isAuthenticated = false;
+@@ -83,5 +93,5 @@ const authSlice = createSlice({
+ });
+ 
+ export default authSlice.reducer;
+-export const { onSessionRestored, onAuthorized, onLoggedIn, onTokenRefreshed, onLoggedOut } = authSlice.actions;
++export const { onSessionRestored, onAuthorized, onLoggedIn, onTokenRefreshed, onLoggedOut, onBecameGuest } = authSlice.actions;
+ 
+diff --git a/easyserve-front-end/src/utilities/authStorage.js b/easyserve-front-end/src/utilities/authStorage.js
+index c543699..9227767 100644
+--- a/easyserve-front-end/src/utilities/authStorage.js
++++ b/easyserve-front-end/src/utilities/authStorage.js
+@@ -170,3 +170,13 @@ export const clearSession = () => {
+   clearFrom(window.sessionStorage);
+   safeSet(window.sessionStorage, SIGNED_OUT_KEY, '1');
+ };
++
++// Turns only this tab into a signed-out guest, leaving every other tab and
++// the shared login alone. Used when a table QR code is opened in a browser
++// where staff are signed in: the person ordering is a customer, not the
++// manager whose login a new tab would otherwise adopt.
++export const detachTabAsGuest = () => {
++  if (!isBrowser()) return;
++  clearFrom(window.sessionStorage);
++  safeSet(window.sessionStorage, SIGNED_OUT_KEY, '1');
++};
+diff --git a/easyserve-front-end/src/utilities/dineInStorage.js b/easyserve-front-end/src/utilities/dineInStorage.js
+new file mode 100644
+index 0000000..6dfa8c0
+--- /dev/null
++++ b/easyserve-front-end/src/utilities/dineInStorage.js
+@@ -0,0 +1,26 @@
++// The dine-in table session lives in Redux while the guest browses and in
++// localStorage so a refresh (or opening "My Orders") keeps it. Its token is
++// what lets a guest order and pay without an account.
++
++export const DINE_IN_STORAGE_KEY = "easyserve:dine-in-context";
++
++export const readSavedDineIn = () => {
++  if (typeof window === "undefined") return null;
++  try {
++    const raw = window.localStorage.getItem(DINE_IN_STORAGE_KEY);
++    return raw ? JSON.parse(raw) : null;
++  } catch (_) {
++    return null;
++  }
++};
++
++export const getDineInToken = (state) =>
++  state?.dineIn?.sessionToken || readSavedDineIn()?.sessionToken || null;
++
++export const clearSavedDineIn = () => {
++  try {
++    window.localStorage.removeItem(DINE_IN_STORAGE_KEY);
++  } catch (_) {
++    // Storage can be unavailable (private mode); nothing to clear then.
++  }
++};

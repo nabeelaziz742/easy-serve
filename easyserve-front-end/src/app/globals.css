@@ -162,4 +162,33 @@
   .smooth-card:hover {
     transform: translateY(-2px);
   }
+
+  /* Compact SaaS card: one radius, one border, one shadow everywhere. */
+  .saas-card {
+    @apply rounded-xl border border-zinc-200/80 bg-white shadow-xs;
+    transition: transform 160ms ease, box-shadow 160ms ease, border-color 160ms ease;
+  }
+
+  .saas-card:hover {
+    @apply shadow-md border-zinc-300/80;
+  }
+
+  .saas-label {
+    @apply text-[10px] font-bold uppercase tracking-wider text-zinc-400;
+  }
+
+  .tabular {
+    font-variant-numeric: tabular-nums;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
 }

@@ -56,7 +56,7 @@ export const MenuItemCard = ({
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.3 }}
-      className="group relative flex h-full flex-col justify-between overflow-hidden rounded-3xl border border-gray-200/80 bg-white p-4 shadow-sm transition-all duration-300 hover:border-yellow-400/40 hover:shadow-xl"
+      className="group relative flex h-full flex-col justify-between overflow-hidden rounded-2xl border border-gray-200/80 bg-white p-4 shadow-sm transition-all duration-300 hover:border-yellow-400/40 hover:shadow-xl"
     >
       {/* Badge */}
       <div className="absolute left-3.5 top-3.5 z-20 rounded-full border border-yellow-500/30 bg-yellow-400 px-3 py-0.5 text-xs font-bold text-black shadow-md">

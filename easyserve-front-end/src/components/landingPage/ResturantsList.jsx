@@ -19,6 +19,7 @@ import {
 
 // ===================== RESTAURANT CARD =====================
 
+import EmptyState from "@/components/feedback/EmptyState";
 import Skeleton from "react-loading-skeleton";
 import "react-loading-skeleton/dist/skeleton.css";
 
@@ -301,7 +302,7 @@ const RestaurantCard = ({
 
 function RestaurantsListContent() {
 
-  const { data: allRestaurants } =
+  const { data: allRestaurants, isLoading: restaurantsLoading } =
     useGetRestaurantsQuery();
 
   const {
@@ -314,9 +315,18 @@ function RestaurantsListContent() {
   const isReservationMode =
     searchParams.get("mode") === "reservation";
 
-  const aiRestaurants = aiSuggestions || [];
+  // The API can answer with a paginated object or a plain list.
+  const aiResults = Array.isArray(aiSuggestions?.results)
+    ? aiSuggestions.results
+    : Array.isArray(aiSuggestions)
+    ? aiSuggestions
+    : [];
 
-  const restaurants = allRestaurants || [];
+  const restaurants = Array.isArray(allRestaurants)
+    ? allRestaurants
+    : Array.isArray(allRestaurants?.results)
+    ? allRestaurants.results
+    : [];
 
   return (
     <section id="restaurants" className="bg-gradient-to-b from-gray-50 to-white py-24 scroll-mt-12">
@@ -434,6 +444,7 @@ function RestaurantsListContent() {
 
         {/* ===================== AI SECTION ===================== */}
 
+        {(aiLoading || aiResults.length > 0) && (
         <div className="mb-20">
 
           <div className="mb-8 flex items-center justify-between">
@@ -458,7 +469,7 @@ function RestaurantsListContent() {
 
   <div className="grid grid-cols-1 gap-10 sm:grid-cols-2 lg:grid-cols-3">
 
-    {aiRestaurants.results?.map((item, index) => (
+    {aiResults.map((item, index) => (
 
       <RestaurantCard
         key={item.restaurant.id}
@@ -479,6 +490,7 @@ function RestaurantsListContent() {
 
 )}
         </div>
+        )}
 
 
         {/* ===================== ALL RESTAURANTS ===================== */}
@@ -489,6 +501,27 @@ function RestaurantsListContent() {
             🍽️ All Restaurants
           </h2>
 
+          {restaurantsLoading ? (
+            <div className="grid grid-cols-1 gap-10 sm:grid-cols-2 lg:grid-cols-3">
+              {[1, 2, 3].map((item) => (
+                <RestaurantSkeleton key={item} />
+              ))}
+            </div>
+          ) : restaurants.length === 0 ? (
+            <EmptyState
+              icon={Utensils}
+              title="No restaurants listed yet"
+              description="Restaurants will appear here as soon as they go live. Already at a table? Scan the QR code on it to order."
+              action={
+                <a
+                  href="/scan"
+                  className="inline-flex items-center gap-1.5 rounded-lg bg-green-950 px-4 py-2 text-xs font-bold text-yellow-400 transition-colors hover:bg-green-900"
+                >
+                  Scan table QR
+                </a>
+              }
+            />
+          ) : (
           <div className="grid grid-cols-1 gap-10 sm:grid-cols-2 lg:grid-cols-3">
 
             {restaurants.map((restaurant, index) => (
@@ -515,6 +548,7 @@ function RestaurantsListContent() {
             ))}
 
           </div>
+          )}
         </div>
 
       </div>

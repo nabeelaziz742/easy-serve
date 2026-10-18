@@ -207,6 +207,12 @@ if DOMAIN:
 
 CORS_ALLOW_CREDENTIALS = True
 
+# Dine-in guests identify their table session with this header instead of
+# logging in (see apps/restaurants/services/dine_in_guest.py).
+from corsheaders.defaults import default_headers  # noqa: E402
+
+CORS_ALLOW_HEADERS = (*default_headers, "x-dine-in-token")
+
 # ==================================================
 # SECURITY
 # ==================================================

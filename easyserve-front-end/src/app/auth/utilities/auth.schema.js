@@ -63,3 +63,24 @@ export const loginSchema = z.object({
     .string()
     .min(8, { message: "Password must be at least 8 characters." }),
 });
+
+export const forgotPasswordSchema = z.object({
+  email: z.string().trim().email({ message: "Enter a valid email." }),
+});
+
+// Same strength rules as registration.
+export const resetPasswordSchema = z
+  .object({
+    new_password: z
+      .string()
+      .min(8, { error: "Password must be at least 8 characters." })
+      .regex(/[A-Z]/, "Password must contain at least one uppercase letter.")
+      .regex(/[a-z]/, "Password must contain at least one lowercase letter.")
+      .regex(/[0-9]/, "Password must contain at least one number.")
+      .regex(/[^a-zA-Z0-9]/, "Password must contain at least one special character."),
+    confirm_password: z.string().min(1, { error: "Please confirm your password." }),
+  })
+  .refine((data) => data.new_password === data.confirm_password, {
+    path: ["confirm_password"],
+    error: "Passwords do not match.",
+  });

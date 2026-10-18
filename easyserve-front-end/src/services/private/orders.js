@@ -6,7 +6,11 @@ export const orderApi = privateAPi.injectEndpoints({
       query: (params) => ({ url: "/restaurants/orders/", method: "GET", params }),
       providesTags: ["getOrders"],
     }),
-    getOrder: build.query({
+        getDineInOrders: build.query({
+      query: () => ({ url: "/restaurants/dine-in/orders/", method: "GET" }),
+      providesTags: ["getOrders"],
+    }),
+        getOrder: build.query({
       query: (id) => ({ url: `/restaurants/orders/${id}/`, method: "GET" }),
       providesTags: (result, error, id) => [{ type: "getOrder", id }],
     }),
@@ -128,7 +132,7 @@ export const orderApi = privateAPi.injectEndpoints({
 });
 
 export const {
-  useGetOrdersQuery, useGetOrderQuery, useAddOrderMutation, usePayOrderMutation,
+    useGetOrdersQuery, useGetDineInOrdersQuery, useGetOrderQuery, useAddOrderMutation, usePayOrderMutation,
   useRequestCashPaymentMutation, useSettleCashPaymentMutation, useGetManagerCashOrdersQuery,
   useUpdateOrderMutation, useGetOrderStatusQuery, usePatchOrderStatusMutation,
   useGetPendingOrdersQuery, useGetReadyOrdersQuery, useAcceptOrderMutation, useAssignChefMutation,

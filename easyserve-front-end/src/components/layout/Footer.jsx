@@ -14,7 +14,7 @@ import {
 export function Footer() {
 
   return (
-    <footer className="relative mt-24 overflow-hidden bg-green-950 text-gray-200">
+    <footer className="relative overflow-hidden bg-green-950 text-gray-200">
 
       {/* Top Gradient Line */}
       <div className="absolute left-0 right-0 top-0 h-1 bg-gradient-to-r from-yellow-400 via-green-400 to-yellow-400" />

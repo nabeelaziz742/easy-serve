@@ -5,6 +5,7 @@ import { motion } from "framer-motion";
 import { Users, Clock, MessageSquare, Utensils, Star, Sparkles } from "lucide-react";
 import ReviewModal from "./ReviewModal";
 import { cn } from "@/lib/utils";
+import { itemVariants, hoverLift } from "@/lib/motion";
 
 export default function TableCard({ table }) {
   const { number, status, customers, orderItems, orderTime, orderId } = table;
@@ -76,25 +77,25 @@ export default function TableCard({ table }) {
   return (
     <>
       <motion.div
-        whileHover={{ y: -4 }}
-        transition={{ duration: 0.2 }}
+        variants={itemVariants}
+        whileHover={hoverLift}
         className={cn(
-          "smooth-card rounded-3xl border shadow-sm p-5 flex flex-col justify-between gap-4 transition-all relative overflow-hidden bg-white",
+          "saas-card relative flex flex-col justify-between gap-3 overflow-hidden bg-white p-3.5",
           theme.card
         )}
       >
-        <div className="space-y-3">
+        <div className="space-y-2.5">
           {/* Header */}
           <div className="flex justify-between items-center">
             <div className="flex items-center gap-2">
-              <span className={cn("h-2.5 w-2.5 rounded-full", theme.indicator)} />
-              <h3 className="text-lg font-black text-green-950 tracking-tight">
+              <span className={cn("h-2 w-2 rounded-full", theme.indicator)} />
+              <h3 className="text-sm font-black text-green-950 tracking-tight">
                 Table #{number}
               </h3>
             </div>
             <span
               className={cn(
-                "px-2.5 py-0.5 text-[11px] font-bold rounded-full border capitalize",
+                "px-2 py-0.5 text-[10px] font-bold rounded-md border capitalize",
                 theme.pill
               )}
             >
@@ -103,7 +104,7 @@ export default function TableCard({ table }) {
           </div>
 
           {/* Telemetry info */}
-          <div className="flex items-center gap-4 text-xs font-semibold text-gray-500">
+          <div className="flex items-center gap-3 text-[11px] font-semibold text-gray-500">
             <span className="flex items-center gap-1.5">
               <Users className="w-3.5 h-3.5 text-yellow-600" /> {customers || 0} Guests
             </span>
@@ -115,7 +116,7 @@ export default function TableCard({ table }) {
 
           {/* Active Orders List */}
           {(orderItems ?? []).length > 0 && (
-            <div className="rounded-2xl border border-gray-100 bg-gray-50/70 p-3 text-xs space-y-1.5">
+            <div className="rounded-lg border border-gray-100 bg-gray-50/70 p-2.5 text-xs space-y-1">
               <p className="font-bold text-gray-700 flex items-center gap-1.5 uppercase tracking-wider text-[10px]">
                 <Utensils size={12} className="text-yellow-600" /> Current Order
               </p>
@@ -134,7 +135,7 @@ export default function TableCard({ table }) {
 
           {/* Review Box */}
           {table.review && (
-            <div className="rounded-2xl border border-yellow-200/80 bg-yellow-50/50 p-3 text-xs">
+            <div className="rounded-lg border border-yellow-200/80 bg-yellow-50/50 p-2.5 text-xs">
               <div className="flex items-center justify-between">
                 <span className="font-bold text-yellow-900">Guest Review</span>
                 <div className="flex items-center gap-0.5">
@@ -162,7 +163,7 @@ export default function TableCard({ table }) {
         {!table.review && (
           <button
             onClick={() => setOpenReview(true)}
-            className="mt-2 w-full flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl text-xs font-bold bg-green-950 text-yellow-400 shadow-md hover:bg-green-900 active:scale-[0.98] transition-all"
+            className="w-full flex items-center justify-center gap-1.5 py-2 px-3 rounded-lg text-xs font-bold bg-green-950 text-yellow-400 hover:bg-green-900 active:scale-[0.98] transition-colors"
           >
             <MessageSquare className="w-3.5 h-3.5" />
             Add Table Feedback

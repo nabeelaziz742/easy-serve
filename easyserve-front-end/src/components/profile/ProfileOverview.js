@@ -28,7 +28,7 @@ export default function ProfileOverview({ user }) {
   };
 
   return (
-    <Card className="rounded-3xl border border-gray-200/80 bg-white p-6 sm:p-8 shadow-xl max-w-2xl">
+    <Card className="rounded-2xl border border-gray-200/80 bg-white p-5 sm:p-8 shadow-xl max-w-2xl gap-3">
       <CardHeader className="p-0 pb-6">
         <div className="flex items-center gap-2 mb-1">
           <span className="inline-flex items-center gap-1 rounded-full bg-yellow-400/20 px-3 py-0.5 text-xs font-bold text-yellow-900 border border-yellow-400/30">

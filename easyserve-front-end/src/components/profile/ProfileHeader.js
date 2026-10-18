@@ -11,7 +11,7 @@ export default function ProfileHeader({ user }) {
   const userType = (user?.user_type || user?.role || "Customer").replace(/_/g, " ");
 
   return (
-    <Card className="smooth-card overflow-hidden rounded-3xl border border-gray-200/80 bg-white shadow-xl">
+    <Card className="smooth-card overflow-hidden rounded-2xl border border-gray-200/80 bg-white shadow-xl">
       {/* Top Banner Gradient */}
       <div className="h-20 bg-gradient-to-r from-green-950 via-green-900 to-green-950 relative">
         <div className="absolute inset-0 bg-[linear-gradient(to_right,#ffffff0a_1px,transparent_1px),linear-gradient(to_bottom,#ffffff0a_1px,transparent_1px)] bg-[size:16px_16px]" />

@@ -1,9 +1,8 @@
 "use client";
 
-import React, { useState } from "react";
-import { Card } from "@/components/ui/card";
+import React, { useEffect, useState } from "react";
+import { useSelector } from "react-redux";
 import { Badge } from "@/components/ui/badge";
-import { Separator } from "@/components/ui/separator";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
 import { motion, AnimatePresence } from "framer-motion";
@@ -20,33 +19,35 @@ import {
   Calendar,
   ChevronRight,
   CheckCircle2,
+  ReceiptText,
 } from "lucide-react";
-import { useGetOrdersQuery, useRequestCashPaymentMutation } from "@/services/private/orders";
+import Link from "next/link";
+import { useGetOrdersQuery, useGetDineInOrdersQuery, useRequestCashPaymentMutation } from "@/services/private/orders";
+import { getDineInToken } from "@/utilities/dineInStorage";
 import OrderPayment from "@/components/payment/OrderPayment";
+import { listVariants, itemVariants, easeOut } from "@/lib/motion";
 import RoleGuard from "@/components/auth/RoleGuard";
 
-const containerVariants = {
-  hidden: { opacity: 0 },
-  show: {
-    opacity: 1,
-    transition: { staggerChildren: 0.08 },
-  },
-};
-
-const itemVariants = {
-  hidden: { opacity: 0, y: 16 },
-  show: {
-    opacity: 1,
-    y: 0,
-    transition: { duration: 0.35, ease: "easeOut" },
-  },
-};
-
 function ClientOrders() {
-  const { data, isLoading, isFetching, refetch } = useGetOrdersQuery(undefined, {
-    pollingInterval: 3000,
-    refetchOnFocus: true,
-  });
+  // A guest seated through the table QR code has no account: show this
+  // table visit's orders through its session token instead of asking them
+  // to log in. Read after mount, since localStorage is browser-only.
+  const dineInState = useSelector((state) => state.dineIn);
+  const reduxDineInToken = dineInState?.sessionToken || dineInState?.session?.token || null;
+  const [guestToken, setGuestToken] = useState(null);
+  const [modeKnown, setModeKnown] = useState(false);
+  useEffect(() => {
+    setGuestToken(getDineInToken({ dineIn: dineInState }));
+    setModeKnown(true);
+  }, [reduxDineInToken]);
+  const isGuest = !!guestToken;
+
+  const queryOptions = { pollingInterval: 3000, refetchOnFocus: true };
+  const accountOrders = useGetOrdersQuery(undefined, { ...queryOptions, skip: !modeKnown || isGuest });
+  const guestOrders = useGetDineInOrdersQuery(undefined, { ...queryOptions, skip: !modeKnown || !isGuest });
+  const { data, isLoading, isFetching, refetch } = isGuest ? guestOrders : accountOrders;
+  const Guard = isGuest ? React.Fragment : RoleGuard;
+
   const [requestCashPayment, { isLoading: isRequestingCash }] = useRequestCashPaymentMutation();
   const loading = isLoading || isFetching;
   const [cardPayOrderId, setCardPayOrderId] = useState(null);
@@ -86,16 +87,16 @@ function ClientOrders() {
     Takeaway: { label: "Takeaway Pickup", icon: Package, color: "bg-purple-50 text-purple-900 border-purple-200" },
   };
 
-  if (loading && !data) {
+    if (!modeKnown || (loading && !data)) {
     return (
       <div className="mx-auto max-w-6xl px-4 sm:px-6 py-10 space-y-6">
         <div className="space-y-2">
           <Skeleton className="h-8 w-48 rounded-xl" />
           <Skeleton className="h-4 w-72 rounded-lg" />
         </div>
-        <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-          {[1, 2, 3, 4].map((i) => (
-            <Skeleton key={i} className="h-80 rounded-3xl" />
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
+          {[1, 2, 3].map((i) => (
+            <Skeleton key={i} className="h-64 rounded-xl" />
           ))}
         </div>
       </div>
@@ -111,11 +112,11 @@ function ClientOrders() {
           transition={{ duration: 0.4 }}
           className="w-full max-w-md"
         >
-          <Card className="rounded-3xl border border-gray-200/80 bg-white p-8 sm:p-10 text-center shadow-xl">
-            <div className="mx-auto mb-4 flex h-20 w-20 items-center justify-center rounded-2xl bg-yellow-50 text-yellow-600 border border-yellow-200/60 shadow-inner">
-              <ShoppingBag className="h-10 w-10 text-yellow-600" />
+          <div className="saas-card p-8 text-center shadow-md">
+            <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-xl border border-yellow-200/60 bg-yellow-50 text-yellow-600">
+              <ShoppingBag className="h-7 w-7 text-yellow-600" />
             </div>
-            <h2 className="text-2xl font-black tracking-tight text-green-950">
+            <h2 className="text-xl font-black tracking-tight text-green-950">
               No Orders Active
             </h2>
             <p className="mt-2 text-sm text-gray-500 leading-relaxed">
@@ -124,21 +125,21 @@ function ClientOrders() {
             <div className="mt-6">
               <a
                 href="/"
-                className="inline-flex items-center justify-center gap-2 rounded-2xl bg-green-950 px-6 py-3 text-sm font-bold text-yellow-400 shadow-lg transition hover:bg-green-900 hover:scale-[1.02] active:scale-[0.98]"
+                className="inline-flex items-center justify-center gap-2 rounded-lg bg-green-950 px-5 py-2.5 text-sm font-bold text-yellow-400 shadow-sm transition hover:bg-green-900 active:scale-[0.98]"
               >
                 Browse Menu <ChevronRight size={16} />
               </a>
             </div>
-          </Card>
+          </div>
         </motion.div>
       </div>
     );
   }
 
   return (
-    <RoleGuard>
-      <div className="min-h-screen bg-gradient-to-b from-gray-50 via-white to-gray-50 py-10 px-4 sm:px-6">
-        <div className="mx-auto max-w-6xl space-y-8">
+    <Guard>
+      <div className="min-h-screen bg-gradient-to-b from-gray-50 via-white to-gray-50 py-8 px-4 sm:px-6">
+        <div className="mx-auto max-w-6xl space-y-6">
           {/* Header */}
           <motion.div
             initial={{ opacity: 0, y: -10 }}
@@ -147,27 +148,27 @@ function ClientOrders() {
           >
             <div>
               <span className="mb-2 inline-flex items-center gap-1.5 rounded-full border border-yellow-400/30 bg-yellow-50 px-3.5 py-1 text-xs font-bold uppercase tracking-wider text-yellow-800">
-                <Sparkles className="h-3 w-3 text-yellow-600" /> Live Dining History
+                <Sparkles className="h-3 w-3 text-yellow-600" /> Your Orders
               </span>
-              <h1 className="text-3xl sm:text-4xl font-black tracking-tight text-green-950">
+              <h1 className="text-2xl sm:text-3xl font-black tracking-tight text-green-950">
                 My Orders
               </h1>
               <p className="text-sm text-gray-500">
-                Real-time tracking of kitchen preparation and payment settlement.
+                Follow your food from the kitchen to your table, and pay when you are ready.
               </p>
             </div>
             <div className="flex items-center gap-2 text-xs font-semibold text-gray-500">
               <span className="h-2 w-2 animate-pulse rounded-full bg-emerald-500" />
-              Live Order Telemetry
+              Live updates
             </div>
           </motion.div>
 
           {/* Orders Grid */}
           <motion.div
-            variants={containerVariants}
+            variants={listVariants}
             initial="hidden"
             animate="show"
-            className="grid grid-cols-1 items-start gap-6 lg:grid-cols-2"
+            className="grid grid-cols-1 items-start gap-4 md:grid-cols-2 xl:grid-cols-3"
           >
             {data.results.map((order) => {
               const orderedDate = new Date(order.ordered_date).toLocaleString(undefined, {
@@ -194,152 +195,163 @@ function ClientOrders() {
               const TypeIcon = typeMeta.icon;
 
               return (
-                <motion.div key={order.id} variants={itemVariants}>
-                  <Card className="smooth-card overflow-hidden rounded-3xl border border-gray-200/80 bg-white shadow-md hover:shadow-xl transition-all">
-                    {/* Top Order Card Header */}
-                    <div className="border-b border-gray-100 bg-green-950/95 p-5 text-white">
-                      <div className="flex items-start justify-between gap-4">
-                        <div>
-                          <div className="flex items-center gap-2 mb-1">
-                            <span className="font-mono text-xs font-bold text-yellow-400">
-                              #{order.id}
-                            </span>
-                            <span className="text-xs text-green-200">·</span>
-                            <span className="text-xs text-green-200 flex items-center gap-1">
-                              <Calendar className="h-3 w-3 text-yellow-400" /> {orderedDate}
-                            </span>
+                <motion.div key={order.id} layout="position" variants={itemVariants}>
+                  <div className="saas-card overflow-hidden">
+                    {/* Header: id, date, customer, type */}
+                    <div className="bg-green-950 px-4 py-3 text-white">
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="min-w-0">
+                          <div className="flex items-center gap-1.5 text-[11px] text-green-200">
+                            <span className="font-mono font-bold text-yellow-400">#{order.id}</span>
+                            <span>·</span>
+                            <Calendar className="h-3 w-3 text-yellow-400" />
+                            <span className="truncate">{orderedDate}</span>
                           </div>
-                          <h2 className="text-lg font-black tracking-tight text-white">
+                          <h2 className="mt-0.5 truncate text-sm font-bold text-white">
                             {order.billing_first_name} {order.billing_last_name}
                           </h2>
                         </div>
-
-                        {/* Badges */}
-                        <div className="flex flex-wrap justify-end gap-1.5 shrink-0">
-                          <span className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[11px] font-bold border ${typeMeta.color}`}>
-                            <TypeIcon className="h-3 w-3" /> {typeMeta.label}
-                          </span>
-                        </div>
-                      </div>
-
-                      {/* Status Pills */}
-                      <div className="mt-4 flex flex-wrap items-center gap-2">
-                        <span className={`inline-flex items-center gap-1 rounded-xl px-3 py-1 text-xs font-bold border ${orderMeta.color}`}>
-                          <span>{orderMeta.emoji}</span>
-                          <span>{orderMeta.label}</span>
+                        <span className={`inline-flex shrink-0 items-center gap-1 rounded-md border px-2 py-0.5 text-[10px] font-bold ${typeMeta.color}`}>
+                          <TypeIcon className="h-3 w-3" /> {typeMeta.label}
                         </span>
-                        <span className={`inline-flex items-center gap-1 rounded-xl px-3 py-1 text-xs font-bold border ${paymentMeta.color}`}>
-                          {order.payment_status === "Confirmed" ? (
-                            <CheckCircle2 className="h-3.5 w-3.5 text-emerald-700" />
-                          ) : (
-                            <Clock className="h-3.5 w-3.5 text-amber-700" />
+                      </div>
+                    </div>
+
+                    {/* Status pills */}
+                    <div className="flex flex-wrap items-center gap-1.5 border-b border-zinc-100 px-4 py-2.5">
+                      <motion.span
+                        key={order.order_status}
+                        initial={{ opacity: 0, scale: 0.92 }}
+                        animate={{ opacity: 1, scale: 1 }}
+                        transition={{ duration: 0.2 }}
+                        className={`inline-flex items-center gap-1 rounded-md border px-2 py-0.5 text-[11px] font-bold ${orderMeta.color}`}
+                      >
+                        <span>{orderMeta.emoji}</span>
+                        <span>{orderMeta.label}</span>
+                      </motion.span>
+                      <motion.span
+                        key={order.payment_status}
+                        initial={{ opacity: 0, scale: 0.92 }}
+                        animate={{ opacity: 1, scale: 1 }}
+                        transition={{ duration: 0.2 }}
+                        className={`inline-flex items-center gap-1 rounded-md border px-2 py-0.5 text-[11px] font-bold ${paymentMeta.color}`}
+                      >
+                        {order.payment_status === "Confirmed" ? (
+                          <CheckCircle2 className="h-3 w-3 text-emerald-700" />
+                        ) : (
+                          <Clock className="h-3 w-3 text-amber-700" />
+                        )}
+                        <span>{paymentMeta.label}</span>
+                      </motion.span>
+                    </div>
+
+                    {/* Order items */}
+                    <div className="px-4 py-2">
+                      <p className="saas-label pb-1">Dishes Ordered ({order.items?.length || 0})</p>
+                      <ul className="divide-y divide-zinc-100">
+                        {order.items.map((item) => (
+                          <li key={item.id} className="flex items-center justify-between gap-3 py-2">
+                            <div className="min-w-0">
+                              <p className="truncate text-sm font-semibold text-zinc-900">
+                                {item.menu_item?.name || "Delicious Dish"}
+                              </p>
+                              {item.comments && (
+                                <p className="truncate text-[11px] text-zinc-500">{item.comments}</p>
+                              )}
+                            </div>
+                            <div className="flex shrink-0 items-center gap-2.5 text-xs">
+                              <span className="rounded-md bg-green-50 px-1.5 py-0.5 font-bold text-green-950 ring-1 ring-green-200/60 tabular">
+                                ×{item.quantity}
+                              </span>
+                              <span className="w-20 text-right font-bold text-zinc-900 tabular">Rs. {item.price}</span>
+                            </div>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+
+                    {/* Footer & payment controls */}
+                    <div className="space-y-2.5 border-t border-zinc-100 bg-zinc-50/60 px-4 py-3">
+                      <div className="flex items-center justify-between gap-4">
+                        <div>
+                          <span className="saas-label">Total Amount</span>
+                          {Number(order.tax_amount) + Number(order.service_charge_amount) > 0 && (
+                            <p className="text-[11px] text-zinc-500">Includes tax and service charge</p>
                           )}
-                          <span>{paymentMeta.label}</span>
-                        </span>
-                      </div>
-                    </div>
-
-                    {/* Order Items List */}
-                    <div className="space-y-2.5 p-5 bg-gray-50/50">
-                      <p className="text-[11px] font-bold uppercase tracking-wider text-gray-500">
-                        Dishes Ordered ({order.items?.length || 0})
-                      </p>
-                      {order.items.map((item) => (
-                        <div
-                          key={item.id}
-                          className="flex items-center justify-between gap-4 rounded-2xl border border-gray-200/70 bg-white px-4 py-3 shadow-xs"
-                        >
-                          <div className="min-w-0">
-                            <p className="truncate text-sm font-bold text-gray-900">
-                              {item.menu_item?.name || "Delicious Dish"}
-                            </p>
-                            <p className="mt-0.5 truncate text-xs text-gray-500">
-                              {item.comments || "Standard preparation"}
-                            </p>
-                          </div>
-                          <div className="flex shrink-0 items-center gap-3 text-xs">
-                            <span className="rounded-lg bg-green-50 px-2 py-1 font-bold text-green-950 border border-green-200/60">
-                              x{item.quantity}
-                            </span>
-                            <span className="text-sm font-black text-gray-900">
-                              Rs. {item.price}
-                            </span>
-                          </div>
                         </div>
-                      ))}
-                    </div>
-
-                    <Separator />
-
-                    {/* Footer & Payment Controls */}
-                    <div className="p-5 bg-white">
-                      <div className="flex items-center justify-between gap-4 mb-4">
-                        <span className="text-xs font-bold uppercase tracking-wider text-gray-500">
-                          Total Amount
-                        </span>
-                        <span className="text-2xl font-black text-green-950 tracking-tight">
-                          Rs. {order.total_price || "0.00"}
-                        </span>
+                        <div className="text-right">
+                          <span className="text-lg font-black tracking-tight text-green-950 tabular">
+                            Rs. {order.total_price || "0.00"}
+                          </span>
+                          <Link href={`/receipt/${order.id}`} className="flex items-center justify-end gap-1 text-[11px] font-semibold text-green-800 hover:underline">
+                            <ReceiptText className="h-3 w-3" /> View bill
+                          </Link>
+                        </div>
                       </div>
 
                       {order.payment_status !== "Confirmed" && !order.order_cancelled && (
-                        <div className="space-y-3 pt-2">
+                        <div className="space-y-2">
                           {!cashRequested && order.order_status === "To Prepare" && !order.accepted_by_waiter && (
-                            <p className="rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs font-semibold text-amber-800">
+                            <p className="rounded-lg border border-amber-200 bg-amber-50 px-2.5 py-1.5 text-[11px] font-semibold text-amber-800">
                               Choose how you will pay to send this order to the kitchen.
                             </p>
                           )}
-                          <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2">
+                          <div className="grid grid-cols-2 gap-2">
                             <Button
                               variant="outline"
                               disabled={isRequestingCash || cashRequested}
                               onClick={() => handleCashRequest(order.id)}
-                              className="h-11 rounded-2xl border-gray-200 bg-gray-50 font-bold text-xs hover:bg-gray-100 hover:text-green-950 active:scale-[0.98]"
+                              className="h-9 rounded-lg border-zinc-200 bg-white px-2 text-xs font-bold hover:bg-zinc-100 hover:text-green-950 active:scale-[0.98]"
                             >
-                              <Banknote className="mr-1.5 h-4 w-4 text-yellow-600" />
-                              {cashRequested ? "Cash Requested — Pay Server" : isRequestingCash ? "Submitting..." : "Pay with Cash"}
+                              <Banknote className="mr-1 h-3.5 w-3.5 text-yellow-600" />
+                              <span className="truncate">
+                                {cashRequested ? "Cash Requested — Pay Server" : isRequestingCash ? "Submitting..." : "Pay with Cash"}
+                              </span>
                             </Button>
                             <Button
                               onClick={() =>
                                 setCardPayOrderId(cardPayOrderId === order.id ? null : order.id)
                               }
-                              className="h-11 rounded-2xl bg-green-950 text-yellow-400 font-bold text-xs hover:bg-green-900 active:scale-[0.98] shadow-md"
+                              className="h-9 rounded-lg bg-green-950 px-2 text-xs font-bold text-yellow-400 hover:bg-green-900 active:scale-[0.98]"
                             >
-                              <CreditCard className="mr-1.5 h-4 w-4 text-yellow-400" />
+                              <CreditCard className="mr-1 h-3.5 w-3.5 text-yellow-400" />
                               {cardPayOrderId === order.id ? "Close Card Form" : "Pay with Card"}
                             </Button>
                           </div>
 
-                          <AnimatePresence>
+                          <AnimatePresence initial={false}>
                             {cardPayOrderId === order.id && (
                               <motion.div
                                 initial={{ opacity: 0, height: 0 }}
                                 animate={{ opacity: 1, height: "auto" }}
                                 exit={{ opacity: 0, height: 0 }}
-                                className="overflow-hidden rounded-2xl border border-yellow-400/40 bg-yellow-50/40 p-4"
+                                transition={{ duration: 0.22, ease: easeOut }}
+                                className="overflow-hidden"
                               >
-                                <OrderPayment
-                                  orderId={order.id}
-                                  onSuccess={() => {
-                                    setCardPayOrderId(null);
-                                    toast.success("Payment confirmed! 🎉");
-                                    refetch();
-                                  }}
-                                />
+                                <div className="rounded-lg border border-yellow-400/40 bg-yellow-50/40 p-3">
+                                  <OrderPayment
+                                    orderId={order.id}
+                                    onSuccess={() => {
+                                      setCardPayOrderId(null);
+                                      toast.success("Payment confirmed! 🎉");
+                                      refetch();
+                                    }}
+                                  />
+                                </div>
                               </motion.div>
                             )}
                           </AnimatePresence>
                         </div>
                       )}
                     </div>
-                  </Card>
+                  </div>
                 </motion.div>
               );
             })}
           </motion.div>
         </div>
       </div>
-    </RoleGuard>
+    </Guard>
   );
 }
 

@@ -16,7 +16,11 @@ from apps.restaurants.views import (
     WaiterCashOrdersAPIView, ManagerCashOrdersAPIView, PayOrderAPIView,
 )
 from apps.restaurants.views.secure_checkout import SecureOrderCheckoutAPIView
+from apps.restaurants.views.dine_in_orders import DineInSessionOrdersAPIView
 from apps.restaurants.views.ai import RestaurantTopSuggestionsView, RestaurantMenuSuggestionsView
+from apps.restaurants.views.restaurant_settings import (
+    RestaurantSettingsAPIView, RestaurantBillingInfoAPIView, OrderReceiptAPIView,
+)
 
 router = DefaultRouter()
 router.register(r'tables', TableViewSet, basename='table')
@@ -32,6 +36,7 @@ urlpatterns = [
     path('tables/scan-qr/', QRScanView.as_view(), name='scan-qr'),
     path('dine-in/validate/', DineInValidateAPIView.as_view(), name='validate-dine-in'),
     path('dine-in/start-session/', DineInStartSessionAPIView.as_view(), name='start-dine-in-session'),
+    path('dine-in/orders/', DineInSessionOrdersAPIView.as_view(), name='dine-in-session-orders'),
     path('ai/restaurants/suggestions/top/', RestaurantTopSuggestionsView.as_view(), name='restaurant-suggestions-top'),
     path('ai/restaurants/<int:restaurant_id>/menus/suggestions/', RestaurantMenuSuggestionsView.as_view(), name='restaurant-menu-suggestions'),
     path('cart/create-cart/', CreateCartAPIView.as_view(), name='create-cart'),
@@ -59,5 +64,8 @@ urlpatterns = [
     path('orders/<int:order_id>/mark-prepared/', MarkPreparedAPIView.as_view(), name='mark-prepared'),
     path('orders/<int:order_id>/mark-served/', MarkServedAPIView.as_view(), name='mark-served'),
     path('manager/dashboard/', ManagerDashboardAPIView.as_view(), name='manager-dashboard'),
+    path('manager/settings/', RestaurantSettingsAPIView.as_view(), name='manager-settings'),
+    path('restaurants/<int:restaurant_id>/billing/', RestaurantBillingInfoAPIView.as_view(), name='restaurant-billing'),
+    path('orders/<int:order_id>/receipt/', OrderReceiptAPIView.as_view(), name='order-receipt'),
     path('orders/ready/', ReadyOrdersAPIView.as_view(), name='ready-orders'),
 ]

@@ -63,7 +63,7 @@ export default function ReviewsPage() {
       </div>
 
       {isError ? (
-        <div className="rounded-3xl border border-red-200 bg-red-50 p-6 text-sm font-medium text-red-700">
+        <div className="rounded-2xl border border-red-200 bg-red-50 p-6 text-sm font-medium text-red-700">
           Failed to load reviews. Please refresh and try again.
         </div>
       ) : isLoading ? (
@@ -73,7 +73,7 @@ export default function ReviewsPage() {
           ))}
         </div>
       ) : reviews.length === 0 ? (
-        <div className="flex flex-col items-center justify-center rounded-3xl border border-dashed border-zinc-200 bg-white px-6 py-16 text-center shadow-xs">
+        <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-zinc-200 bg-white px-6 py-16 text-center shadow-xs">
           <div className="mb-3 flex h-14 w-14 items-center justify-center rounded-2xl bg-amber-50 text-amber-600">
             <MessageSquare className="h-6 w-6" />
           </div>

@@ -6,7 +6,9 @@ from django.utils import timezone
 from apps.restaurants.constants import DineInSessionStatus, TableState, PaymentStatus, OrderStatus
 from apps.restaurants.models import DineInSession
 
-STALE_SESSION_MAX_IDLE_HOURS = 2
+# A table scanned and seated but with no order yet stays reserved for the
+# guests only this long; after that a new scan can take the table.
+STALE_SESSION_MAX_IDLE_MINUTES = 30
 
 # A checkout the customer never sent on (no cash request, no card payment,
 # never accepted) only holds the table while they could still be on the
@@ -127,7 +129,7 @@ def clean_and_get_active_session(table, restaurant=None, lock=False):
     1. A session whose orders are all paid, cancelled or abandoned before
        payment (see open_orders) is finished and gets closed.
     2. A session with no orders that was opened more than
-       STALE_SESSION_MAX_IDLE_HOURS ago is abandoned and gets closed.
+       STALE_SESSION_MAX_IDLE_MINUTES ago is abandoned and gets closed.
     3. If no genuine session and no open order remain, a table still
        marked busy is reset to EMPTY. This is what frees tables that an
        earlier bug left stuck after settlement.
@@ -155,7 +157,7 @@ def clean_and_get_active_session(table, restaurant=None, lock=False):
                 genuine_session = session
             else:
                 session.close()
-        elif now - session.opened_at > timedelta(hours=STALE_SESSION_MAX_IDLE_HOURS):
+        elif now - session.opened_at > timedelta(minutes=STALE_SESSION_MAX_IDLE_MINUTES):
             session.close()
         else:
             genuine_session = session

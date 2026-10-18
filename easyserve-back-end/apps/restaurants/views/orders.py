@@ -9,7 +9,7 @@ from django.shortcuts import get_object_or_404
 from apps.userprofile.models import UserProfile, Notification
 from apps.core.models.user import User
 from apps.restaurants.constants import OrderStatus
-from django.db.models import Sum, Q, Count
+from django.db.models import Sum, Q, Count, F
 
 from apps.restaurants.constants import (
     OrderType,
@@ -39,9 +39,12 @@ from apps.restaurants.models import (
 class OrderCheckoutAPIView(APIView):
     permission_classes = [IsAuthenticated]
 
+    def get_customer(self, request):
+        return request.user.profile
+
     @transaction.atomic
     def post(self, request):
-        user = request.user.profile
+        user = self.get_customer(request)
         data = request.data
         items = data.get("items", [])
 
@@ -127,18 +130,24 @@ class OrderCheckoutAPIView(APIView):
             table=table,
         )
 
-        total_price = 0
+        subtotal = 0
         for menu_item, quantity in lines:
             OrderItem.objects.create(order=order, menu_item=menu_item, quantity=quantity, price=menu_item.price)
-            total_price += menu_item.price * quantity
+            subtotal += menu_item.price * quantity
+        bill = lines[0][0].menu.restaurant.bill_breakdown(subtotal, order_type)
 
         order.billing_first_name = user.first_name
         order.billing_last_name = user.last_name
-        order.billing_email = request.user.email
+        # Guest accounts have a placeholder address that must not appear on
+        # bills or receipts.
+        order.billing_email = user.user.email if user.user.is_active else None
         order.billing_phone = user.phone
         order.billing_address = data.get("billing_address", "N/A")
         order.shipping_address = data.get("shipping_address", "N/A")
-        order.total_price = total_price
+        order.subtotal = bill["subtotal"]
+        order.service_charge_amount = bill["service_charge"]
+        order.tax_amount = bill["tax"]
+        order.total_price = bill["total"]
         order.save()
 
         return Response(OrderDetailSerializer(order).data, status=status.HTTP_201_CREATED)
@@ -609,7 +618,7 @@ class ManagerDashboardAPIView(APIView):
         total_revenue = restaurant_orders.filter(
             order_status=OrderStatus.SERVED,
             payment_status=PaymentStatus.CONFIRMED.value,
-        ).aggregate(revenue=Sum("total_price"))["revenue"] or 0
+        ).aggregate(revenue=Sum(F("total_price") - F("tax_amount")))["revenue"] or 0
 
         data = {
             "total_orders": restaurant_orders.count(),

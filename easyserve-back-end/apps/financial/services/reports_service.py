@@ -85,6 +85,7 @@ class ReportsService:
         order_rows = []
         total_gross = Decimal("0.00")
         total_cogs = Decimal("0.00")
+        total_tax = Decimal("0.00")
 
         order_type_labels = {
             OrderType.DINE_IN.value: "Dine In",
@@ -100,13 +101,15 @@ class ReportsService:
         }
 
         for ord_obj in period_orders:
-            gross = ord_obj.total_price or Decimal("0.00")
+            # Sales exclude the tax collected on the bill.
+            gross = (ord_obj.total_price or Decimal("0.00")) - (ord_obj.tax_amount or Decimal("0.00"))
             cogs = ord_obj.total_cogs or Decimal("0.00")
             profit = gross - cogs
             margin = round((profit / gross * 100), 2) if gross > 0 else Decimal("0.00")
 
             total_gross += gross
             total_cogs += cogs
+            total_tax += ord_obj.tax_amount or Decimal("0.00")
 
             ord_dt = ord_obj.ordered_date or ord_obj.created_at
             local_dt = ord_dt.astimezone(FinancialReportService.get_local_now().tzinfo) if ord_dt else None
@@ -128,6 +131,7 @@ class ReportsService:
                 "gross_amount": float(gross),
                 "discount_amount": 0.0,
                 "net_amount": float(gross),
+                "tax_amount": float(ord_obj.tax_amount or 0),
                 "cogs": float(cogs),
                 "gross_profit": float(profit),
                 "gross_margin": float(margin),
@@ -145,6 +149,7 @@ class ReportsService:
                 "total_gross_sales": float(total_gross),
                 "gross_sales": float(total_gross),
                 "total_net_sales": float(total_gross),
+                "total_tax_collected": float(total_tax),
                 "total_cogs": float(total_cogs),
                 "total_gross_profit": float(total_profit),
                 "overall_margin": float(overall_margin),

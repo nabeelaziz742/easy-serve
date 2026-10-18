@@ -69,7 +69,7 @@ export default function ReviewModal({
           animate={{ opacity: 1, scale: 1, y: 0 }}
           exit={{ opacity: 0, scale: 0.94, y: 16 }}
           transition={{ duration: 0.25, ease: "easeOut" }}
-          className="relative z-10 w-full max-w-md overflow-hidden rounded-3xl border border-gray-200 bg-white shadow-2xl"
+          className="relative z-10 w-full max-w-md overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-2xl"
         >
           {/* Header */}
           <div className="border-b border-gray-100 bg-green-950 p-6 text-white relative">

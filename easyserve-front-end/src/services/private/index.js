@@ -5,6 +5,7 @@ import {
   getAccessToken,
   getRefreshToken,
 } from '@/utilities/authStorage';
+import { getDineInToken } from '@/utilities/dineInStorage';
 
 const baseQuery = fetchBaseQuery({
   baseUrl: API_URL,
@@ -20,9 +21,17 @@ const baseQuery = fetchBaseQuery({
       headers.set('Authorization', `Bearer ${token}`);
     }
 
+    // A guest seated through the table QR code has no account; the table
+    // session token authorises their checkout, orders list and payment.
+    const dineInToken = getDineInToken(getState());
+    if (dineInToken) {
+      headers.set('X-Dine-In-Token', dineInToken);
+    }
+
     return headers;
   },
 });
+
 
 class SimpleMutex {
   constructor() {
@@ -166,6 +175,7 @@ export const privateAPi = createApi({
   reducerPath: 'privateAPi',
 
   tagTypes: [
+    'RestaurantSettings',
     'GetAuthorizedUser',
     'OrderStatus',
     'WaiterDashboard',

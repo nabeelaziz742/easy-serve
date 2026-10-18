@@ -187,7 +187,7 @@ export default function ScanQRPage() {
         transition={{ duration: 0.4 }}
         className="w-full max-w-md"
       >
-        <Card className="rounded-3xl border border-gray-200/80 bg-white shadow-xl overflow-hidden">
+        <Card className="rounded-2xl border border-gray-200/80 bg-white shadow-xl overflow-hidden">
           <CardHeader className="text-center p-6 sm:p-8 bg-green-950 text-white">
             <div className="mx-auto mb-3 flex h-14 w-14 items-center justify-center rounded-2xl bg-yellow-400 text-black shadow-lg">
               <QrCode className="h-7 w-7" />

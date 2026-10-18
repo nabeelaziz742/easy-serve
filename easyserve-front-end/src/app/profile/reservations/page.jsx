@@ -37,7 +37,7 @@ export default function MyReservationsPage() {
             <Skeleton className="h-10 w-64 rounded-2xl" />
             <div className="space-y-4">
               {[1, 2, 3].map((i) => (
-                <Skeleton key={i} className="h-44 w-full rounded-3xl" />
+                <Skeleton key={i} className="h-44 w-full rounded-2xl" />
               ))}
             </div>
           </div>
@@ -84,7 +84,7 @@ export default function MyReservationsPage() {
               initial={{ opacity: 0, scale: 0.95 }}
               animate={{ opacity: 1, scale: 1 }}
             >
-              <Card className="rounded-3xl border border-gray-200/80 bg-white text-center py-16 px-6 shadow-sm">
+              <Card className="rounded-2xl border border-gray-200/80 bg-white text-center py-16 px-6 shadow-sm">
                 <CardContent className="space-y-4 max-w-sm mx-auto p-0">
                   <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl bg-yellow-50 text-yellow-600 border border-yellow-200/60 shadow-inner">
                     <Calendar className="w-8 h-8 text-yellow-600" />
@@ -118,7 +118,7 @@ export default function MyReservationsPage() {
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ delay: index * 0.05 }}
                 >
-                  <Card className="smooth-card overflow-hidden rounded-3xl border border-gray-200/80 bg-white shadow-sm hover:shadow-xl transition-all">
+                  <Card className="smooth-card overflow-hidden rounded-2xl border border-gray-200/80 bg-white shadow-sm hover:shadow-xl transition-all">
                     <div className="border-b border-gray-100 bg-green-950/95 px-6 py-4 text-white flex items-center justify-between">
                       <div className="flex items-center gap-3">
                         <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-yellow-400 text-black font-bold text-xs shadow-md">

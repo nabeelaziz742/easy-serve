@@ -1,86 +1,84 @@
 "use client";
 
-import React from "react";
-import { Card } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
+import React, { useCallback, useEffect, useState } from "react";
 import { Skeleton } from "@/components/ui/skeleton";
-import { motion } from "framer-motion";
+import { motion, AnimatePresence } from "framer-motion";
 import { toast } from "sonner";
 import RoleGuard from "@/components/auth/RoleGuard";
-import { ChefHat, Clock3, CookingPot, CheckCircle2, ReceiptText, Flame } from "lucide-react";
+import { ChefHat, Clock3, CookingPot, CheckCircle2, ReceiptText, Flame, Tv } from "lucide-react";
 import { useGetChefOrdersQuery, useStartPreparingMutation, useMarkPreparedMutation } from "@/services/private/orders";
+import { listVariants, itemVariants, fadeUp, hoverLift } from "@/lib/motion";
+import PageHeader from "@/components/layout/PageHeader";
+import SoundToggle from "@/components/layout/SoundToggle";
+import useNewOrderAlert from "@/hooks/useNewOrderAlert";
+import KitchenTvBoard from "@/components/chef/KitchenTvBoard";
 
-const containerVariants = {
-  hidden: { opacity: 0 },
-  show: { opacity: 1, transition: { staggerChildren: 0.06 } }
-};
-
-const itemVariants = {
-  hidden: { opacity: 0, y: 10 },
-  show: { opacity: 1, y: 0, transition: { duration: 0.22 } }
-};
+const TV_MODE_KEY = "chef-tv-mode";
 
 const ChefOrderCard = ({ order, onStart, onReady }) => {
   const isPreparing = order.order_status === "Preparing";
 
   return (
-    <motion.div variants={itemVariants} className="h-full">
-      <Card className="relative flex h-full min-h-[260px] flex-col justify-between overflow-hidden rounded-2xl border-zinc-200/80 bg-white p-5 shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:shadow-lg">
-        <div className={`absolute left-0 top-0 h-1.5 w-full ${isPreparing ? "bg-amber-500" : "bg-green-800"}`} />
-        <div>
-          <div className="mb-3 flex items-start justify-between gap-2">
-            <div className="min-w-0">
-              <Badge variant="outline" className="mb-1 border-zinc-200 bg-zinc-50 px-2.5 py-0.5 text-[11px] font-bold text-zinc-700">
-                🍽️ Table {order.table_number || "N/A"}
-              </Badge>
-              <h2 className="truncate text-base font-black tracking-tight text-zinc-900">
-                Order #{order.id}
-              </h2>
-            </div>
-            <Badge className={`shrink-0 px-2.5 py-0.5 text-[11px] font-bold ${
-              isPreparing ? "bg-amber-100 text-amber-900" : "bg-emerald-100 text-emerald-900"
-            }`}>
-              {order.order_status}
-            </Badge>
+    <motion.div layout variants={itemVariants} exit="exit" whileHover={hoverLift} className="h-full">
+      <div className="saas-card relative flex h-full flex-col overflow-hidden">
+        <div className={`absolute inset-y-0 left-0 w-1 ${isPreparing ? "bg-amber-500" : "bg-green-800"}`} />
+        <div className="flex items-center justify-between gap-2 border-b border-zinc-100 px-3.5 py-2.5 pl-4">
+          <div className="flex min-w-0 items-center gap-2">
+            <span className="flex h-7 min-w-7 items-center justify-center rounded-lg bg-zinc-100 px-1.5 text-xs font-black text-zinc-800 tabular">
+              T{order.table_number || "–"}
+            </span>
+            <p className="truncate text-sm font-bold text-zinc-900">Order #{order.id}</p>
           </div>
-          <div className="border-t border-zinc-100 pt-3">
-            <h4 className="mb-2 text-[10px] font-bold uppercase tracking-wider text-zinc-400">
-              Items to Cook
-            </h4>
-            <div className="space-y-1.5">
-              {order.items?.map((item) => (
-                <div key={item.id} className="flex items-center justify-between rounded-xl bg-zinc-50 px-3 py-2 text-xs">
-                  <span className="truncate pr-2 font-semibold text-zinc-800">{item.menu_item?.name}</span>
-                  <span className="shrink-0 rounded-md bg-zinc-200/80 px-2 py-0.5 text-[10px] font-bold text-zinc-800">x{item.quantity}</span>
-                </div>
-              ))}
-            </div>
-          </div>
+          <span className={`shrink-0 rounded-md px-2 py-0.5 text-[10px] font-bold ring-1 ${
+            isPreparing ? "bg-amber-50 text-amber-800 ring-amber-200" : "bg-emerald-50 text-emerald-700 ring-emerald-200"
+          }`}>
+            {order.order_status}
+          </span>
         </div>
-        <div className="mt-4">
+        <ul className="flex-1 divide-y divide-zinc-100 px-3.5 py-1 pl-4">
+          {order.items?.map((item) => (
+            <li key={item.id} className="flex items-center justify-between gap-2 py-1.5 text-xs">
+              <span className="truncate font-medium text-zinc-700">{item.menu_item?.name}</span>
+              <span className="shrink-0 font-bold text-zinc-900 tabular">×{item.quantity}</span>
+            </li>
+          ))}
+        </ul>
+        <div className="px-3.5 pb-3 pl-4 pt-1">
           {order.order_status === "To Prepare" && (
             <button
               onClick={() => onStart(order.id)}
-              className="flex w-full items-center justify-center gap-1.5 rounded-xl bg-amber-400 px-3.5 py-2.5 text-xs font-bold text-zinc-950 shadow-xs transition hover:bg-amber-500 active:scale-[0.98]"
+              className="flex w-full items-center justify-center gap-1.5 rounded-lg bg-amber-400 px-3 py-2 text-xs font-bold text-zinc-950 transition-colors hover:bg-amber-500 active:scale-[0.98]"
             >
-              <Flame className="h-4 w-4" />
+              <Flame className="h-3.5 w-3.5" />
               Start Preparing
             </button>
           )}
           {order.order_status === "Preparing" && (
             <button
               onClick={() => onReady(order.id)}
-              className="flex w-full items-center justify-center gap-1.5 rounded-xl bg-green-950 px-3.5 py-2.5 text-xs font-bold text-amber-400 shadow-xs transition hover:bg-green-900 active:scale-[0.98]"
+              className="flex w-full items-center justify-center gap-1.5 rounded-lg bg-green-950 px-3 py-2 text-xs font-bold text-amber-400 transition-colors hover:bg-green-900 active:scale-[0.98]"
             >
-              <CheckCircle2 className="h-4 w-4 text-amber-400" />
+              <CheckCircle2 className="h-3.5 w-3.5 text-amber-400" />
               Mark Ready
             </button>
           )}
         </div>
-      </Card>
+      </div>
     </motion.div>
   );
 };
+
+const StatTile = ({ icon: Icon, label, value, tone }) => (
+  <motion.div variants={itemVariants} className="saas-card flex items-center gap-3 px-4 py-3">
+    <span className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg ${tone}`}>
+      <Icon className="h-4.5 w-4.5" />
+    </span>
+    <div className="min-w-0">
+      <p className="saas-label">{label}</p>
+      <p className="text-xl font-black leading-tight text-zinc-900 tabular">{value}</p>
+    </div>
+  </motion.div>
+);
 
 export default function ChefPage() {
   return (
@@ -103,6 +101,27 @@ function ChefContent() {
   const orders = data?.results || data || [];
   const preparingCount = orders.filter((order) => order.order_status === "Preparing").length;
   const readyCount = orders.filter((order) => order.order_status === "Prepared").length;
+  const { soundOn, toggleSound } = useNewOrderAlert(orders);
+  const [tvMode, setTvMode] = useState(false);
+
+  // A kitchen TV reopens straight into the board after a reload.
+  useEffect(() => {
+    try {
+      if (localStorage.getItem(TV_MODE_KEY) === "1") setTvMode(true);
+    } catch {}
+  }, []);
+
+  const enterTv = () => {
+    setTvMode(true);
+    try { localStorage.setItem(TV_MODE_KEY, "1"); } catch {}
+    document.documentElement.requestFullscreen?.().catch(() => {});
+  };
+
+  const exitTv = useCallback(() => {
+    setTvMode(false);
+    try { localStorage.removeItem(TV_MODE_KEY); } catch {}
+    if (document.fullscreenElement) document.exitFullscreen?.().catch(() => {});
+  }, []);
 
   const handleStart = async (id) => {
     try {
@@ -128,74 +147,79 @@ function ChefContent() {
         <Skeleton className="h-10 w-1/3 rounded-2xl" />
         <div className="grid grid-cols-3 gap-3">
           {[1, 2, 3].map((i) => (
-            <Skeleton key={i} className="h-24 rounded-2xl" />
+            <Skeleton key={i} className="h-16 rounded-xl" />
           ))}
         </div>
-        <Skeleton className="h-80 rounded-3xl" />
+        <Skeleton className="h-56 rounded-xl" />
       </div>
+    );
+  }
+
+  if (tvMode) {
+    return (
+      <KitchenTvBoard
+        orders={orders}
+        onStart={handleStart}
+        onReady={handleReady}
+        onExit={exitTv}
+        soundOn={soundOn}
+        onToggleSound={toggleSound}
+      />
     );
   }
 
   return (
-    <div className="mx-auto max-w-7xl space-y-6 px-4 py-6">
-        {/* Header */}
-        <div className="flex flex-col justify-between gap-3 md:flex-row md:items-center">
-          <div>
-            <h1 className="flex items-center gap-2.5 text-3xl font-black tracking-tight text-zinc-900">
-              <span className="flex h-10 w-10 items-center justify-center rounded-2xl bg-green-950 text-amber-400 shadow-sm">
-                <ChefHat className="h-6 w-6" />
-              </span>
-              Kitchen Dashboard
-            </h1>
-            <p className="mt-1 text-sm text-zinc-500">Manage food preparation workflow seamlessly in real time.</p>
+    <div className="mx-auto max-w-7xl space-y-6 px-4 py-6 sm:px-6">
+      <PageHeader
+        icon={ChefHat}
+        title="Kitchen Dashboard"
+        description="Start cooking new orders and mark them ready for the waiter."
+        live
+        actions={
+          <div className="flex items-center gap-2">
+            <SoundToggle on={soundOn} onToggle={toggleSound} />
+            <button
+              onClick={enterTv}
+              className="inline-flex items-center gap-1.5 rounded-lg bg-zinc-900 px-3 py-1.5 text-xs font-semibold text-white shadow-sm transition hover:bg-zinc-800"
+            >
+              <Tv className="h-3.5 w-3.5" /> Kitchen TV
+            </button>
           </div>
-          <div className="flex w-fit items-center gap-2 rounded-full border border-amber-200 bg-amber-50 px-3.5 py-1.5 text-xs font-bold text-amber-800 shadow-xs">
-            <span className="h-2 w-2 animate-pulse rounded-full bg-amber-500" />
-            Kitchen Live
-          </div>
-        </div>
+        }
+      />
 
-        {/* Status Counters */}
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-          <Card className="rounded-2xl border-zinc-200/80 bg-white p-5 shadow-sm transition-all hover:shadow-md">
-            <p className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-zinc-400">
-              <Clock3 className="h-4 w-4 text-amber-500" /> Total Queue
-            </p>
-            <h2 className="mt-1 text-3xl font-black text-zinc-900">{orders.length}</h2>
-          </Card>
-          <Card className="rounded-2xl border-zinc-200/80 bg-white p-5 shadow-sm transition-all hover:shadow-md">
-            <p className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-zinc-400">
-              <CookingPot className="h-4 w-4 text-blue-600" /> Currently Cooking
-            </p>
-            <h2 className="mt-1 text-3xl font-black text-zinc-900">{preparingCount}</h2>
-          </Card>
-          <Card className="rounded-2xl border-zinc-200/80 bg-white p-5 shadow-sm transition-all hover:shadow-md">
-            <p className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-zinc-400">
-              <CheckCircle2 className="h-4 w-4 text-emerald-600" /> Prepared
-            </p>
-            <h2 className="mt-1 text-3xl font-black text-zinc-900">{readyCount}</h2>
-          </Card>
-        </div>
+      {/* Status Counters */}
+      <motion.div variants={listVariants} initial="hidden" animate="show" className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+        <StatTile icon={Clock3} label="Total Queue" value={orders.length} tone="bg-amber-50 text-amber-600" />
+        <StatTile icon={CookingPot} label="Currently Cooking" value={preparingCount} tone="bg-blue-50 text-blue-600" />
+        <StatTile icon={CheckCircle2} label="Prepared" value={readyCount} tone="bg-emerald-50 text-emerald-600" />
+      </motion.div>
 
-        {/* Kitchen Queue */}
-        <section>
-          <h2 className="mb-3 flex items-center gap-2 text-xl font-black text-zinc-900">
-            <ReceiptText className="h-5 w-5 text-amber-500" /> Kitchen Queue
+      {/* Kitchen Queue */}
+      <section>
+        <div className="mb-2.5 flex items-center justify-between">
+          <h2 className="flex items-center gap-2 text-sm font-bold text-zinc-900">
+            <ReceiptText className="h-4 w-4 text-amber-500" /> Kitchen Queue
           </h2>
-          {orders.length === 0 ? (
-            <div className="rounded-2xl border border-dashed border-zinc-200 bg-zinc-50/70 py-12 text-center">
-              <ChefHat className="mx-auto mb-2 h-10 w-10 text-zinc-300" />
-              <p className="text-sm font-medium text-zinc-500">No active kitchen orders right now.</p>
-            </div>
-          ) : (
-            <motion.div variants={containerVariants} initial="hidden" animate="show" className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          {orders.length > 0 && (
+            <span className="rounded-full bg-zinc-100 px-2 py-0.5 text-[11px] font-bold text-zinc-600 tabular">{orders.length}</span>
+          )}
+        </div>
+        {orders.length === 0 ? (
+          <motion.div {...fadeUp} className="flex flex-col items-center justify-center gap-1.5 rounded-xl border border-dashed border-zinc-200 bg-white/60 py-8 text-sm text-zinc-500">
+            <ChefHat className="h-7 w-7 text-zinc-300" />
+            No active kitchen orders right now.
+          </motion.div>
+        ) : (
+          <motion.div variants={listVariants} initial="hidden" animate="show" className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+            <AnimatePresence mode="popLayout">
               {orders.map((order) => (
                 <ChefOrderCard key={order.id} order={order} onStart={handleStart} onReady={handleReady} />
               ))}
-            </motion.div>
-          )}
-        </section>
-      </div>
-    );
-  }
-
+            </AnimatePresence>
+          </motion.div>
+        )}
+      </section>
+    </div>
+  );
+}

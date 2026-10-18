@@ -6,6 +6,7 @@ import { Card } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { motion, AnimatePresence } from "framer-motion";
 import RoleGuard from "@/components/auth/RoleGuard";
+import GettingStarted from "@/components/admin/GettingStarted";
 import {
   AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
 } from "recharts";
@@ -61,23 +62,23 @@ export default function ManagerPage() {
 
   if (isLoading) {
     return (
-      <div className="p-8 max-w-7xl mx-auto space-y-6 font-sans">
+      <div className="p-4 sm:p-6 max-w-7xl mx-auto space-y-5 font-sans">
         <div className="flex justify-between items-center">
           <Skeleton className="h-10 w-72 rounded-2xl" />
           <Skeleton className="h-10 w-48 rounded-2xl" />
         </div>
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
           {[...Array(6)].map((_, i) => (
-            <Skeleton key={i} className="h-28 rounded-3xl" />
+            <Skeleton key={i} className="h-28 rounded-2xl" />
           ))}
         </div>
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-          <Skeleton className="lg:col-span-2 h-72 rounded-3xl" />
-          <Skeleton className="h-72 rounded-3xl" />
+          <Skeleton className="lg:col-span-2 h-72 rounded-2xl" />
+          <Skeleton className="h-72 rounded-2xl" />
         </div>
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-          <Skeleton className="h-64 rounded-3xl" />
-          <Skeleton className="h-64 rounded-3xl" />
+          <Skeleton className="h-64 rounded-2xl" />
+          <Skeleton className="h-64 rounded-2xl" />
         </div>
       </div>
     );
@@ -95,26 +96,26 @@ export default function ManagerPage() {
             initial={{ opacity: 0, y: -12 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.4 }}
-            className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 bg-white p-6 rounded-3xl border border-stone-200/80 shadow-xs"
+            className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 bg-white p-4 rounded-2xl border border-stone-200/80 shadow-xs"
           >
             <div>
               <div className="flex items-center gap-2 mb-1.5">
                 <span className="inline-flex items-center gap-1.5 rounded-full border border-yellow-400/40 bg-yellow-50 px-3 py-0.5 text-xs font-bold uppercase tracking-wider text-yellow-800">
-                  <Sparkles className="h-3 w-3 text-yellow-600" /> Manager Command Center
+                  <Sparkles className="h-3 w-3 text-yellow-600" /> Overview
                 </span>
                 <span className="inline-flex items-center gap-1.5 rounded-full border border-emerald-200 bg-emerald-50 px-2.5 py-0.5 text-[11px] font-bold text-emerald-800">
                   <span className="relative flex h-2 w-2">
                     <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75" />
                     <span className="relative inline-flex h-2 w-2 rounded-full bg-emerald-500" />
                   </span>
-                  Live Telemetry
+                  Live
                 </span>
               </div>
-              <h1 className="text-2xl sm:text-3xl font-black tracking-tight text-[#063B2E]">
-                Restaurant Executive Dashboard
+              <h1 className="text-xl sm:text-2xl font-black tracking-tight text-[#063B2E]">
+                Restaurant Dashboard
               </h1>
               <p className="mt-0.5 text-xs sm:text-sm font-medium text-stone-500">
-                Live database operations, kitchen throughput, P&L telemetry, and inventory alerts.
+                Today's sales, orders in the kitchen, profit and stock alerts at a glance.
               </p>
             </div>
 
@@ -140,13 +141,15 @@ export default function ManagerPage() {
               <button
                 onClick={() => refetch()}
                 disabled={isFetching}
-                title="Refresh Live Telemetry"
+                title="Refresh"
                 className="p-2 rounded-2xl border border-stone-200 bg-white text-stone-600 hover:text-[#063B2E] hover:border-stone-300 shadow-xs transition-colors disabled:opacity-50"
               >
                 <RefreshCw size={16} className={isFetching ? "animate-spin text-emerald-700" : ""} />
               </button>
             </div>
           </motion.div>
+
+          <GettingStarted />
 
           {/* 2. ATTENTION & ACTIONABLE ISSUES CENTER */}
           {attention?.total_alerts > 0 && (
@@ -237,7 +240,7 @@ export default function ManagerPage() {
             <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
               {/* Card 1: Net Sales */}
               <motion.div variants={itemVariants}>
-                <Card className="p-4 rounded-3xl bg-white border border-stone-200/80 shadow-xs hover:border-[#063B2E]/30 transition-all flex flex-col justify-between h-full">
+                <Card className="p-4 rounded-2xl bg-white border border-stone-200/80 shadow-xs hover:border-[#063B2E]/30 transition-all flex flex-col justify-between h-full gap-1.5">
                   <div>
                     <div className="flex justify-between items-start mb-2">
                       <div className="p-2 bg-emerald-50 rounded-xl text-emerald-800 ring-1 ring-emerald-400/20">
@@ -264,7 +267,7 @@ export default function ManagerPage() {
 
               {/* Card 2: Food COGS */}
               <motion.div variants={itemVariants}>
-                <Card className="p-4 rounded-3xl bg-white border border-stone-200/80 shadow-xs hover:border-blue-900/30 transition-all flex flex-col justify-between h-full">
+                <Card className="p-4 rounded-2xl bg-white border border-stone-200/80 shadow-xs hover:border-blue-900/30 transition-all flex flex-col justify-between h-full gap-1.5">
                   <div>
                     <div className="flex justify-between items-start mb-2">
                       <div className="p-2 bg-blue-50 rounded-xl text-blue-700 ring-1 ring-blue-400/20">
@@ -287,7 +290,7 @@ export default function ManagerPage() {
 
               {/* Card 3: Gross Profit */}
               <motion.div variants={itemVariants}>
-                <Card className="p-4 rounded-3xl bg-white border border-stone-200/80 shadow-xs hover:border-emerald-700/30 transition-all flex flex-col justify-between h-full">
+                <Card className="p-4 rounded-2xl bg-white border border-stone-200/80 shadow-xs hover:border-emerald-700/30 transition-all flex flex-col justify-between h-full gap-1.5">
                   <div>
                     <div className="flex justify-between items-start mb-2">
                       <div className="p-2 bg-emerald-50 rounded-xl text-[#063B2E] ring-1 ring-emerald-500/20">
@@ -310,7 +313,7 @@ export default function ManagerPage() {
 
               {/* Card 4: Operating Expenses */}
               <motion.div variants={itemVariants}>
-                <Card className="p-4 rounded-3xl bg-white border border-stone-200/80 shadow-xs hover:border-amber-700/30 transition-all flex flex-col justify-between h-full">
+                <Card className="p-4 rounded-2xl bg-white border border-stone-200/80 shadow-xs hover:border-amber-700/30 transition-all flex flex-col justify-between h-full gap-1.5">
                   <div>
                     <div className="flex justify-between items-start mb-2">
                       <div className="p-2 bg-amber-50 rounded-xl text-amber-800 ring-1 ring-amber-400/20">
@@ -333,7 +336,7 @@ export default function ManagerPage() {
 
               {/* Card 5: Stock Wastage */}
               <motion.div variants={itemVariants}>
-                <Card className="p-4 rounded-3xl bg-white border border-stone-200/80 shadow-xs hover:border-red-700/30 transition-all flex flex-col justify-between h-full">
+                <Card className="p-4 rounded-2xl bg-white border border-stone-200/80 shadow-xs hover:border-red-700/30 transition-all flex flex-col justify-between h-full gap-1.5">
                   <div>
                     <div className="flex justify-between items-start mb-2">
                       <div className="p-2 bg-red-50 rounded-xl text-red-700 ring-1 ring-red-400/20">
@@ -356,7 +359,7 @@ export default function ManagerPage() {
 
               {/* Card 6: Net Operating Result (Hero) */}
               <motion.div variants={itemVariants}>
-                <Card className="p-4 rounded-3xl bg-gradient-to-br from-[#063B2E] via-[#084D3C] to-[#04281F] text-white border-none shadow-md flex flex-col justify-between h-full relative overflow-hidden group">
+                <Card className="p-4 rounded-2xl bg-gradient-to-br from-[#063B2E] via-[#084D3C] to-[#04281F] text-white border-none shadow-md flex flex-col justify-between h-full relative overflow-hidden group gap-1.5">
                   <div className="absolute -right-4 -bottom-4 opacity-10 text-yellow-400">
                     <TrendingUp size={64} />
                   </div>
@@ -392,7 +395,7 @@ export default function ManagerPage() {
               transition={{ delay: 0.1 }}
               className="lg:col-span-2"
             >
-              <Card className="p-6 rounded-3xl bg-white border border-stone-200/80 shadow-xs h-full flex flex-col justify-between">
+              <Card className="p-5 rounded-2xl bg-white border border-stone-200/80 shadow-xs h-full flex flex-col justify-between gap-3">
                 <div>
                   <div className="flex items-center justify-between mb-4">
                     <div className="flex items-center gap-2">
@@ -483,7 +486,7 @@ export default function ManagerPage() {
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.15 }}
             >
-              <Card className="p-6 rounded-3xl bg-white border border-stone-200/80 shadow-xs h-full flex flex-col justify-between">
+              <Card className="p-5 rounded-2xl bg-white border border-stone-200/80 shadow-xs h-full flex flex-col justify-between gap-3">
                 <div>
                   <div className="flex items-center justify-between mb-4">
                     <div className="flex items-center gap-2">
@@ -555,7 +558,7 @@ export default function ManagerPage() {
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.2 }}
           >
-            <Card className="p-6 rounded-3xl bg-white border border-stone-200/80 shadow-xs">
+            <Card className="p-5 rounded-2xl bg-white border border-stone-200/80 shadow-xs gap-3">
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-5">
                 <div>
                   <div className="flex items-center gap-2">
@@ -629,7 +632,7 @@ export default function ManagerPage() {
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.25 }}
           >
-            <Card className="p-6 rounded-3xl bg-white border border-stone-200/80 shadow-xs">
+            <Card className="p-5 rounded-2xl bg-white border border-stone-200/80 shadow-xs gap-3">
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-5">
                 <div className="flex items-center gap-2">
                   <div className="w-7 h-7 rounded-xl bg-red-50 text-red-700 flex items-center justify-center font-bold">
@@ -735,7 +738,7 @@ export default function ManagerPage() {
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.3 }}
             >
-              <Card className="p-6 rounded-3xl bg-white border border-stone-200/80 shadow-xs h-full flex flex-col justify-between">
+              <Card className="p-5 rounded-2xl bg-white border border-stone-200/80 shadow-xs h-full flex flex-col justify-between gap-3">
                 <div>
                   <div className="flex items-center justify-between mb-4">
                     <div className="flex items-center gap-2">
@@ -803,7 +806,7 @@ export default function ManagerPage() {
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.35 }}
             >
-              <Card className="p-6 rounded-3xl bg-white border border-stone-200/80 shadow-xs h-full flex flex-col justify-between">
+              <Card className="p-5 rounded-2xl bg-white border border-stone-200/80 shadow-xs h-full flex flex-col justify-between gap-3">
                 <div>
                   <div className="flex items-center justify-between mb-4">
                     <div className="flex items-center gap-2">
@@ -871,7 +874,7 @@ export default function ManagerPage() {
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.4 }}
             >
-              <Card className="p-6 rounded-3xl bg-white border border-stone-200/80 shadow-xs h-full flex flex-col justify-between">
+              <Card className="p-5 rounded-2xl bg-white border border-stone-200/80 shadow-xs h-full flex flex-col justify-between gap-3">
                 <div>
                   <div className="flex items-center justify-between mb-4">
                     <div className="flex items-center gap-2">
@@ -939,7 +942,7 @@ export default function ManagerPage() {
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.45 }}
             >
-              <Card className="p-6 rounded-3xl bg-white border border-stone-200/80 shadow-xs h-full flex flex-col justify-between">
+              <Card className="p-5 rounded-2xl bg-white border border-stone-200/80 shadow-xs h-full flex flex-col justify-between gap-3">
                 <div>
                   <div className="flex items-center justify-between mb-4">
                     <div className="flex items-center gap-2">
@@ -1005,7 +1008,7 @@ export default function ManagerPage() {
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.5 }}
           >
-            <Card className="p-6 rounded-3xl bg-white border border-stone-200/80 shadow-xs">
+            <Card className="p-5 rounded-2xl bg-white border border-stone-200/80 shadow-xs gap-3">
               <div className="flex items-center justify-between mb-4">
                 <div className="flex items-center gap-2">
                   <div className="w-7 h-7 rounded-xl bg-[#063B2E] text-yellow-400 flex items-center justify-center">
