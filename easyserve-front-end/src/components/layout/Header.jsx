@@ -4,6 +4,8 @@ import { motion } from "framer-motion";
 import { useDispatch, useSelector } from "react-redux";
 import { toggleCart } from "@/store/slices/cartSlice";
 import { onLoggedOut } from "@/store/slices/authSlice";
+import { MANAGER_ROLES, getRoleHome, isStaffRole } from "@/utilities/roleRoutes";
+import { usePathname, useRouter } from "next/navigation";
 import { useState } from "react";
 import {
   User,
@@ -15,16 +17,22 @@ import {
   ShoppingCart,
   Menu,
   X,
+  LayoutDashboard,
 } from "lucide-react";
 
 export function Header() {
   const dispatch = useDispatch();
+  const router = useRouter();
+  const pathname = usePathname() || "";
   const items = useSelector((state) => state.cart.items);
   const isAuthenticated = useSelector((state) => state.auth.isAuthenticated);
+  const sessionRestored = useSelector((state) => state.auth.initialized);
   const user = useSelector((state) => state.auth.user);
 
   const role = (user?.role || user?.user_type)?.toLowerCase?.() || null;
-  const isManager = role === "manager";
+  const isManager = MANAGER_ROLES.includes(role);
+  // Waiters and chefs browsing the public site get a link back to their panel.
+  const dashboardHref = isStaffRole(role) ? getRoleHome(role) : null;
 
   // Use isAuthenticated (set by both the login flow and the reload-restore
   // flow) as the single source of truth for "is this user logged in",
@@ -42,9 +50,17 @@ export function Header() {
     dispatch(onLoggedOut());
     setOpenProfileMenu(false);
     setMobileOpen(false);
+    router.push("/");
   };
 
   if (isAuthenticated && !user) return null;
+
+  // Until the stored session is restored the login state is unknown; showing
+  // Login/Register in that moment made a signed-in user look signed out.
+  const authReady = sessionRestored;
+  // Login/Register/Forgot-password screens already are the sign-in form, so
+  // a "Login" button in the header there only looked like a bug.
+  const onAuthPage = pathname.startsWith("/auth/");
 
   // ========================= MANAGER HEADER =========================
   if (isManager) {
@@ -129,7 +145,7 @@ export function Header() {
             Orders
           </Link>
 
-          {!isLoggedIn && (
+          {authReady && !isLoggedIn && !onAuthPage && (
             <>
               <Link
                 href="/auth/register"
@@ -149,8 +165,8 @@ export function Header() {
             </>
           )}
 
-          {isLoggedIn && (
-            <div className="relative">
+          {authReady && isLoggedIn && (
+            <div className="relative flex items-center gap-2">
               <button
                 onClick={() => setOpenProfileMenu(!openProfileMenu)}
                 className="flex items-center gap-2 rounded-full border border-white/10 bg-white/10 px-4 py-2 transition-all duration-300 hover:bg-white/20"
@@ -159,8 +175,26 @@ export function Header() {
                 <span>Account</span>
               </button>
 
+              <button
+                onClick={logoutHandler}
+                className="flex items-center gap-2 rounded-full border border-red-300/20 bg-red-500/10 px-4 py-2 text-red-200 transition-all duration-300 hover:bg-red-500/20"
+              >
+                <LogOut size={16} />
+                Logout
+              </button>
+
               {openProfileMenu && (
-                <div className="absolute right-0 top-14 w-52 overflow-hidden rounded-2xl border border-gray-200 bg-white py-2 text-black shadow-2xl">
+                <div className="absolute left-0 top-14 w-52 overflow-hidden rounded-2xl border border-gray-200 bg-white py-2 text-black shadow-2xl">
+                  {dashboardHref && (
+                    <Link
+                      href={dashboardHref}
+                      onClick={() => setOpenProfileMenu(false)}
+                      className="flex items-center gap-3 px-5 py-3 transition hover:bg-gray-100"
+                    >
+                      <LayoutDashboard size={16} />
+                      Dashboard
+                    </Link>
+                  )}
                   <Link
                     href="/profile"
                     onClick={() => setOpenProfileMenu(false)}
@@ -226,7 +260,7 @@ export function Header() {
               Orders
             </Link>
 
-            {!isLoggedIn && (
+            {authReady && !isLoggedIn && !onAuthPage && (
               <>
                 <Link href="/auth/register" className="flex items-center gap-3 rounded-2xl bg-white/5 px-4 py-3 transition-all duration-300 hover:bg-white/10 hover:text-yellow-300">
                   <UserPlus size={18} />
@@ -240,8 +274,14 @@ export function Header() {
               </>
             )}
 
-            {isLoggedIn && (
+            {authReady && isLoggedIn && (
               <>
+                {dashboardHref && (
+                  <Link href={dashboardHref} className="flex items-center gap-3 rounded-2xl bg-white/5 px-4 py-3 transition-all duration-300 hover:bg-white/10 hover:text-yellow-300">
+                    <LayoutDashboard size={18} />
+                    Dashboard
+                  </Link>
+                )}
                 <Link href="/profile" className="flex items-center gap-3 rounded-2xl bg-white/5 px-4 py-3 transition-all duration-300 hover:bg-white/10 hover:text-yellow-300">
                   <User size={18} />
                   Profile
@@ -263,4 +303,4 @@ export function Header() {
 
     </header>
   );
-}
+}

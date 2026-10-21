@@ -1,11 +1,11 @@
 "use client";
 
 import { useLoginMutation } from "@/services/public/auth";
-import { onLoggedIn } from "@/store/slices/authSlice";
-import { getRoleHome } from "@/utilities/roleRoutes";
+import { onLoggedIn, onLoggedOut } from "@/store/slices/authSlice";
+import { canRoleOpen, getRoleHome } from "@/utilities/roleRoutes";
 import { useRouter } from "next/navigation";
-import { useState } from "react";
-import { useDispatch } from "react-redux";
+import { useEffect, useRef, useState } from "react";
+import { useDispatch, useSelector } from "react-redux";
 import { loginDefaultValues, loginSchema } from "../utilities/auth.schema";
 import { useForm } from "react-hook-form";
 import {
@@ -19,7 +19,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Button } from "@/components/ui/button";
-import { Eye, EyeOff, Mail, Lock } from "lucide-react";
+import { Eye, EyeOff, Mail, Lock, ShieldAlert } from "lucide-react";
 import { motion } from "framer-motion";
 
 export default function LoginPage() {
@@ -27,6 +27,31 @@ export default function LoginPage() {
   const [login, { isLoading }] = useLoginMutation();
   const dispatch = useDispatch();
   const [showPassword, setShowPassword] = useState(false);
+  const [notice, setNotice] = useState(null);
+  const { initialized, isAuthenticated } = useSelector((state) => state.auth);
+
+  // The login page is always a signed-out screen. Arriving here with a live
+  // session (the Back button, a typed URL, or RoleGuard sending a user away
+  // from another role's page) used to leave that session running: the header
+  // still showed "Account" and typing /waiter landed on the manager's
+  // dashboard. Checked once on arrival, so this page's own login is kept.
+  const arrivalChecked = useRef(false);
+  useEffect(() => {
+    if (!initialized || arrivalChecked.current) return;
+    arrivalChecked.current = true;
+    if (isAuthenticated) dispatch(onLoggedOut());
+  }, [dispatch, initialized, isAuthenticated]);
+
+  useEffect(() => {
+    const reason = new URLSearchParams(window.location.search).get("reason");
+    if (reason === "role") {
+      setNotice("That page belongs to a different role. Sign in with an account that has access to it.");
+    } else if (reason === "left") {
+      setNotice("You left your staff panel, so you were signed out for security. Please sign in again.");
+    } else if (reason === "expired") {
+      setNotice("Your session has expired. Please sign in again.");
+    }
+  }, []);
 
   const form = useForm({
     resolver: zodResolver(loginSchema),
@@ -39,11 +64,16 @@ export default function LoginPage() {
       dispatch(onLoggedIn(result));
 
       // Return to the page that sent the user here (e.g. the dine-in menu
-      // with a cart waiting). Only same-site paths: "//host" and "/\\host"
-      // would leave the site.
+      // with a cart waiting), but only when this account's role may open it;
+      // otherwise go to the role's own dashboard. Only same-site paths:
+      // "//host" and "/\\host" would leave the site.
+      const role = result.user_type;
       const next = new URLSearchParams(window.location.search).get("next");
-      const safeNext = next && /^\/(?![\/\\])/.test(next) ? next : null;
-      router.push(safeNext || getRoleHome(result.user_type));
+      const safeNext =
+        next && /^\/(?![\/\\])/.test(next) && canRoleOpen(role, next) ? next : null;
+      // replace, not push: Back from the dashboard must not return to this
+      // page, which would sign the user out again.
+      router.replace(safeNext || getRoleHome(role));
     } catch (error) {
       console.log("FULL ERROR OBJECT:", JSON.stringify(error, null, 2));
     }
@@ -72,6 +102,16 @@ export default function LoginPage() {
             Login to continue your dining experience
           </p>
         </div>
+
+        {notice && (
+          <div
+            role="alert"
+            className="mb-6 flex items-start gap-3 rounded-2xl border border-yellow-400/30 bg-yellow-400/10 px-4 py-3 text-sm text-yellow-100"
+          >
+            <ShieldAlert className="mt-0.5 h-4 w-4 shrink-0 text-yellow-300" />
+            <span>{notice}</span>
+          </div>
+        )}
 
         {/* Form */}
         <Form {...form}>
@@ -174,4 +214,4 @@ export default function LoginPage() {
       </motion.div>
     </div>
   );
-}
+}

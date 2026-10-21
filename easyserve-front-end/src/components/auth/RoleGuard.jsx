@@ -1,15 +1,16 @@
 "use client";
 
 import { useSelector, useDispatch } from "react-redux";
-import { useRouter } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { onAuthorized, onLoggedOut } from "@/store/slices/authSlice";
 import { useGetMeQuery } from "@/services/private/me";
 import { getAccessToken } from "@/utilities/authStorage";
-import { getRoleHome } from "@/utilities/roleRoutes";
+import { loginUrlFor } from "@/utilities/roleRoutes";
 
 export default function RoleGuard({ allowedRoles, children }) {
   const router = useRouter();
+  const pathname = usePathname();
   const dispatch = useDispatch();
   const { user, isAuthenticated, initialized: sessionRestored } = useSelector((state) => state.auth);
 
@@ -63,23 +64,24 @@ export default function RoleGuard({ allowedRoles, children }) {
 
     // No stored token and not authenticated
     if (!hasStoredToken && !isAuthenticated) {
-      router.replace("/auth/login");
+      router.replace(loginUrlFor(pathname));
       return;
     }
 
     // Explicit permanent session expiration
     if (restoreFailed) {
       dispatch(onLoggedOut());
-      router.replace("/auth/login");
+      router.replace(loginUrlFor(pathname, "expired"));
       return;
     }
 
-    // Role check once user role is available. A user on another role's
-    // page is sent to their own landing page, never to a page their role
-    // is not allowed to see.
+    // Role check once user role is available. Opening another role's page
+    // (e.g. a manager typing /waiter in the address bar) goes to the login
+    // page so the right account can sign in; it used to bounce silently to
+    // the current user's own dashboard, which looked like a wrong redirect.
     const activeRole = me?.user_type || user?.user_type;
     if (activeRole && allowedRoles && !allowedRoles.includes(activeRole)) {
-      router.replace(getRoleHome(activeRole));
+      router.replace(loginUrlFor(pathname, "role"));
     }
   }, [
     allowedRoles,
@@ -88,6 +90,7 @@ export default function RoleGuard({ allowedRoles, children }) {
     isAuthenticated,
     me?.user_type,
     initialized,
+    pathname,
     restoreFailed,
     router,
     user?.user_type,
