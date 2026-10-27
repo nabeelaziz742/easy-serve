@@ -8,6 +8,5 @@ from .payments import *
 from .reviews import *
 from .dine_in_validate import *
 from .dine_in_session import *
-from .dine_in_hardening import DineInValidateAPIView, DineInStartSessionAPIView
 from .reservations import *
 from .cash_payments import *

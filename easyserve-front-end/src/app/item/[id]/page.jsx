@@ -116,7 +116,11 @@ export default function MenuItemDetail() {
 
               {/* Action Buttons */}
               <div className="flex items-center gap-3 shrink-0">
-                {quantity > 0 ? (
+                {data.is_available === false ? (
+                  <span className="rounded-2xl bg-red-50 px-6 py-3.5 text-sm font-bold text-red-700 border border-red-200">
+                    Out of stock
+                  </span>
+                ) : quantity > 0 ? (
                   <div className="flex items-center gap-3 rounded-2xl bg-green-50 p-2 border border-green-200">
                     <button
                       onClick={decrement}

@@ -141,6 +141,14 @@ export default function ReceiptPage({ params }) {
           {bill.payment_method && <Row label="Method" value={bill.payment_method} />}
         </div>
 
+        {bill.cancelled && (
+          <div className="mt-3 border border-dashed border-zinc-800 p-2 text-center">
+            <p className="font-black uppercase tracking-widest text-black">Cancelled</p>
+            {bill.cancellation_reason && <p className="text-[11px]">{bill.cancellation_reason}</p>}
+            {Number(bill.refund_amount) > 0 && <p className="text-[11px]">Refunded Rs. {money(bill.refund_amount)}</p>}
+          </div>
+        )}
+
         <div className="my-3 border-t border-dashed border-zinc-400" />
         <p className="text-center">{r.receipt_footer || "Thank you for dining with us!"}</p>
         <p className="mt-2 text-center text-[10px] text-zinc-400">Powered by Easy Serve</p>

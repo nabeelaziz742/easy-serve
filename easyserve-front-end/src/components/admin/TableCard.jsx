@@ -2,10 +2,11 @@
 
 import { useState } from "react";
 import { motion } from "framer-motion";
-import { Users, Clock, MessageSquare, Utensils, Star, Sparkles } from "lucide-react";
+import { Users, Clock, MessageSquare, Utensils, Star, QrCode } from "lucide-react";
 import ReviewModal from "./ReviewModal";
 import { cn } from "@/lib/utils";
 import { itemVariants, hoverLift } from "@/lib/motion";
+import { downloadTableQr } from "@/utilities/tableQr";
 
 export default function TableCard({ table }) {
   const { number, status, customers, orderItems, orderTime, orderId } = table;
@@ -93,14 +94,27 @@ export default function TableCard({ table }) {
                 Table #{number}
               </h3>
             </div>
-            <span
-              className={cn(
-                "px-2 py-0.5 text-[10px] font-bold rounded-md border capitalize",
-                theme.pill
+            <div className="flex items-center gap-1.5">
+              {table.qrCode && (
+                <button
+                  type="button"
+                  onClick={() => downloadTableQr(table)}
+                  title={`Download Table #${number} QR code`}
+                  aria-label={`Download Table #${number} QR code`}
+                  className="rounded-md border border-gray-200 bg-white p-1 text-gray-600 transition hover:bg-gray-50 hover:text-green-950"
+                >
+                  <QrCode className="h-3.5 w-3.5" />
+                </button>
               )}
-            >
-              {finalStatus}
-            </span>
+              <span
+                className={cn(
+                  "px-2 py-0.5 text-[10px] font-bold rounded-md border capitalize",
+                  theme.pill
+                )}
+              >
+                {finalStatus}
+              </span>
+            </div>
           </div>
 
           {/* Telemetry info */}

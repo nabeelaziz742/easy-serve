@@ -14,6 +14,8 @@ import {
   KanbanSquare,
   ClipboardList,
   Settings,
+  ReceiptText,
+  Store,
 } from "lucide-react";
 
 // One menu for every staff role, so the manager, waiter and chef panels are
@@ -51,6 +53,7 @@ const MANAGER = [
   {
     title: "Operations",
     items: [
+      { href: "/manager/orders", label: "Orders & Bills", icon: ReceiptText },
       { href: "/manager/menu", label: "Menu Items", icon: UtensilsCrossed },
       { href: "/manager/analytics", label: "Analytics", icon: BarChart3 },
     ],
@@ -68,6 +71,15 @@ const MANAGER = [
     title: "Restaurant",
     items: [{ href: "/manager/settings", label: "Settings", icon: Settings }],
   },
+];
+
+// The super admin runs the same manager panel, plus platform onboarding.
+const SUPER_ADMIN = [
+  {
+    title: "Platform",
+    items: [{ href: "/manager/restaurants/new", label: "Add Restaurant", icon: Store }],
+  },
+  ...MANAGER,
 ];
 
 const WAITER = [
@@ -97,7 +109,7 @@ const CHEF = [
 const NAV_BY_ROLE = {
   manager: MANAGER,
   restaurant_owner: MANAGER,
-  super_admin: MANAGER,
+  super_admin: SUPER_ADMIN,
   waiter: WAITER,
   chef: CHEF,
 };

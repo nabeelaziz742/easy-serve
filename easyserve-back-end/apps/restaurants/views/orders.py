@@ -1,6 +1,7 @@
 from django.db import transaction
 from django.utils.timezone import now
 from rest_framework import status
+from rest_framework.exceptions import APIException, PermissionDenied
 from rest_framework.views import APIView
 from rest_framework.generics import ListAPIView
 from rest_framework.response import Response
@@ -348,6 +349,8 @@ class WaiterAcceptOrderAPIView(APIView):
     @transaction.atomic
     def post(self, request, order_id):
         order = get_object_or_404(Orders.objects.select_for_update(), id=order_id)
+        if order.order_cancelled:
+            return Response({"detail": "This order was cancelled."}, status=status.HTTP_400_BAD_REQUEST)
         waiter = request.user.profile
         restaurant = waiter.restaurant
 
@@ -435,6 +438,8 @@ class AssignChefAPIView(APIView):
     @transaction.atomic
     def post(self, request, order_id):
         order = get_object_or_404(Orders.objects.select_for_update(), id=order_id)
+        if order.order_cancelled:
+            return Response({"detail": "This order was cancelled."}, status=status.HTTP_400_BAD_REQUEST)
         profile = request.user.profile
         restaurant = profile.restaurant
 
@@ -464,6 +469,7 @@ class ChefOrderListAPIView(ListAPIView):
     def get_queryset(self):
         return Orders.objects.filter(
             assigned_chef=self.request.user.profile,
+            order_cancelled=False,
             order_status__in=[
                 OrderStatus.TO_PREPARE,
                 OrderStatus.PREPARING,
@@ -491,12 +497,13 @@ class ReadyOrdersAPIView(ListAPIView):
         if restaurant_id is None:
             return Orders.objects.filter(
                 order_status=OrderStatus.PREPARED,
+                order_cancelled=False,
                 waiter=profile,
             ).order_by("-created_at")
 
         return (
             Orders.objects
-            .filter(order_status=OrderStatus.PREPARED)
+            .filter(order_status=OrderStatus.PREPARED, order_cancelled=False)
             .filter(
                 Q(waiter=profile)
                 | Q(table__restaurant_id=restaurant_id)
@@ -508,19 +515,33 @@ class ReadyOrdersAPIView(ListAPIView):
         )
 
 
+class KitchenStepError(APIException):
+    status_code = status.HTTP_400_BAD_REQUEST
+
+
+def _lock_chef_order(request, order_id, required_status, status_error):
+    """Lock the order for its assigned chef's next kitchen step, or raise."""
+    order = get_object_or_404(Orders.objects.select_for_update(), id=order_id)
+    chef = request.user.profile
+    if order.order_cancelled:
+        raise KitchenStepError("This order was cancelled.")
+    if order.assigned_chef_id != chef.id:
+        raise PermissionDenied("You are not the chef assigned to this order.")
+    if chef.restaurant_id and order.table_id and order.table.restaurant_id != chef.restaurant_id:
+        raise PermissionDenied("This order does not belong to your restaurant.")
+    if order.order_status != required_status:
+        raise KitchenStepError(status_error)
+    return order
+
+
 class StartPreparingAPIView(APIView):
     permission_classes = [IsChef]
 
     @transaction.atomic
     def post(self, request, order_id):
-        order = get_object_or_404(Orders.objects.select_for_update(), id=order_id)
-        chef_profile = request.user.profile
-        if order.assigned_chef_id != chef_profile.id:
-            return Response({"detail": "You are not the chef assigned to this order."}, status=status.HTTP_403_FORBIDDEN)
-        if chef_profile.restaurant_id and order.table_id and order.table.restaurant_id != chef_profile.restaurant_id:
-            return Response({"detail": "This order does not belong to your restaurant."}, status=status.HTTP_403_FORBIDDEN)
-        if order.order_status != OrderStatus.TO_PREPARE:
-            return Response({"detail": "Order is not in a state that can be started."}, status=status.HTTP_400_BAD_REQUEST)
+        order = _lock_chef_order(
+            request, order_id, OrderStatus.TO_PREPARE, "Order is not in a state that can be started."
+        )
         order.order_status = OrderStatus.PREPARING
         order.save(update_fields=["order_status", "updated_at"])
         return Response({"message": "Order is now preparing"})
@@ -531,21 +552,17 @@ class MarkPreparedAPIView(APIView):
 
     @transaction.atomic
     def post(self, request, order_id):
-        order = get_object_or_404(Orders.objects.select_for_update(), id=order_id)
-        chef_profile = request.user.profile
-        if order.assigned_chef_id != chef_profile.id:
-            return Response({"detail": "You are not the chef assigned to this order."}, status=status.HTTP_403_FORBIDDEN)
-        if chef_profile.restaurant_id and order.table_id and order.table.restaurant_id != chef_profile.restaurant_id:
-            return Response({"detail": "This order does not belong to your restaurant."}, status=status.HTTP_403_FORBIDDEN)
-        if order.order_status != OrderStatus.PREPARING:
-            return Response({"detail": "Order must be in Preparing state before it can be marked Prepared."}, status=status.HTTP_400_BAD_REQUEST)
+        order = _lock_chef_order(
+            request, order_id, OrderStatus.PREPARING,
+            "Order must be in Preparing state before it can be marked Prepared.",
+        )
         order.order_status = OrderStatus.PREPARED
         order.save(update_fields=["order_status", "updated_at"])
         # Same BOM stock consumption and COGS snapshot as the dashboard
         # status endpoint. It is idempotent, and insufficient stock raises a
         # ValidationError that rolls this transaction back (order stays
         # Preparing).
-        RecipeConsumptionService.consume_order_inventory(order, user_profile=chef_profile)
+        RecipeConsumptionService.consume_order_inventory(order, user_profile=request.user.profile)
         if order.waiter:
             Notification.objects.create(profile=order.waiter, message=f"Order #{order.id} is ready to serve")
         return Response({"message": "Order prepared successfully"})
@@ -559,6 +576,8 @@ class MarkServedAPIView(APIView):
     @transaction.atomic
     def post(self, request, order_id):
         order = get_object_or_404(Orders.objects.select_for_update(), id=order_id)
+        if order.order_cancelled:
+            return Response({"detail": "This order was cancelled."}, status=status.HTTP_400_BAD_REQUEST)
         waiter = request.user.profile
 
         if waiter.restaurant_id is None:

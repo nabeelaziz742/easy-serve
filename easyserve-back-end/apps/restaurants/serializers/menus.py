@@ -152,7 +152,7 @@ class MenuItemSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = MenuItem
-        fields = ['id', 'name', 'image', 'description', 'price', 'category']
+        fields = ['id', 'name', 'image', 'description', 'price', 'category', 'is_available']
         read_only_fields = ['id', 'menu']
 
     def create(self, validated_data):
@@ -167,14 +167,14 @@ class MenuItemDetailSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = MenuItem
-        fields = ['id', 'name', 'image', 'description', 'price', 'category', 'ingredients']
+        fields = ['id', 'name', 'image', 'description', 'price', 'category', 'is_available', 'ingredients']
         read_only_fields = ['id', 'menu']
 
 class FullMenuItemSerializer(serializers.ModelSerializer):
     ingredients = MenuItemIngredientSerializer(many=True, read_only=True)
     class Meta:
         model = MenuItem
-        fields = ['id', 'menu', 'name', 'image', 'description', 'price', 'ingredients', 'category']
+        fields = ['id', 'menu', 'name', 'image', 'description', 'price', 'ingredients', 'category', 'is_available']
         read_only_fields = ['id']
 
 class MenuItemIdOnlySerializer(serializers.ModelSerializer):

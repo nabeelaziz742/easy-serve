@@ -10,6 +10,8 @@ from utils.permissions import IsRestaurantOwner
 class MenuItemViewSet(ModelViewSet):
     queryset = MenuItem.objects.select_related("menu__restaurant").all()
     serializer_class = MenuItemSerializer
+    # The manager's menu page lists (and toggles stock for) every item at once.
+    pagination_class = None
 
     def get_permissions(self):
         if self.action in ["list", "retrieve"]:

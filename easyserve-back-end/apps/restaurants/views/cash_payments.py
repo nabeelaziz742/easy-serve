@@ -241,4 +241,5 @@ class ManagerCashOrdersAPIView(ListAPIView):
             paymentdetails__payment_status=PaymentStatus.PENDING.value,
             paymentdetails__cash_received_by__isnull=False,
             paymentdetails__cash_settled_by__isnull=True,
+            order_cancelled=False,
         ).select_related("table", "user", "waiter").prefetch_related("items__menu_item").distinct().order_by("-created_at")

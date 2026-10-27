@@ -1,6 +1,7 @@
 import os
 import django
 import random
+import secrets
 from decimal import Decimal
 from datetime import datetime, timedelta
 
@@ -209,8 +210,13 @@ def seed(restaurants_count=10, menus_per_rest=10, items_per_menu=10):
         }
     )
     if created:
-        owner.set_password("owner123")
+        # Never a fixed default password: take it from the environment, or
+        # make a random one and show it once.
+        owner_password = os.environ.get("SEED_OWNER_PASSWORD") or secrets.token_urlsafe(12)
+        owner.set_password(owner_password)
         owner.save()
+        if not os.environ.get("SEED_OWNER_PASSWORD"):
+            print(f"Owner {owner.email} password: {owner_password}")
 
     owner_profile, _ = UserProfile.objects.get_or_create(
         user=owner,

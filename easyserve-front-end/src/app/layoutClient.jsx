@@ -5,6 +5,7 @@ import { Header } from "@/components/layout/Header";
 import { Footer } from "@/components/layout/Footer";
 import CartDrawer from "@/components/landingPage/CartDrawer";
 import AIChatbot from "@/components/Aichatbot";
+import TableServiceBar from "@/components/dineIn/TableServiceBar";
 import { isStaffPath } from "@/components/layout/staffNav";
 import useStaffAreaLock from "@/hooks/useStaffAreaLock";
 
@@ -32,6 +33,7 @@ export default function LayoutClient({ children }) {
       <Footer />
       <CartDrawer />
       {showChatbot && <AIChatbot />}
+      <TableServiceBar />
     </>
   );
 }

@@ -11,6 +11,7 @@ class UserProfile(AbstractTimeStampModel):
     profile_id = models.CharField(max_length=20, default="ID_NOT", null=True, blank=True)
     bio = models.TextField(blank=True, null=True)
     phone = models.CharField(max_length=20, blank=True, null=True)
+    address = models.CharField(max_length=255, blank=True, default="")
     first_name = models.CharField(max_length=255)
     last_name = models.CharField(max_length=255)
     image = models.ImageField(

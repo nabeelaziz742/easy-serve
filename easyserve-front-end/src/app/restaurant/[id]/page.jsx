@@ -4,6 +4,7 @@ import React, { useEffect, useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { motion } from "framer-motion";
+import { toast } from "sonner";
 import { Utensils, MapPin, Users, Sparkles, Phone } from "lucide-react";
 
 import { MenuItemCard } from "@/components/landingPage/MenuItemCard";
@@ -13,8 +14,7 @@ import { useValidateTableMutation } from "@/services/public/dineIn";
 import { setDineInContext } from "@/store/slices/dineInSlice";
 import { onBecameGuest } from "@/store/slices/authSlice";
 import { readSession } from "@/utilities/authStorage";
-
-const DINE_IN_STORAGE_KEY = "easyserve:dine-in-context";
+import { clearSavedDineIn, readSavedDineIn } from "@/utilities/dineInStorage";
 
 function Restaurant() {
   const param = useParams();
@@ -32,6 +32,9 @@ function Restaurant() {
   const [restoringDineIn, setRestoringDineIn] = useState(false);
 
   const qrTable = searchParams.get("table");
+  // The table's secret from the printed QR. Without it the backend will
+  // not open the table, so a guessed link cannot order to someone's table.
+  const qrKey = searchParams.get("key") ?? "";
   const isQrDineIn = searchParams.get("mode") === "dine-in" && !!qrTable;
 
   useEffect(() => {
@@ -49,6 +52,7 @@ function Restaurant() {
         const response = await validateTableMutation({
           restaurant: param.id,
           table: qrTable,
+          key: qrKey,
         }).unwrap();
 
         if (cancelled) return;
@@ -60,10 +64,11 @@ function Restaurant() {
             name: "",
             phone: "",
             sessionToken: response.session?.token ?? null,
+            qrKey,
           })
         );
 
-                window.localStorage.removeItem(DINE_IN_STORAGE_KEY);
+        clearSavedDineIn();
 
         // A new tab adopts the browser's latest login, which on a shared or
         // staff device can be the waiter or manager. The person scanning the
@@ -78,6 +83,10 @@ function Restaurant() {
       } catch (error) {
         if (cancelled) return;
         console.error("Table QR validation failed:", error);
+        toast.error(
+          error?.data?.detail ||
+            "This table QR code is not valid. Please scan the QR code on your table."
+        );
         setValidatingQrTable(false);
         setRestoringDineIn(false);
       }
@@ -88,7 +97,7 @@ function Restaurant() {
     return () => {
       cancelled = true;
     };
-  }, [dispatch, isQrDineIn, param?.id, qrTable, router, validateTableMutation]);
+  }, [dispatch, isQrDineIn, param?.id, qrKey, qrTable, router, validateTableMutation]);
 
   useEffect(() => {
     if (!param?.id || isQrDineIn)  {
@@ -103,23 +112,15 @@ function Restaurant() {
 
     setRestoringDineIn(true);
 
-    try {
-      const raw = window.localStorage.getItem(DINE_IN_STORAGE_KEY);
-      const saved = raw ? JSON.parse(raw) : null;
-
-      if (
-        saved?.active &&
-        saved?.restaurant?.id?.toString() === param.id?.toString() &&
-        saved?.table?.number
-      ) {
-        dispatch(setDineInContext(saved));
-      }
-    } catch (error) {
-      console.error("Failed to restore dine-in context:", error);
-      window.localStorage.removeItem(DINE_IN_STORAGE_KEY);
-    } finally {
-      setRestoringDineIn(false);
+    const saved = readSavedDineIn();
+    if (
+      saved?.active &&
+      saved?.restaurant?.id?.toString() === param.id?.toString() &&
+      saved?.table?.number
+    ) {
+      dispatch(setDineInContext(saved));
     }
+    setRestoringDineIn(false);
   }, [dispatch, dineIn.active, isQrDineIn, param?.id]);
 
   const hasDineInMenus = (dineIn?.menus ?? []).some(

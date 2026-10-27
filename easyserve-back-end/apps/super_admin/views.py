@@ -2,6 +2,7 @@ from datetime import timedelta
 
 from django.db.models import Sum
 from django.utils.timezone import now
+from rest_framework.generics import CreateAPIView
 from rest_framework.views import APIView
 from rest_framework.response import Response
 
@@ -9,6 +10,7 @@ from utils.permissions import IsSuperAdmin
 from apps.restaurants.models import Restaurant, Orders
 from apps.restaurants.constants import PaymentStatus
 from apps.core.models.user import User
+from apps.super_admin.serializers import RestaurantOnboardingSerializer
 
 
 class OverviewMetricsAPIView(APIView):
@@ -72,3 +74,9 @@ class OverviewMetricsAPIView(APIView):
             "recent_orders": recent_orders,
         }
         return Response(data)
+
+
+class RestaurantOnboardingAPIView(CreateAPIView):
+    """POST: create a restaurant with its manager login and tables in one step."""
+    permission_classes = [IsSuperAdmin]
+    serializer_class = RestaurantOnboardingSerializer

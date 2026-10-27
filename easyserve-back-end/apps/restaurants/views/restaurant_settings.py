@@ -161,6 +161,9 @@ class OrderReceiptAPIView(APIView):
             "order_status": order.get_order_status_display(),
             "payment_status": order.get_payment_status_display(),
             "payment_method": payment_method,
+            "cancelled": order.order_cancelled,
+            "cancellation_reason": order.cancellation_reason,
+            "refund_amount": order.refund_amount,
             "table_number": order.table.table_number if order.table_id else None,
             "waiter_name": order.waiter.full_name if order.waiter_id else None,
             "customer_name": " ".join(

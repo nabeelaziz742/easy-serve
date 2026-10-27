@@ -1,13 +1,13 @@
 from django.db import IntegrityError, transaction
-from django.shortcuts import get_object_or_404
 from rest_framework import status
 from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from apps.restaurants.constants import DineInSessionStatus, TableState
+from apps.restaurants.services.table_access import get_scanned_table, read_scan
 from apps.restaurants.services.table_lifecycle import clean_and_get_active_session
-from apps.restaurants.models import DineInSession, Restaurant, Table
+from apps.restaurants.models import DineInSession, Table
 
 
 class DineInStartSessionAPIView(APIView):
@@ -15,21 +15,21 @@ class DineInStartSessionAPIView(APIView):
     Start the physical dine-in session after the guest count is confirmed.
 
     This is intentionally public because a customer reaches this endpoint
-    through the table QR code without being authenticated.
+    through the table QR code without being authenticated; the QR key in
+    the request is what proves they are at the table.
     """
 
     authentication_classes = []
     permission_classes = [AllowAny]
 
     def post(self, request):
-        restaurant_id = request.data.get("restaurant")
-        table_number = request.data.get("table")
+        scan = read_scan(request.data)
         guests = request.data.get("guests")
         name = (request.data.get("name") or "").strip()
         phone = (request.data.get("phone") or "").strip()
         session_token = request.data.get("session_token")
 
-        if not restaurant_id or not table_number or guests in (None, ""):
+        if guests in (None, ""):
             return Response(
                 {"detail": "restaurant, table and guests are required"},
                 status=status.HTTP_400_BAD_REQUEST,
@@ -43,14 +43,9 @@ class DineInStartSessionAPIView(APIView):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        restaurant = get_object_or_404(Restaurant, id=restaurant_id)
-
         with transaction.atomic():
-            table = (
-                Table.objects
-                .select_for_update()
-                .get(restaurant=restaurant, table_number=table_number)
-            )
+            table = get_scanned_table(*scan, queryset=Table.objects.select_for_update())
+            restaurant = table.restaurant
 
             if guests < 1 or guests > table.capacity:
                 return Response(

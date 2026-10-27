@@ -3,7 +3,7 @@ from rest_framework.response import Response
 from django.contrib.auth import get_user_model
 from django.db import transaction
 from apps.core.serializers import UserListSerializer, StaffUpdateSerializer, StaffCreateSerializer
-from apps.userprofile.models import UserProfile
+from apps.core.services.staff import create_staff_member
 from apps.restaurants.permissions import IsManager
 
 User = get_user_model()
@@ -74,22 +74,7 @@ class StaffListView(generics.ListCreateAPIView):
         if User.objects.filter(email=data['email']).exists():
             return Response({"detail": "A user with this email already exists."}, status=status.HTTP_400_BAD_REQUEST)
 
-        user = User.objects.create_user(
-            email=data['email'],
-            username=data['username'],
-            password=data['password'],
-            user_type=data['user_type'],
-            is_active=True,
-        )
-        user.is_active = True
-        user.save(update_fields=['is_active'])
-
-        profile, _ = UserProfile.objects.get_or_create(user=user)
-        profile.restaurant = restaurant
-        profile.first_name = data.get('first_name', '')
-        profile.last_name = data.get('last_name', '')
-        profile.phone = data.get('phone', '')
-        profile.save()
+        user = create_staff_member(restaurant, **data)
 
         return Response(UserListSerializer(user).data, status=status.HTTP_201_CREATED)
 
@@ -111,4 +96,4 @@ class StaffDetailView(generics.RetrieveUpdateDestroyAPIView):
     def get_serializer_class(self):
         if self.request.method in ['PUT', 'PATCH']:
             return StaffUpdateSerializer
-        return UserListSerializer
+        return UserListSerializer

@@ -3,7 +3,7 @@ from rest_framework.routers import DefaultRouter
 
 from apps.restaurants.views import (
     MenuListView, MenuDetailView, MenuItemListView, MenuItemDetailView,
-    TableViewSet, QRScanView, DineInValidateAPIView, DineInStartSessionAPIView,
+    TableViewSet, DineInValidateAPIView, DineInStartSessionAPIView,
     CreateCartAPIView, CartItemCreateAPIView, RetrieveCartAPIView,
     DeleteCartItemAPIView, UpdateCartItemAPIView, ReviewViewSet,
     OrderCheckoutAPIView, OrderDetailAPIView, UserOrderHistoryAPIView,
@@ -21,6 +21,10 @@ from apps.restaurants.views.ai import RestaurantTopSuggestionsView, RestaurantMe
 from apps.restaurants.views.restaurant_settings import (
     RestaurantSettingsAPIView, RestaurantBillingInfoAPIView, OrderReceiptAPIView,
 )
+from apps.restaurants.views.order_management import ManagerOrderListAPIView, CancelOrderAPIView
+from apps.restaurants.views.service_requests import (
+    GuestServiceRequestAPIView, StaffServiceRequestListAPIView, ResolveServiceRequestAPIView,
+)
 
 router = DefaultRouter()
 router.register(r'tables', TableViewSet, basename='table')
@@ -33,7 +37,6 @@ urlpatterns = [
     path('restaurants/<int:restaurant_id>/menus/<int:id>/', MenuDetailView.as_view(), name='menu-detail'),
     path('menus/<int:menu_id>/menu-items/', MenuItemListView.as_view(), name='menu-item-list'),
     path('menu-items/<int:id>/', MenuItemDetailView.as_view(), name='menu-item-detail'),
-    path('tables/scan-qr/', QRScanView.as_view(), name='scan-qr'),
     path('dine-in/validate/', DineInValidateAPIView.as_view(), name='validate-dine-in'),
     path('dine-in/start-session/', DineInStartSessionAPIView.as_view(), name='start-dine-in-session'),
     path('dine-in/orders/', DineInSessionOrdersAPIView.as_view(), name='dine-in-session-orders'),
@@ -68,4 +71,9 @@ urlpatterns = [
     path('restaurants/<int:restaurant_id>/billing/', RestaurantBillingInfoAPIView.as_view(), name='restaurant-billing'),
     path('orders/<int:order_id>/receipt/', OrderReceiptAPIView.as_view(), name='order-receipt'),
     path('orders/ready/', ReadyOrdersAPIView.as_view(), name='ready-orders'),
+    path('orders/manager/', ManagerOrderListAPIView.as_view(), name='manager-orders'),
+    path('orders/<int:order_id>/cancel/', CancelOrderAPIView.as_view(), name='cancel-order'),
+    path('dine-in/service-requests/', GuestServiceRequestAPIView.as_view(), name='guest-service-requests'),
+    path('service-requests/', StaffServiceRequestListAPIView.as_view(), name='service-requests'),
+    path('service-requests/<int:pk>/resolve/', ResolveServiceRequestAPIView.as_view(), name='resolve-service-request'),
 ]

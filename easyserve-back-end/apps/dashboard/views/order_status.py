@@ -25,6 +25,7 @@ class OrderStatusAPIView(ListAPIView):
             Orders.objects.filter(
                 table__restaurant=profile.restaurant,
                 payment_status=PaymentStatus.PENDING,
+                order_cancelled=False,
                 updated_at__gte=one_day_ago
             ).select_related('user', 'table')
             .prefetch_related('items__menu_item')

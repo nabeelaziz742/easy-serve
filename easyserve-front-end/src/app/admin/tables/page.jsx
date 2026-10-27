@@ -1,12 +1,15 @@
 "use client";
 
+import { useMemo, useState } from "react";
 import { motion } from "framer-motion";
+import { toast } from "sonner";
 import { listVariants, fadeUp } from "@/lib/motion";
 import PageHeader from "@/components/layout/PageHeader";
 import TableCard from "@/components/admin/TableCard";
 import TableSkeleton from "@/components/admin/TableSkeleton";
 import { useGetTablesQuery } from "@/services/private/tables";
-import { Sparkles, Utensils } from "lucide-react";
+import { Printer, Utensils } from "lucide-react";
+import { printTableQrs } from "@/utilities/tableQr";
 
 export default function TablesPage() {
   const { data, isLoading, isError, isFetching } = useGetTablesQuery(undefined, {
@@ -15,7 +18,17 @@ export default function TablesPage() {
     refetchOnReconnect: true,
   });
 
-  const tables = data?.results ?? data ?? [];
+  const allTables = data?.results ?? data ?? [];
+  // A super admin sees every restaurant's floor; let them pick one.
+  const restaurants = useMemo(() => [...new Set(allTables.map((t) => t.restaurant))], [allTables]);
+  const [restaurant, setRestaurant] = useState("");
+  const tables = restaurant ? allTables.filter((t) => t.restaurant === restaurant) : allTables;
+  const canPrintQr = tables.some((t) => t.qrCode);
+
+  const printQrs = () => {
+    if (!printTableQrs(tables)) toast.error("Allow pop-ups for this site to print the QR codes.");
+  };
+
   const showError = isError && !isFetching && tables.length === 0;
 
   const BUSY_STATUSES = ["OCCUPIED", "ORDER_PLACED", "PREPARING", "READY", "SERVED", "PAYMENT_PENDING"];
@@ -31,6 +44,27 @@ export default function TablesPage() {
         live
         actions={
           <div className="flex flex-wrap items-center gap-2 text-xs font-bold">
+            {restaurants.length > 1 && (
+              <select
+                value={restaurant}
+                onChange={(e) => setRestaurant(e.target.value)}
+                className="rounded-lg border border-gray-200 bg-white px-2.5 py-1 text-gray-700"
+              >
+                <option value="">All restaurants</option>
+                {restaurants.map((name) => (
+                  <option key={name}>{name}</option>
+                ))}
+              </select>
+            )}
+            {canPrintQr && (
+              <button
+                type="button"
+                onClick={printQrs}
+                className="inline-flex items-center gap-1.5 rounded-lg bg-green-950 px-2.5 py-1 text-amber-400 transition hover:bg-green-900"
+              >
+                <Printer className="h-3.5 w-3.5" /> Print QR codes
+              </button>
+            )}
             <span className="rounded-lg border border-emerald-200 bg-emerald-50 px-2.5 py-1 text-emerald-800">
               {availableCount} Available
             </span>

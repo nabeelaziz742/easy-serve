@@ -128,6 +128,29 @@ export const orderApi = privateAPi.injectEndpoints({
       query: () => ({ url: "/restaurants/manager/dashboard/", method: "GET" }),
       providesTags: ["ManagerDashboard"],
     }),
+    getManagerOrders: build.query({
+      query: (params) => ({ url: "/restaurants/orders/manager/", method: "GET", params }),
+      providesTags: ["ManagerOrders"],
+    }),
+    cancelOrder: build.mutation({
+      query: ({ orderId, reason }) => ({ url: `/restaurants/orders/${orderId}/cancel/`, method: "POST", body: { reason } }),
+      invalidatesTags: [
+        "ManagerOrders",
+        "PendingOrders",
+        "ReadyOrders",
+        "ChefOrders",
+        "OrderStatus",
+        "getOrders",
+        "getOrder",
+        "WaiterDashboard",
+        "WaiterCashOrders",
+        "ManagerCashOrders",
+        "ManagerDashboard",
+        "CommandCenter",
+        "FinancialOverview",
+        "FinancialReports",
+      ],
+    }),
   }),
 });
 
@@ -137,5 +160,5 @@ export const {
   useUpdateOrderMutation, useGetOrderStatusQuery, usePatchOrderStatusMutation,
   useGetPendingOrdersQuery, useGetReadyOrdersQuery, useAcceptOrderMutation, useAssignChefMutation,
   useGetChefOrdersQuery, useStartPreparingMutation, useMarkPreparedMutation, useMarkServedMutation,
-  useGetManagerDashboardQuery,
+  useGetManagerDashboardQuery, useGetManagerOrdersQuery, useCancelOrderMutation,
 } = orderApi;

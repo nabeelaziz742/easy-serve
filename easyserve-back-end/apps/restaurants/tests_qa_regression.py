@@ -77,7 +77,7 @@ class QAWorkflowBase(TestCase):
         self.client.force_authenticate(user=None)
         res = self.client.post(
             "/api/restaurants/dine-in/start-session/",
-            {"restaurant": self.restaurant.id, "table": 1, "guests": guests},
+            {"restaurant": self.restaurant.id, "table": 1, "key": self.table.qr_key, "guests": guests},
             format="json",
         )
         self.assertEqual(res.status_code, 200, res.data)
@@ -189,7 +189,7 @@ class SessionWithSeveralOrdersTests(QAWorkflowBase):
         self.client.force_authenticate(user=None)
         res = self.client.post(
             "/api/restaurants/dine-in/start-session/",
-            {"restaurant": self.restaurant.id, "table": 1, "guests": 1},
+            {"restaurant": self.restaurant.id, "table": 1, "key": self.table.qr_key, "guests": 1},
             format="json",
         )
         self.assertEqual(res.status_code, 409)

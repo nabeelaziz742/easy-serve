@@ -9,6 +9,8 @@ from apps.restaurants.models import Table, Restaurant
 class TablesListView(ListAPIView):
     serializer_class = TableSerializer
     permission_classes = [IsAuthenticated]
+    # The floor plan and the QR print sheet need every table, not a page of 10.
+    pagination_class = None
 
     def get_queryset(self):
         user = self.request.user

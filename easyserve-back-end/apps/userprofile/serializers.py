@@ -30,7 +30,9 @@ class UserProfileSerializer(serializers.ModelSerializer):
         return request.build_absolute_uri("/media/profiles/default_profile.png")
 
     def get_restaurant(self, obj):
-        if obj.user.user_type == 'waiter' and obj.restaurant:
+        # Every staff role works for its linked restaurant; the manager's
+        # menu and inventory pages read the id from here.
+        if obj.restaurant:
             return RestaurantSerializer(obj.restaurant).data
         return None
 

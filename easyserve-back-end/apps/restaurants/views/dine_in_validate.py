@@ -3,25 +3,14 @@ from rest_framework.permissions import AllowAny
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
-from django.shortcuts import get_object_or_404
 
-from apps.restaurants.constants import DineInSessionStatus
+from apps.restaurants.services.table_access import get_scanned_table, read_scan
 from apps.restaurants.services.table_lifecycle import clean_and_get_active_session
-from apps.restaurants.models import (
-    Restaurant,
-    Table,
-    Menu,
-    MenuItem,
-    DineInSession,
-)
+from apps.restaurants.models import Table, Menu, MenuItem
 from apps.restaurants.serializers import (
     RestaurantSerializerForMenu,
     MenuSerializer
 )
-import logging
-
-
-logger = logging.getLogger(__name__)
 
 
 class DineInValidateAPIView(APIView):
@@ -29,49 +18,28 @@ class DineInValidateAPIView(APIView):
     Validate QR scan.
     - DOES NOT create session
     - Fetches menu & table info
+
+    Only a scan with the table's QR key gets through, so the running
+    session returned here (which lets friends at the table order on the
+    same bill) is only handed to people holding the printed QR.
     """
 
     authentication_classes = []  # QR is public
     permission_classes = [AllowAny]
 
     def post(self, request):
-        restaurant_id = request.data.get("restaurant")
-        table_number = request.data.get("table")
-        logger.info(f"Table {table_number}")
-
-        if not restaurant_id or not table_number:
-            return Response(
-                {"detail": "restaurant and table are required"},
-                status=status.HTTP_400_BAD_REQUEST
-            )
-
-        restaurant = get_object_or_404(Restaurant, id=restaurant_id)
-        if not restaurant:
-            return Response(
-                {"detail": "Invalid restaurant"},
-                status=status.HTTP_404_NOT_FOUND
-            )
-        table = get_object_or_404(
-            Table,
-            restaurant=restaurant,
-            table_number=table_number
-        )
+        table = get_scanned_table(*read_scan(request.data))
+        restaurant = table.restaurant
 
         recommended_tables = (
             Table.objects
-            .filter(restaurant=restaurant)
+            .filter(restaurant=restaurant, is_active=True)
             .exclude(id=table.id)
             .only("id", "table_number", "capacity")
         )
 
-        if not table:
-            return Response(
-                {"detail": "Invalid table"},
-            )
-
         active_session = clean_and_get_active_session(table, restaurant=restaurant)
 
-        # Fetch menu
         menus = (
             Menu.objects
             .filter(restaurant=restaurant, is_active=True)

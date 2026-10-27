@@ -5,11 +5,11 @@ class TableRepository:
 
     @staticmethod
     def get_all_tables(restaurant_id):
-        qs = Table.objects.filter(table_number__isnull=False, restaurant_id=restaurant_id)
-        if qs.exists():
-            return qs
-
-        return Table.objects.none()
+        return (
+            Table.objects.filter(table_number__isnull=False, restaurant_id=restaurant_id)
+            .select_related("restaurant")
+            .order_by("table_number")
+        )
 
     @staticmethod
     def get_latest_order_for_table(table):

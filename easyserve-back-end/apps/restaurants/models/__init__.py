@@ -8,3 +8,4 @@ from .category import *
 from .reviews import *
 from .reservation import *
 from .dine_in_session import *
+from .service_request import *

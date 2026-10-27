@@ -32,6 +32,8 @@ class OrderStatusUpdateView(UpdateAPIView):
 
     def update(self, request, *args, **kwargs):
         order = self.get_object()
+        if order.order_cancelled:
+            return Response({"error": "This order was cancelled."}, status=status.HTTP_400_BAD_REQUEST)
 
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)

@@ -17,6 +17,7 @@ export const MenuItemCard = ({
   image,
   rating = 4.5,
   badge = "Recommended",
+  is_available: isAvailable = true,
 }) => {
   const router = useRouter();
   const dispatch = useDispatch();
@@ -59,8 +60,10 @@ export const MenuItemCard = ({
       className="group relative flex h-full flex-col justify-between overflow-hidden rounded-2xl border border-gray-200/80 bg-white p-4 shadow-sm transition-all duration-300 hover:border-yellow-400/40 hover:shadow-xl"
     >
       {/* Badge */}
-      <div className="absolute left-3.5 top-3.5 z-20 rounded-full border border-yellow-500/30 bg-yellow-400 px-3 py-0.5 text-xs font-bold text-black shadow-md">
-        {badge}
+      <div className={`absolute left-3.5 top-3.5 z-20 rounded-full px-3 py-0.5 text-xs font-bold shadow-md ${
+        isAvailable ? "border border-yellow-500/30 bg-yellow-400 text-black" : "bg-red-600 text-white"
+      }`}>
+        {isAvailable ? badge : "Out of stock"}
       </div>
 
       <div>
@@ -71,7 +74,7 @@ export const MenuItemCard = ({
             alt={name}
             width={400}
             height={250}
-            className="h-44 w-full object-cover transition-transform duration-500 group-hover:scale-105"
+            className={`h-44 w-full object-cover transition-transform duration-500 group-hover:scale-105 ${isAvailable ? "" : "grayscale"}`}
           />
 
           <span className="absolute bottom-3 right-3 rounded-xl bg-green-950/90 px-3 py-1 text-sm font-bold text-yellow-400 shadow-lg backdrop-blur-md">
@@ -101,7 +104,14 @@ export const MenuItemCard = ({
 
       <div>
         {/* Stepper if in cart */}
-        {quantity > 0 ? (
+        {!isAvailable ? (
+          <button
+            disabled
+            className="mb-2 flex w-full cursor-not-allowed items-center justify-center rounded-xl bg-gray-100 py-2.5 text-xs font-bold text-gray-500"
+          >
+            Out of stock
+          </button>
+        ) : quantity > 0 ? (
           <div className="mb-2.5 flex items-center justify-between rounded-xl bg-green-50 p-1.5 border border-green-200">
             <button
               onClick={decrement}

@@ -365,6 +365,7 @@ class RealtimeWorkflowAndFinancialTests(TestCase):
         val_resp = self.client.post("/api/restaurants/dine-in/validate/", {
             "restaurant": self.restaurant.id,
             "table": self.table.table_number,
+            "key": self.table.qr_key,
         })
         self.assertEqual(val_resp.status_code, status.HTTP_200_OK)
         self.assertFalse(val_resp.data["active_session"])
@@ -378,6 +379,7 @@ class RealtimeWorkflowAndFinancialTests(TestCase):
         start_resp = self.client.post("/api/restaurants/dine-in/start-session/", {
             "restaurant": self.restaurant.id,
             "table": self.table.table_number,
+            "key": self.table.qr_key,
             "guests": 3,
             "name": "Fresh Customer",
             "phone": "1234567890",
@@ -389,6 +391,7 @@ class RealtimeWorkflowAndFinancialTests(TestCase):
         conflict_resp = self.client.post("/api/restaurants/dine-in/start-session/", {
             "restaurant": self.restaurant.id,
             "table": self.table.table_number,
+            "key": self.table.qr_key,
             "guests": 2,
             "name": "Second Customer",
         })
@@ -399,6 +402,7 @@ class RealtimeWorkflowAndFinancialTests(TestCase):
         retry_resp = self.client.post("/api/restaurants/dine-in/start-session/", {
             "restaurant": self.restaurant.id,
             "table": self.table.table_number,
+            "key": self.table.qr_key,
             "guests": 4,
             "name": "Fresh Customer",
             "session_token": token,
@@ -416,6 +420,7 @@ class RealtimeWorkflowAndFinancialTests(TestCase):
         resp_a = self.client.post("/api/restaurants/dine-in/start-session/", {
             "restaurant": self.restaurant.id,
             "table": self.table.table_number,
+            "key": self.table.qr_key,
             "guests": 2,
             "name": "Rest A Guest",
         })
@@ -425,6 +430,7 @@ class RealtimeWorkflowAndFinancialTests(TestCase):
         resp_b = self.client.post("/api/restaurants/dine-in/start-session/", {
             "restaurant": self.other_restaurant.id,
             "table": self.other_table.table_number,
+            "key": self.other_table.qr_key,
             "guests": 2,
             "name": "Rest B Guest",
         })

@@ -80,6 +80,14 @@ class TableAdmin(admin.ModelAdmin):
     search_fields = ('restaurant__name', 'table_number', 'assigned_waiter__user__username')
     list_filter = ('restaurant', 'created_at')
     ordering = ('restaurant', 'table_number')
+    readonly_fields = ('qr_url',)
+    actions = ('rotate_qr_codes',)
+
+    @admin.action(description="Issue new QR codes (old prints stop working)")
+    def rotate_qr_codes(self, request, queryset):
+        for table in queryset:
+            table.rotate_qr_key()
+        self.message_user(request, f"New QR codes issued for {queryset.count()} table(s). Print them again.")
 
 @admin.register(Reservation)
 class ReservationAdmin(admin.ModelAdmin):

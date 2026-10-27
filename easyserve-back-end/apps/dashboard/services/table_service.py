@@ -27,6 +27,8 @@ class TableService:
             table_info = {
                 "id": table.id,
                 "number": table.table_number,
+                "restaurant": table.restaurant.name,
+                "qrCode": table.qr_code.url if table.qr_code else None,
                 "status": status,
                 "customers": table.customer_count if status != TableState.EMPTY.name else 0,
                 "orderItems": [],

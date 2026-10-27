@@ -6,6 +6,25 @@ const BASE_URL = 'http://127.0.0.1:3000';
 const BACKEND_URL = 'http://127.0.0.1:8000';
 const CHROME_PATH = 'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe';
 
+// Test accounts come from the environment, never from the repository:
+// QA_WAITER_EMAIL, QA_CHEF_EMAIL, QA_MANAGER_EMAIL, QA_CUSTOMER_EMAIL and
+// QA_PASSWORD (the password the four test accounts share).
+function requireEnv(name) {
+  const value = process.env[name];
+  if (!value) {
+    console.error(`Missing ${name}. Set the QA_* variables before running this script.`);
+    process.exit(1);
+  }
+  return value;
+}
+const QA_PASSWORD = requireEnv('QA_PASSWORD');
+const QA_ACCOUNTS = {
+  waiter: requireEnv('QA_WAITER_EMAIL'),
+  chef: requireEnv('QA_CHEF_EMAIL'),
+  manager: requireEnv('QA_MANAGER_EMAIL'),
+  customer: requireEnv('QA_CUSTOMER_EMAIL'),
+};
+
 const results = {
   testedItems: {},
   consoleErrors: [],
@@ -153,7 +172,7 @@ async function runQA() {
       }
     });
 
-    await loginUser(waiterPage, 'test1@gmail.com', 'password123', '/waiter');
+    await loginUser(waiterPage, QA_ACCOUNTS.waiter, QA_PASSWORD, '/waiter');
     const waiterDashboardHeader = await waiterPage.locator('h1:has-text("Waiter Dashboard")').isVisible();
     const waiterUrl = waiterPage.url();
     console.log(`Waiter reached: ${waiterUrl}, dashboard visible: ${waiterDashboardHeader}`);
@@ -197,7 +216,7 @@ async function runQA() {
       }
     });
 
-    await loginUser(chefPage, 'test@gmail.com', 'password123', '/chef');
+    await loginUser(chefPage, QA_ACCOUNTS.chef, QA_PASSWORD, '/chef');
     const chefDashboardHeading = chefPage.locator('h1:has-text("Kitchen Dashboard")');
     await chefDashboardHeading.waitFor({ state: 'visible', timeout: 15000 });
     const chefDashboardVisible = await chefDashboardHeading.isVisible();
@@ -240,7 +259,7 @@ async function runQA() {
       }
     });
 
-    await loginUser(managerPage, 'aziznabeel448@gmail.com', 'password123', '/manager');
+    await loginUser(managerPage, QA_ACCOUNTS.manager, QA_PASSWORD, '/manager');
     const managerDashboardHeader = await managerPage.locator('text=Command Center').or(managerPage.locator('text=Manager Panel')).or(managerPage.locator('text=Dashboard')).or(managerPage.locator('text=Easy Serve')).count() > 0;
     recordResult(
       '13. Manager RBAC',
@@ -292,7 +311,7 @@ async function runQA() {
     });
 
     // Customer logs in as regular customer
-    await loginUser(customerPage, 'customer@gmail.com', 'password123', '/');
+    await loginUser(customerPage, QA_ACCOUNTS.customer, QA_PASSWORD, '/');
     await customerPage.waitForTimeout(2000);
 
     // Open Table #1 Dine-In URL (triggers QR validation and redirects to /dine-in/guests)

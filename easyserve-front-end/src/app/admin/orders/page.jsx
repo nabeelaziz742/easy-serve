@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import Link from "next/link";
 import RoleGuard from "@/components/auth/RoleGuard";
 import { motion, AnimatePresence } from "framer-motion";
 import OrderSkeleton from "@/components/admin/OrderSkeleton";
@@ -17,6 +18,7 @@ import {
   ArrowRight,
   ArrowLeft,
   Sparkles,
+  ReceiptText,
 } from "lucide-react";
 
 // Moving orders between kitchen columns is for the kitchen and managers.
@@ -212,6 +214,12 @@ function OrderBoard() {
                           <Clock className="w-3 h-3 text-yellow-600" />
                           {order.time || "Just now"}
                         </span>
+                        <Link
+                          href={`/receipt/${order.id}`}
+                          className="flex items-center gap-1 text-[11px] font-semibold text-green-800 hover:underline"
+                        >
+                          <ReceiptText className="w-3 h-3" /> Bill
+                        </Link>
                       </div>
 
                       {/* Action Navigation Buttons */}

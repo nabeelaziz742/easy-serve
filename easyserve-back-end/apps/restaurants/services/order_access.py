@@ -25,3 +25,16 @@ def staff_belongs_to_order_restaurant(user, order):
         profile.restaurant_id == restaurant_id
         or profile.owned_restaurants.filter(id=restaurant_id).exists()
     )
+
+
+def staff_restaurant_ids(user):
+    """Ids of the restaurants a staff user works at or owns."""
+    profile = getattr(user, "profile", None)
+    if profile is None:
+        return []
+    ids = set(profile.owned_restaurants.values_list("id", flat=True))
+    if profile.restaurant_id:
+        ids.add(profile.restaurant_id)
+    if getattr(profile, "selected_restaurant", None):
+        ids.add(profile.selected_restaurant)
+    return list(ids)

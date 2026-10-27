@@ -14,16 +14,11 @@ import {
   CardContent,
 } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { useValidateTableMutation } from "@/services/public/dineIn";
-import { useDispatch } from "react-redux";
-import { setDineInContext } from "@/store/slices/dineInSlice";
 
 const QR_READER_ID = "qr-reader";
 
 export default function ScanQRPage() {
   const router = useRouter();
-  const dispatch = useDispatch();
-  const [validateTable] = useValidateTableMutation();
 
   const scannerRef = useRef(null);
   const startedRef = useRef(false);
@@ -70,6 +65,9 @@ export default function ScanQRPage() {
     [router, safeStopScanner]
   );
 
+  // The scanned QR becomes the same /restaurant/<id>?mode=dine-in link a
+  // phone camera would open, so the restaurant page is the one place that
+  // validates the table (including its secret key).
   const parseQRData = (text) => {
     const clean = text.trim();
 
@@ -82,6 +80,7 @@ export default function ScanQRPage() {
           url.searchParams.get("restaurant") ||
           (pathMatch ? pathMatch[1] : null),
         table_number: url.searchParams.get("table"),
+        key: url.searchParams.get("key"),
       };
     }
 
@@ -96,7 +95,13 @@ export default function ScanQRPage() {
     return {
       restaurant_id: data.RESTAURANT,
       table_number: data.TABLE,
+      key: data.KEY,
     };
+  };
+
+  const dineInPath = ({ restaurant_id, table_number, key }) => {
+    const query = new URLSearchParams({ mode: "dine-in", table: table_number, key: key || "" });
+    return `/restaurant/${encodeURIComponent(restaurant_id)}?${query}`;
   };
 
   const startScanner = useCallback(async () => {
@@ -129,32 +134,16 @@ export default function ScanQRPage() {
           try {
             const parsed = parseQRData(decodedText);
 
-            if (!parsed.restaurant_id || !parsed.table_number) {
+            if (!parsed.restaurant_id || !parsed.table_number || !parsed.key) {
               toast.error("Invalid QR Code. Please scan an EasyServe table QR.");
               processingRef.current = false;
               return;
             }
 
-            const response = await validateTable({
-              restaurant: parsed.restaurant_id,
-              table: parsed.table_number,
-            }).unwrap();
-
-            dispatch(
-              setDineInContext({
-                ...response,
-                guests: null,
-              })
-            );
-
-            toast.success("Table connected! 🎉");
-            await navigateSafely("/dine-in/guests");
+            await navigateSafely(dineInPath(parsed));
           } catch (err) {
-            console.error("QR validation failed:", err);
-            toast.error(
-              err?.data?.detail ||
-                "Unable to validate this table. Please try again."
-            );
+            console.error("QR scan failed:", err);
+            toast.error("Invalid QR Code. Please scan an EasyServe table QR.");
             processingRef.current = false;
           }
         },
@@ -168,7 +157,7 @@ export default function ScanQRPage() {
       console.error("QR Scanner Error:", err);
       toast.error("Camera access denied or unavailable. Please check camera permissions.");
     }
-  }, [dispatch, navigateSafely, validateTable]);
+  }, [navigateSafely]);
 
   useEffect(() => {
     startScanner();

@@ -4,6 +4,7 @@ from apps.restaurants.models import Table
 
 class TableSerializer(serializers.ModelSerializer):
     restaurant_name = serializers.CharField(source="restaurant.name", read_only=True)
+    qr_url = serializers.CharField(read_only=True)
 
     class Meta:
         model = Table
@@ -13,6 +14,7 @@ class TableSerializer(serializers.ModelSerializer):
             "restaurant_name",
             "table_number",
             "qr_code",
+            "qr_url",
             "created_at",
             "updated_at",
         ]

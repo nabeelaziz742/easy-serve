@@ -11,6 +11,7 @@ const initialState = {
   name: "",
   phone: "",
   sessionToken: null,
+  qrKey: "",
 };
 
 const dineInSlice = createSlice({

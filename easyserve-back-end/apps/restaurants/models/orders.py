@@ -140,6 +140,18 @@ class Orders(AbstractTimeStampModel):
     tax_amount = models.DecimalField(max_digits=10, decimal_places=2, default=0)
 
     order_cancelled = models.BooleanField(default=False)
+    # Who cancelled the order, when and why. A paid order that is cancelled
+    # records the money handed back in refund_amount.
+    cancellation_reason = models.CharField(max_length=255, blank=True, default="")
+    cancelled_at = models.DateTimeField(null=True, blank=True)
+    cancelled_by = models.ForeignKey(
+        UserProfile,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="cancelled_orders"
+    )
+    refund_amount = models.DecimalField(max_digits=10, decimal_places=2, default=0)
 
     ordered = models.BooleanField(default=False)
 

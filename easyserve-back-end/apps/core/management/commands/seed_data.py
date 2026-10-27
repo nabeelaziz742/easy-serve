@@ -10,7 +10,9 @@ from apps.restaurants.models import (
 )
 from apps.payment.models import Payment
 import logging
+import os
 import random
+import secrets
 from datetime import timedelta
 from django.core.management.base import BaseCommand
 from apps.restaurants.models import Restaurant, Table
@@ -105,6 +107,10 @@ class Command(BaseCommand):
             self.stdout.write(self.style.ERROR("No menu items found. Create menus and menu items first."))
             return
 
+        seed_password = os.environ.get("SEED_USER_PASSWORD") or secrets.token_urlsafe(12)
+        if not os.environ.get("SEED_USER_PASSWORD"):
+            self.stdout.write(self.style.WARNING(f"Seeded users get the password: {seed_password}"))
+
         # 1) Create Users + UserProfiles
         self.stdout.write(f"Creating {users_count} users and profiles...")
         for i in range(users_count):
@@ -118,8 +124,9 @@ class Command(BaseCommand):
                 }
             )
             if created:
-                # Set a default password
-                user.set_password("password123")
+                # Never a fixed default password: take it from the
+                # environment, or make a random one and show it once.
+                user.set_password(seed_password)
                 user.save()
 
             # Create or get profile

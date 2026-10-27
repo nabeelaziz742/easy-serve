@@ -181,6 +181,8 @@ export const privateAPi = createApi({
     'WaiterDashboard',
     'WaiterCashOrders',
     'ManagerCashOrders',
+    'ManagerOrders',
+    'ServiceRequests',
     'reviews',
     'tables',
     'getOrders',

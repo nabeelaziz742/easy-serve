@@ -9,8 +9,7 @@ import {
   setDineInSession,
 } from "@/store/slices/dineInSlice";
 import { useStartDineInSessionMutation } from "@/services/public/dineIn";
-
-const DINE_IN_STORAGE_KEY = "easyserve:dine-in-context";
+import { DINE_IN_STORAGE_KEY } from "@/utilities/dineInStorage";
 
 export default function GuestSelector({ onContinue }) {
   const dispatch = useDispatch();
@@ -34,6 +33,7 @@ export default function GuestSelector({ onContinue }) {
       const response = await startDineInSession({
         restaurant: dineIn.restaurant.id,
         table: dineIn.table.number,
+        key: dineIn.qrKey,
         guests: Number(guests),
         name: dineIn.name,
         phone: dineIn.phone,
@@ -62,6 +62,7 @@ export default function GuestSelector({ onContinue }) {
         name: response.session?.name ?? dineIn.name ?? "",
         phone: response.session?.phone ?? dineIn.phone ?? "",
         sessionToken: response.session?.token ?? null,
+        qrKey: dineIn.qrKey,
       };
 
       window.localStorage.setItem(

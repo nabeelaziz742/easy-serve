@@ -2,7 +2,8 @@
 
 import { motion, AnimatePresence } from "framer-motion";
 import Link from "next/link";
-import { Clock, CheckCircle2, UtensilsCrossed, Banknote, ReceiptText, ChefHat, Printer } from "lucide-react";
+import { useState } from "react";
+import { Clock, CheckCircle2, UtensilsCrossed, Banknote, ReceiptText, ChefHat, Printer, BellRing, XCircle } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "sonner";
 import RoleGuard from "@/components/auth/RoleGuard";
@@ -12,8 +13,15 @@ import { listVariants, itemVariants, fadeUp, hoverLift } from "@/lib/motion";
 import PageHeader from "@/components/layout/PageHeader";
 import SoundToggle from "@/components/layout/SoundToggle";
 import useNewOrderAlert from "@/hooks/useNewOrderAlert";
+import CancelOrderDialog from "@/components/admin/CancelOrderDialog";
+import { useGetStaffTableRequestsQuery, useResolveTableRequestMutation } from "@/services/private/serviceRequests";
 
-const OrderCard = ({ order, ready = false, onAction }) => {
+const minutesAgo = (value) => {
+  const minutes = Math.max(0, Math.floor((Date.now() - new Date(value).getTime()) / 60000));
+  return minutes === 0 ? "just now" : `${minutes} min ago`;
+};
+
+const OrderCard = ({ order, ready = false, onAction, onCancel }) => {
   const itemCount = order.items?.reduce((sum, item) => sum + Number(item.quantity || 0), 0) || 0;
 
   return (
@@ -54,6 +62,14 @@ const OrderCard = ({ order, ready = false, onAction }) => {
             <CheckCircle2 className="h-3.5 w-3.5" />
             {ready ? "Mark Served" : "Accept Order"}
           </button>
+          {onCancel && (
+            <button
+              onClick={() => onCancel(order)}
+              className="mt-1.5 flex w-full items-center justify-center gap-1 rounded-lg px-3 py-1.5 text-[11px] font-semibold text-red-600 transition-colors hover:bg-red-50"
+            >
+              <XCircle className="h-3.5 w-3.5" /> Cancel order
+            </button>
+          )}
         </div>
       </div>
     </motion.div>
@@ -108,10 +124,14 @@ function WaiterContent() {
   const [acceptOrder] = useAcceptOrderMutation();
   const [markServed] = useMarkServedMutation();
   const [receiveCashPayment] = useReceiveCashPaymentMutation();
+  const { data: requestData } = useGetStaffTableRequestsQuery(undefined, { pollingInterval: 3000, refetchOnFocus: true, refetchOnReconnect: true });
+  const [resolveTableRequest] = useResolveTableRequestMutation();
+  const [cancelling, setCancelling] = useState(null);
 
   const orders = data?.results || data || [];
   const readyOrders = readyData?.results || readyData || [];
   const cashOrders = cashData?.results || cashData || [];
+  const tableRequests = requestData?.results || [];
   const activeTables = dashboardData?.stats?.active_tables ?? 0;
   // Chime for anything new the waiter must act on: a new order, food ready
   // in the kitchen, or a customer asking to pay cash.
@@ -119,7 +139,16 @@ function WaiterContent() {
     ...orders.map((order) => ({ id: `p${order.id}` })),
     ...readyOrders.map((order) => ({ id: `r${order.id}` })),
     ...cashOrders.map((order) => ({ id: `c${order.id}` })),
+    ...tableRequests.map((request) => ({ id: `s${request.id}` })),
   ]);
+
+  const handleResolve = async (id) => {
+    try {
+      await resolveTableRequest(id).unwrap();
+    } catch (error) {
+      toast.error(error?.data?.detail || "Could not update the request");
+    }
+  };
 
   const handleAccept = async (id) => {
     try {
@@ -179,6 +208,45 @@ function WaiterContent() {
         <StatTile icon={Banknote} label="Cash To Collect" value={cashOrders.length} tone="bg-blue-50 text-blue-600" />
       </motion.div>
 
+      {/* Guests calling the waiter or asking for the bill */}
+      {tableRequests.length > 0 && (
+        <section>
+          <SectionHeader icon={BellRing} iconClass="text-red-500" title="Table Requests" count={tableRequests.length} />
+          <motion.div variants={listVariants} initial="hidden" animate="show" className={GRID}>
+            <AnimatePresence mode="popLayout">
+              {tableRequests.map((request) => (
+                <motion.div
+                  key={request.id}
+                  layout
+                  variants={itemVariants}
+                  exit="exit"
+                  className="saas-card flex items-center gap-3 border-red-200 bg-red-50/40 px-3.5 py-3"
+                >
+                  <span className="flex h-9 min-w-9 items-center justify-center rounded-lg bg-red-100 px-1.5 text-xs font-black text-red-800 tabular">
+                    T{request.table_number}
+                  </span>
+                  <div className="min-w-0 flex-1">
+                    <p className="text-sm font-bold text-zinc-900">
+                      {request.kind === "bill" ? "Wants the bill" : "Calling waiter"}
+                    </p>
+                    <p className="truncate text-[11px] text-zinc-500">
+                      {request.guest_name ? `${request.guest_name} · ` : ""}
+                      {minutesAgo(request.created_at)}
+                    </p>
+                  </div>
+                  <button
+                    onClick={() => handleResolve(request.id)}
+                    className="shrink-0 rounded-lg bg-green-950 px-3 py-2 text-[11px] font-bold text-white transition-colors hover:bg-green-900 active:scale-[0.98]"
+                  >
+                    Done
+                  </button>
+                </motion.div>
+              ))}
+            </AnimatePresence>
+          </motion.div>
+        </section>
+      )}
+
       {/* Cash Collection Section */}
       <section>
         <SectionHeader icon={Banknote} iconClass="text-amber-600" title="Cash Collection" count={cashOrders.length} />
@@ -233,7 +301,7 @@ function WaiterContent() {
           <motion.div variants={listVariants} initial="hidden" animate="show" className={GRID}>
             <AnimatePresence mode="popLayout">
               {orders.map((order) => (
-                <OrderCard key={order.id} order={order} onAction={handleAccept} />
+                <OrderCard key={order.id} order={order} onAction={handleAccept} onCancel={setCancelling} />
               ))}
             </AnimatePresence>
           </motion.div>
@@ -255,6 +323,8 @@ function WaiterContent() {
           </motion.div>
         )}
       </section>
+
+      <CancelOrderDialog order={cancelling} onClose={() => setCancelling(null)} />
     </div>
   );
 }

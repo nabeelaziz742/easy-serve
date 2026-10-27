@@ -118,6 +118,15 @@ export default function ManagerMenuPage() {
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
+  const handleToggleStock = async (item) => {
+    setErrorMessage("");
+    try {
+      await updateMenuItem({ id: item.id, is_available: !item.is_available }).unwrap();
+    } catch (err) {
+      setErrorMessage(err?.data?.detail || "Unable to update stock. Please try again.");
+    }
+  };
+
   const handleDelete = async (itemId) => {
     setErrorMessage("");
     try {
@@ -314,11 +323,27 @@ export default function ManagerMenuPage() {
                         </div>
                       )}
                       <div className="min-w-0">
-                        <h3 className="truncate text-sm font-black text-zinc-900">{item.name}</h3>
+                        <h3 className={`truncate text-sm font-black ${item.is_available ? "text-zinc-900" : "text-zinc-400 line-through"}`}>
+                          {item.name}
+                        </h3>
                         <p className="mt-0.5 text-xs font-bold text-green-900">Rs {item.price}</p>
                       </div>
                     </div>
                     <div className="flex shrink-0 items-center gap-1.5 self-end sm:self-center">
+                      <button
+                        type="button"
+                        disabled={busy}
+                        onClick={() => handleToggleStock(item)}
+                        aria-pressed={!item.is_available}
+                        title="Guests cannot order an item that is out of stock"
+                        className={`rounded-xl border px-2.5 py-1.5 text-xs font-bold transition-all active:scale-95 disabled:opacity-50 ${
+                          item.is_available
+                            ? "border-emerald-200 bg-emerald-50 text-emerald-800 hover:bg-emerald-100"
+                            : "border-red-200 bg-red-50 text-red-700 hover:bg-red-100"
+                        }`}
+                      >
+                        {item.is_available ? "In stock" : "Out of stock"}
+                      </button>
                       <button
                         type="button"
                         disabled={busy}

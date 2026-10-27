@@ -42,6 +42,8 @@ class CartItemCreateAPIView(CreateAPIView):
             quantity = int(request.data.get('quantity', 1))
 
             menu_item = get_object_or_404(MenuItem, id=menu_item_id)
+            if not menu_item.is_available:
+                return Response({'error': f'{menu_item.name} is out of stock.'}, status=status.HTTP_400_BAD_REQUEST)
             cart, _ = Cart.objects.get_or_create(user=request.user.profile)
 
             cart_item, created = CartItem.objects.get_or_create(
