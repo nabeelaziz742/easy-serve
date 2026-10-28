@@ -16,6 +16,7 @@ import {
   Settings,
   ReceiptText,
   Store,
+  Plus,
 } from "lucide-react";
 
 // One menu for every staff role, so the manager, waiter and chef panels are
@@ -73,13 +74,15 @@ const MANAGER = [
   },
 ];
 
-// The super admin runs the same manager panel, plus platform onboarding.
+// The super admin runs the platform, not a restaurant: only onboarding.
 const SUPER_ADMIN = [
   {
-    title: "Platform",
-    items: [{ href: "/manager/restaurants/new", label: "Add Restaurant", icon: Store }],
+    title: "Restaurants",
+    items: [
+      { href: "/super-admin", label: "All Restaurants", icon: Store, exact: true },
+      { href: "/super-admin/restaurants/new", label: "Add Restaurant", icon: Plus },
+    ],
   },
-  ...MANAGER,
 ];
 
 const WAITER = [
@@ -117,7 +120,7 @@ const NAV_BY_ROLE = {
 const PANEL_LABEL = {
   manager: "Manager Panel",
   restaurant_owner: "Owner Panel",
-  super_admin: "Admin Panel",
+  super_admin: "Super Admin Panel",
   waiter: "Waiter Panel",
   chef: "Kitchen Panel",
 };
@@ -126,6 +129,6 @@ export const getStaffNav = (role) => NAV_BY_ROLE[role] || [];
 export const getPanelLabel = (role) => PANEL_LABEL[role] || "Staff Panel";
 
 // Routes rendered inside the staff shell instead of the public website.
-export const STAFF_PREFIXES = ["/admin", "/manager", "/waiter", "/chef"];
+export const STAFF_PREFIXES = ["/super-admin", "/admin", "/manager", "/waiter", "/chef"];
 export const isStaffPath = (pathname = "") =>
   STAFF_PREFIXES.some((prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`));

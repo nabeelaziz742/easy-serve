@@ -14,13 +14,13 @@ class MenuListView(ListAPIView):
 
     def get_queryset(self):
         restaurant_id = self.kwargs.get('restaurant_id')
-        return MenuSerializer.Meta.model.objects.filter(restaurant_id=restaurant_id)
+        return MenuSerializer.Meta.model.objects.filter(restaurant_id=restaurant_id).exclude(restaurant__is_active=False)
 
     def list(self, request, *args, **kwargs):
         restaurant_id = self.kwargs.get('restaurant_id')
 
         try:
-            restaurant = Restaurant.objects.get(id=restaurant_id)
+            restaurant = Restaurant.objects.exclude(is_active=False).get(id=restaurant_id)
         except Restaurant.DoesNotExist:
             return Response({"detail": "Restaurant not found."}, status=404)
 

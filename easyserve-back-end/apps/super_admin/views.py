@@ -2,7 +2,7 @@ from datetime import timedelta
 
 from django.db.models import Sum
 from django.utils.timezone import now
-from rest_framework.generics import CreateAPIView
+from rest_framework.generics import ListCreateAPIView, RetrieveUpdateAPIView
 from rest_framework.views import APIView
 from rest_framework.response import Response
 
@@ -10,7 +10,9 @@ from utils.permissions import IsSuperAdmin
 from apps.restaurants.models import Restaurant, Orders
 from apps.restaurants.constants import PaymentStatus
 from apps.core.models.user import User
-from apps.super_admin.serializers import RestaurantOnboardingSerializer
+from apps.super_admin.serializers import (
+    RestaurantOnboardingSerializer, RestaurantUpdateSerializer, restaurants_with_summary,
+)
 
 
 class OverviewMetricsAPIView(APIView):
@@ -76,7 +78,22 @@ class OverviewMetricsAPIView(APIView):
         return Response(data)
 
 
-class RestaurantOnboardingAPIView(CreateAPIView):
-    """POST: create a restaurant with its manager login and tables in one step."""
+class RestaurantOnboardingAPIView(ListCreateAPIView):
+    """GET: every restaurant with its manager login and table count.
+    POST: create a restaurant with its manager login and tables in one step."""
     permission_classes = [IsSuperAdmin]
     serializer_class = RestaurantOnboardingSerializer
+    pagination_class = None
+
+    def get_queryset(self):
+        return restaurants_with_summary()
+
+
+class RestaurantDetailAPIView(RetrieveUpdateAPIView):
+    """Edit a restaurant and its manager login, or enable/disable it."""
+    permission_classes = [IsSuperAdmin]
+    serializer_class = RestaurantUpdateSerializer
+    http_method_names = ["get", "patch"]
+
+    def get_queryset(self):
+        return restaurants_with_summary()

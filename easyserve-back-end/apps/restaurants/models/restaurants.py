@@ -26,6 +26,7 @@ class Restaurant(AbstractTimeStampModel):
     city = models.CharField(max_length=20, blank=True, null=True)
     country = models.CharField(max_length=20, blank=True, null=True)
     email = models.EmailField(blank=True, null=True)
+    logo = models.ImageField(upload_to='restaurant_logos/', blank=True, null=True)
     is_active = models.BooleanField(default=True, null=True, blank=True)
 
     avg_rating = models.FloatField(default=0)

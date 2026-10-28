@@ -23,52 +23,23 @@ import EmptyState from "@/components/feedback/EmptyState";
 import Skeleton from "react-loading-skeleton";
 import "react-loading-skeleton/dist/skeleton.css";
 
-const RestaurantSkeleton = () => {
-
-  return (
-    <div
-      className="
-        overflow-hidden
-        rounded-3xl
-        border
-        border-gray-200
-        bg-white
-        p-7
-        shadow-lg
-      "
-    >
-
-      <Skeleton height={8} />
-
-      <div className="mt-6 flex justify-center">
-        <Skeleton circle width={90} height={90} />
+const RestaurantSkeleton = () => (
+  <div className="overflow-hidden rounded-2xl border border-gray-200 bg-white p-4 shadow-sm">
+    <div className="flex items-center gap-3">
+      <Skeleton circle width={48} height={48} />
+      <div className="flex-1">
+        <Skeleton height={18} />
+        <Skeleton width={110} height={14} />
       </div>
-
-      <div className="mt-6">
-        <Skeleton height={30} />
-      </div>
-
-      <div className="mt-4 flex justify-center gap-4">
-        <Skeleton width={70} height={25} />
-        <Skeleton width={90} height={25} />
-      </div>
-
-      <div className="mt-5">
-        <Skeleton count={2} />
-      </div>
-
-      <div className="mt-6 space-y-3">
-        <Skeleton height={50} />
-        <Skeleton height={50} />
-      </div>
-
-      <div className="mt-6">
-        <Skeleton height={45} borderRadius={16} />
-      </div>
-
     </div>
-  );
-};
+    <div className="mt-3">
+      <Skeleton count={2} height={14} />
+    </div>
+    <div className="mt-3">
+      <Skeleton height={36} borderRadius={12} />
+    </div>
+  </div>
+);
 
 
 const RestaurantCard = ({
@@ -77,6 +48,7 @@ const RestaurantCard = ({
   description,
   address,
   phone,
+  logo,
   rating = 4.5,
   deliveryTime = "25–35 min",
   badge = "Recommended",
@@ -87,24 +59,11 @@ const RestaurantCard = ({
 
   return (
     <motion.div
-      initial={{ opacity: 0, y: 35 }}
+      initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.4 }}
-      whileHover={{ y: -8 }}
-      className="
-        group
-        relative
-        overflow-hidden
-        rounded-3xl
-        border
-        border-gray-200
-        bg-white
-        shadow-lg
-        transition-all
-        duration-300
-        hover:shadow-2xl
-        cursor-pointer
-      "
+      transition={{ duration: 0.3 }}
+      whileHover={{ y: -4 }}
+      className="group relative flex cursor-pointer flex-col overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm transition-shadow duration-300 hover:shadow-xl"
       onClick={() => {
         if (isReservationMode) {
           router.push(`/reservation?restaurant=${id}`);
@@ -115,178 +74,59 @@ const RestaurantCard = ({
     >
 
       {/* Top Gradient */}
-      <div className="h-2 w-full bg-gradient-to-r from-yellow-400 via-orange-400 to-green-700" />
+      <div className="h-1 w-full bg-gradient-to-r from-yellow-400 via-orange-400 to-green-700" />
 
-      {/* Badge */}
-      <div
-        className="
-          absolute
-          right-4
-          top-5
-          z-20
-          rounded-full
-          bg-yellow-400
-          px-4
-          py-1
-          text-xs
-          font-bold
-          text-black
-          shadow-lg
-        "
-      >
+      <span className="absolute right-3 top-3 rounded-full bg-yellow-400 px-2 py-0.5 text-[10px] font-bold text-black">
         {badge}
-      </div>
+      </span>
 
-      {/* Card Content */}
-      <div className="p-7">
+      <div className="flex flex-1 flex-col p-4">
 
-        {/* Icon */}
-        <div
-          className="
-            mx-auto
-            mb-5
-            flex
-            h-24
-            w-24
-            items-center
-            justify-center
-            rounded-full
-            bg-gradient-to-br
-            from-green-100
-            to-yellow-100
-            shadow-inner
-            transition-all
-            duration-300
-            group-hover:scale-110
-          "
-        >
-
-          <Utensils className="h-11 w-11 text-green-900" />
-
-        </div>
-
-        {/* Restaurant Name */}
-        <h2
-          className="
-            mb-2
-            text-center
-            text-2xl
-            font-extrabold
-            text-gray-900
-          "
-        >
-          {name}
-        </h2>
-
-        {/* Rating */}
-        <div
-          className="
-            mb-5
-            flex
-            items-center
-            justify-center
-            gap-5
-          "
-        >
-
-          <div
-            className="
-              flex
-              items-center
-              gap-1
-              rounded-full
-              bg-yellow-50
-              px-3
-              py-1
-              text-sm
-              font-semibold
-              text-yellow-600
-            "
-          >
-
-            <Star className="h-4 w-4 fill-yellow-500 text-yellow-500" />
-
-            {rating}
-
+        {/* Icon + Name + Rating */}
+        <div className="flex items-center gap-3">
+          <div className="flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-full bg-gradient-to-br from-green-100 to-yellow-100 transition-transform duration-300 group-hover:scale-110">
+            {logo ? (
+              <img src={logo} alt={`${name} logo`} className="h-full w-full object-cover" />
+            ) : (
+              <Utensils className="h-6 w-6 text-green-900" />
+            )}
           </div>
 
-          <span className="text-sm font-medium text-gray-500">
-            {deliveryTime}
-          </span>
-
+          <div className="min-w-0 flex-1">
+            <h2 className="truncate pr-20 text-base font-extrabold text-gray-900">{name}</h2>
+            <div className="mt-0.5 flex items-center gap-2 text-xs">
+              <span className="flex items-center gap-1 font-semibold text-yellow-600">
+                <Star className="h-3.5 w-3.5 fill-yellow-500 text-yellow-500" />
+                {rating}
+              </span>
+              <span className="text-gray-400">•</span>
+              <span className="whitespace-nowrap font-medium text-gray-500">{deliveryTime}</span>
+            </div>
+          </div>
         </div>
 
-        {/* Description */}
-        <p
-          className="
-            mb-6
-            line-clamp-2
-            text-center
-            text-sm
-            leading-relaxed
-            text-gray-600
-          "
-        >
-          {description}
-        </p>
+        {description && (
+          <p className="mt-3 line-clamp-2 text-xs leading-relaxed text-gray-600">{description}</p>
+        )}
 
         {/* Address + Phone */}
-        <div className="mb-6 space-y-3 text-sm text-gray-700">
-
-          <div
-            className="
-              flex
-              items-start
-              gap-3
-              rounded-xl
-              bg-gray-50
-              p-3
-            "
-          >
-
-            <MapPin className="mt-0.5 h-4 w-4 text-green-700" />
-
-            <span className="line-clamp-2">
-              {address}
-            </span>
-
-          </div>
-
-          <div
-            className="
-              flex
-              items-center
-              gap-3
-              rounded-xl
-              bg-gray-50
-              p-3
-            "
-          >
-
-            <Phone className="h-4 w-4 text-green-700" />
-
-            <span>{phone}</span>
-
-          </div>
-
+        <div className="mt-3 space-y-1.5 text-xs text-gray-700">
+          {address && (
+            <p className="flex items-center gap-2">
+              <MapPin className="h-3.5 w-3.5 shrink-0 text-green-700" />
+              <span className="truncate">{address}</span>
+            </p>
+          )}
+          {phone && (
+            <p className="flex items-center gap-2">
+              <Phone className="h-3.5 w-3.5 shrink-0 text-green-700" />
+              <span>{phone}</span>
+            </p>
+          )}
         </div>
 
         {/* Button */}
-        <button
-          className="
-            w-full
-            rounded-2xl
-            bg-green-900
-            py-3
-            font-semibold
-            text-white
-            shadow-lg
-            transition-all
-            duration-300
-            hover:scale-[1.02]
-            hover:bg-green-800
-          "
-        >
+        <button className="mt-4 w-full rounded-xl bg-green-900 py-2 text-sm font-semibold text-white transition-colors duration-300 hover:bg-green-800">
           {isReservationMode
             ? "Select Restaurant"
             : "View Menu"}
@@ -296,9 +136,6 @@ const RestaurantCard = ({
     </motion.div>
   );
 };
-
-
-// ===================== MAIN PAGE =====================
 
 function RestaurantsListContent() {
 
@@ -457,7 +294,7 @@ function RestaurantsListContent() {
 
           {aiLoading ? (
 
-            <div className="grid grid-cols-1 gap-10 sm:grid-cols-2 lg:grid-cols-3">
+            <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
 
     {[1, 2, 3].map((item) => (
       <RestaurantSkeleton key={item} />
@@ -467,7 +304,7 @@ function RestaurantsListContent() {
 
 ) : (
 
-  <div className="grid grid-cols-1 gap-10 sm:grid-cols-2 lg:grid-cols-3">
+  <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
 
     {aiResults.map((item, index) => (
 
@@ -478,6 +315,7 @@ function RestaurantsListContent() {
         description={item.restaurant.description}
         address={item.restaurant.address}
         phone={item.restaurant.phone_number}
+        logo={item.restaurant.logo}
         rating={item.avg_rating?.toFixed(1)}
         deliveryTime={`${20 + index * 2}-${30 + index * 2} min`}
         badge="AI Recommended"
@@ -502,7 +340,7 @@ function RestaurantsListContent() {
           </h2>
 
           {restaurantsLoading ? (
-            <div className="grid grid-cols-1 gap-10 sm:grid-cols-2 lg:grid-cols-3">
+            <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
               {[1, 2, 3].map((item) => (
                 <RestaurantSkeleton key={item} />
               ))}
@@ -522,7 +360,7 @@ function RestaurantsListContent() {
               }
             />
           ) : (
-          <div className="grid grid-cols-1 gap-10 sm:grid-cols-2 lg:grid-cols-3">
+          <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
 
             {restaurants.map((restaurant, index) => (
 
@@ -530,6 +368,7 @@ function RestaurantsListContent() {
                 key={restaurant.id}
                 id={restaurant.id}
                 phone={restaurant.phone_number}
+                logo={restaurant.logo}
                 address={restaurant.address}
                 name={restaurant.name}
                 description={restaurant.description}

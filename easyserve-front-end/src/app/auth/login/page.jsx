@@ -8,6 +8,7 @@ import { useEffect, useRef, useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { loginDefaultValues, loginSchema } from "../utilities/auth.schema";
 import { useForm } from "react-hook-form";
+import { toast } from "sonner";
 import {
   Form,
   FormControl,
@@ -75,7 +76,8 @@ export default function LoginPage() {
       // page, which would sign the user out again.
       router.replace(safeNext || getRoleHome(role));
     } catch (error) {
-      console.log("FULL ERROR OBJECT:", JSON.stringify(error, null, 2));
+      // e.g. wrong password, or "This restaurant has been disabled..."
+      toast.error(error?.data?.detail || "Login failed. Please try again.");
     }
   };
 

@@ -5,7 +5,7 @@ const ROLE_HOME = {
   chef: '/chef',
   manager: '/manager',
   restaurant_owner: '/manager',
-  super_admin: '/manager',
+  super_admin: '/super-admin',
   user: '/profile',
 };
 
@@ -15,6 +15,7 @@ export const STAFF_ROLES = [...MANAGER_ROLES, 'waiter', 'chef'];
 // Which roles may open each staff area. Paths not listed here are public or
 // guarded per page.
 const AREA_ROLES = [
+  ['/super-admin', ['super_admin']],
   ['/manager', MANAGER_ROLES],
   ['/waiter', ['waiter']],
   ['/chef', ['chef']],

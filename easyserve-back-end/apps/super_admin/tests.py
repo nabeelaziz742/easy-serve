@@ -1,7 +1,10 @@
+import io
 import tempfile
 
 from django.contrib.auth import get_user_model
+from django.core.files.uploadedfile import SimpleUploadedFile
 from django.test import TestCase, override_settings
+from PIL import Image
 from rest_framework import status
 from rest_framework.test import APIClient
 
@@ -12,6 +15,9 @@ User = get_user_model()
 
 ONBOARD_URL = "/api/superadmin/restaurants/"
 TABLES_URL = "/api/dashboard/tables/"
+LOGIN_URL = "/api/user/login/"
+REFRESH_URL = "/api/user/token-refresh/"
+ME_URL = "/api/user/me/"
 
 
 def staff(user_type, username, restaurant=None):
@@ -106,6 +112,22 @@ class RestaurantOnboardingTests(TestCase):
         self.assertFalse(Restaurant.objects.exists())
         self.assertFalse(Table.objects.exists())
 
+    def test_lists_restaurants_with_manager_and_table_count(self):
+        self.client.post(ONBOARD_URL, self.payload(), format="json")
+        Restaurant.objects.create(name="Lahore Tikka")
+
+        with self.assertNumQueries(2):  # restaurants (with table count), their managers
+            res = self.client.get(ONBOARD_URL)
+        self.assertEqual(res.status_code, status.HTTP_200_OK)
+        self.assertEqual([r["name"] for r in res.data], ["Lahore Tikka", "Karachi Grill"])
+        self.assertEqual(res.data[1]["manager"], {
+            "username": "ali.manager", "email": "ali@karachigrill.pk",
+            "first_name": "Ali", "last_name": "Raza", "phone": "",
+        })
+        self.assertEqual(res.data[1]["table_count"], 12)
+        self.assertIsNone(res.data[0]["manager"])
+        self.assertEqual(res.data[0]["table_count"], 0)
+
     def test_duplicate_restaurant_name_is_rejected(self):
         Restaurant.objects.create(name="Karachi Grill")
         res = self.client.post(ONBOARD_URL, self.payload(), format="json")
@@ -120,3 +142,88 @@ class RestaurantOnboardingTests(TestCase):
             res = client.post(ONBOARD_URL, self.payload(), format="json")
             self.assertEqual(res.status_code, status.HTTP_403_FORBIDDEN, user_type)
         self.assertEqual(APIClient().post(ONBOARD_URL, self.payload(), format="json").status_code, 401)
+
+
+@override_settings(MEDIA_ROOT=tempfile.mkdtemp())
+class RestaurantEditAndDisableTests(TestCase):
+    def setUp(self):
+        self.restaurant = Restaurant.objects.create(name="Karachi Grill", city="Karachi")
+        self.manager = staff("manager", "ali", self.restaurant)
+        self.waiter = staff("waiter", "sara", self.restaurant)
+        self.url = f"{ONBOARD_URL}{self.restaurant.id}/"
+        self.admin = APIClient()
+        self.admin.force_authenticate(staff("super_admin", "admin"))
+
+    def login(self, username):
+        return APIClient().post(LOGIN_URL, {"email": f"{username}@example.com", "password": "pass12345"}, format="json")
+
+    def set_active(self, active):
+        res = self.admin.patch(self.url, {"is_active": active}, format="json")
+        self.assertEqual(res.status_code, status.HTTP_200_OK, res.data)
+        self.assertEqual(res.data["is_active"], active)
+
+    def test_edits_restaurant_and_manager_login(self):
+        res = self.admin.patch(self.url, {
+            "city": "Lahore",
+            "manager": {"first_name": "Ali", "email": "new@karachigrill.pk", "password": "NewPass#123"},
+        }, format="json")
+        self.assertEqual(res.status_code, status.HTTP_200_OK, res.data)
+        self.assertEqual(res.data["city"], "Lahore")
+        self.assertEqual(res.data["manager"]["email"], "new@karachigrill.pk")
+
+        self.manager.refresh_from_db()
+        self.assertTrue(self.manager.check_password("NewPass#123"))
+        self.assertEqual(self.manager.profile.first_name, "Ali")
+
+    def test_rename_redraws_table_qr_codes_with_the_same_key(self):
+        table = Table.objects.create(restaurant=self.restaurant, table_number=1)
+        old_image, key = table.qr_code.name, table.qr_key
+
+        res = self.admin.patch(self.url, {"name": "Karachi Grill & BBQ"}, format="json")
+        self.assertEqual(res.status_code, status.HTTP_200_OK, res.data)
+        table.refresh_from_db()
+        self.assertNotEqual(table.qr_code.name, old_image)
+        self.assertEqual(table.qr_key, key)
+
+    def test_uploads_logo_shown_on_public_restaurant_list(self):
+        buffer = io.BytesIO()
+        Image.new("RGB", (40, 40), "orange").save(buffer, format="PNG")
+        logo = SimpleUploadedFile("logo.png", buffer.getvalue(), content_type="image/png")
+
+        res = self.admin.patch(self.url, {"logo": logo}, format="multipart")
+        self.assertEqual(res.status_code, status.HTTP_200_OK, res.data)
+        self.assertIn("/media/restaurant_logos/", res.data["logo"])
+        public = APIClient().get("/api/restaurants/restaurants/").data
+        self.assertEqual(public[0]["logo"], res.data["logo"])
+
+    def test_manager_email_must_be_unique(self):
+        res = self.admin.patch(self.url, {"manager": {"email": "SARA@example.com"}}, format="json")
+        self.assertEqual(res.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("email", res.data["manager"])
+
+    def test_disabling_locks_out_staff_and_guests_until_enabled(self):
+        tokens = self.login("sara").data
+        api = APIClient()
+        api.credentials(HTTP_AUTHORIZATION=f"Bearer {tokens['access']}")
+        self.assertEqual(api.get(ME_URL).status_code, status.HTTP_200_OK)
+
+        self.set_active(False)
+        for username in ("ali", "sara"):
+            res = self.login(username)
+            self.assertEqual(res.status_code, status.HTTP_401_UNAUTHORIZED)
+            self.assertIn("disabled", str(res.data["detail"]))
+        self.assertEqual(api.get(ME_URL).status_code, status.HTTP_401_UNAUTHORIZED)
+        refresh = APIClient().post(REFRESH_URL, {"refresh": tokens["refresh"]}, format="json")
+        self.assertEqual(refresh.status_code, status.HTTP_401_UNAUTHORIZED)
+        self.assertEqual(APIClient().get(f"/api/restaurants/restaurants/{self.restaurant.id}/menus/").status_code, 404)
+        self.assertEqual(self.admin.get(ONBOARD_URL).data[0]["is_active"], False)
+
+        self.set_active(True)
+        self.assertEqual(self.login("ali").status_code, status.HTTP_200_OK)
+        self.assertEqual(api.get(ME_URL).status_code, status.HTTP_200_OK)
+
+    def test_wrong_password_on_disabled_restaurant_keeps_generic_error(self):
+        self.set_active(False)
+        res = APIClient().post(LOGIN_URL, {"email": "ali@example.com", "password": "wrong"}, format="json")
+        self.assertEqual(res.status_code, status.HTTP_401_UNAUTHORIZED)
+        self.assertNotIn("disabled", str(res.data["detail"]))

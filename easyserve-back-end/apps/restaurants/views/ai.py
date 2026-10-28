@@ -43,14 +43,14 @@ class RestaurantTopSuggestionsView(APIView):
         restaurants = sorted(list(qs), key=lambda r: order_index.get(r.id, 10**9))
 
         if not include_scores:
-            data = TopRestaurantSerializer(restaurants, many=True).data
+            data = TopRestaurantSerializer(restaurants, many=True, context={"request": request}).data
             return Response(data)
 
         # Attach scores
         rating_pairs = dict(load_restaurant_ratings())
         data = [
             {
-                "restaurant": TopRestaurantSerializer(r).data,
+                "restaurant": TopRestaurantSerializer(r, context={"request": request}).data,
                 "avg_rating": round(float(rating_pairs.get(r.id, 0.0)), 3),
             }
             for r in restaurants

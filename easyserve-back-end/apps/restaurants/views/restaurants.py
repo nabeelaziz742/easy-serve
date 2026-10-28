@@ -22,6 +22,12 @@ class RestaurantViewSet(ModelViewSet):
     serializer_class = RestaurantSerializer
     pagination_class = None  # Disable pagination for this ViewSet
 
+    def get_queryset(self):
+        # Disabled restaurants are visible to the super admin only.
+        if getattr(self.request.user, "user_type", None) == "super_admin":
+            return self.queryset
+        return self.queryset.exclude(is_active=False)
+
     def get_permissions(self):
         if self.action in ['list', 'retrieve']:
             return [AllowAny()]

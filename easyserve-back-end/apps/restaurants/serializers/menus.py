@@ -50,6 +50,7 @@ class RestaurantSerializer(serializers.ModelSerializer):
             'address',
             'phone_number',
             'email',
+            'logo',
             'images',
             'image',
             'owners',
@@ -118,6 +119,7 @@ class TopRestaurantSerializer(serializers.ModelSerializer):
             'description',
             'address',
             'phone_number',
+            'logo',
         ]
         read_only_fields = ['id']
 

@@ -1,4 +1,7 @@
+from rest_framework.exceptions import AuthenticationFailed
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
+
+from utils.authentication import RESTAURANT_DISABLED_MESSAGE, works_for_disabled_restaurant
 
 class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
     @classmethod
@@ -9,7 +12,14 @@ class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
         return token
 
     def validate(self, attrs):
-        data = super().validate(attrs)
+        try:
+            data = super().validate(attrs)
+        except AuthenticationFailed:
+            # Right password but the restaurant is disabled: say so instead
+            # of the generic "no active account" message.
+            if self.user and works_for_disabled_restaurant(self.user):
+                raise AuthenticationFailed(RESTAURANT_DISABLED_MESSAGE, code="restaurant_disabled")
+            raise
         user = self.user
 
         # Add user type in response
