@@ -22,6 +22,10 @@ from apps.restaurants.views.restaurant_settings import (
     RestaurantSettingsAPIView, RestaurantBillingInfoAPIView, OrderReceiptAPIView,
 )
 from apps.restaurants.views.order_management import ManagerOrderListAPIView, CancelOrderAPIView
+from apps.restaurants.views.reservations import (
+    ReservationSlotsAPIView, GuestReservationAPIView,
+    ManagerReservationListAPIView, ManagerReservationActionAPIView, ManagerReservationReminderAPIView,
+)
 from apps.restaurants.views.service_requests import (
     GuestServiceRequestAPIView, StaffServiceRequestListAPIView, ResolveServiceRequestAPIView,
 )
@@ -59,6 +63,11 @@ urlpatterns = [
     path('orders/waiter/', WaiterOrderListAPIView.as_view(), name='waiter-order-list'),
     path('reservations/', ReservationListCreateAPIView.as_view(), name='reservation-list-create'),
     path('reservations/<int:pk>/', ReservationDetailAPIView.as_view(), name='reservation-detail'),
+    path('reservations/code/<str:code>/', GuestReservationAPIView.as_view(), name='reservation-by-code'),
+    path('restaurants/<int:restaurant_id>/reservation-slots/', ReservationSlotsAPIView.as_view(), name='reservation-slots'),
+    path('manager/reservations/', ManagerReservationListAPIView.as_view(), name='manager-reservations'),
+    path('manager/reservations/<int:pk>/remind/', ManagerReservationReminderAPIView.as_view(), name='manager-reservation-remind'),
+    path('manager/reservations/<int:pk>/<str:action>/', ManagerReservationActionAPIView.as_view(), name='manager-reservation-action'),
     path('orders/pending/', PendingOrderListAPIView.as_view(), name='pending-orders'),
     path('orders/<int:order_id>/accept/', WaiterAcceptOrderAPIView.as_view(), name='accept-order'),
     path('orders/<int:order_id>/assign-chef/', AssignChefAPIView.as_view(), name='assign-chef'),
@@ -76,4 +85,4 @@ urlpatterns = [
     path('dine-in/service-requests/', GuestServiceRequestAPIView.as_view(), name='guest-service-requests'),
     path('service-requests/', StaffServiceRequestListAPIView.as_view(), name='service-requests'),
     path('service-requests/<int:pk>/resolve/', ResolveServiceRequestAPIView.as_view(), name='resolve-service-request'),
-]
+]

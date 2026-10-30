@@ -33,7 +33,9 @@ export default function TablesPage() {
 
   const BUSY_STATUSES = ["OCCUPIED", "ORDER_PLACED", "PREPARING", "READY", "SERVED", "PAYMENT_PENDING"];
   const occupiedCount = tables.filter((t) => BUSY_STATUSES.includes(t.status)).length;
-  const availableCount = tables.filter((t) => t.status === "EMPTY").length;
+  const availableCount = tables.filter((t) => t.status === "EMPTY" && !t.reservation?.held).length;
+  const reservedCount = tables.filter((t) => t.status === "EMPTY" && t.reservation?.held).length;
+  const bookedCount = tables.filter((t) => t.reservation && !t.reservation.held).length;
 
   return (
     <div className="space-y-6">
@@ -71,6 +73,16 @@ export default function TablesPage() {
             <span className="rounded-lg border border-yellow-300 bg-yellow-50 px-2.5 py-1 text-yellow-900">
               {occupiedCount} Occupied
             </span>
+            {reservedCount > 0 && (
+              <span className="rounded-lg border border-purple-200 bg-purple-50 px-2.5 py-1 text-purple-800">
+                {reservedCount} Reserved
+              </span>
+            )}
+            {bookedCount > 0 && (
+              <span className="rounded-lg border border-indigo-200 bg-indigo-50 px-2.5 py-1 text-indigo-800">
+                {bookedCount} Booked today
+              </span>
+            )}
             <span className="rounded-lg bg-gray-100 px-2.5 py-1 text-gray-700">
               {tables.length} Total
             </span>
@@ -99,4 +111,4 @@ export default function TablesPage() {
       </motion.div>
     </div>
   );
-}
+}

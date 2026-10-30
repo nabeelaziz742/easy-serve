@@ -18,6 +18,7 @@ import {
   Menu,
   X,
   LayoutDashboard,
+  CalendarCheck,
 } from "lucide-react";
 
 export function Header() {
@@ -145,6 +146,11 @@ export function Header() {
             Orders
           </Link>
 
+          <Link href="/reservations" className="flex items-center gap-2 transition-all duration-300 hover:text-yellow-300">
+            <CalendarCheck size={18} />
+            Bookings
+          </Link>
+
           {authReady && !isLoggedIn && !onAuthPage && (
             <>
               <Link
@@ -260,6 +266,11 @@ export function Header() {
               Orders
             </Link>
 
+            <Link href="/reservations" className="flex items-center gap-3 rounded-2xl bg-white/5 px-4 py-3 transition-all duration-300 hover:bg-white/10 hover:text-yellow-300">
+              <CalendarCheck size={18} />
+              Bookings
+            </Link>
+
             {authReady && !isLoggedIn && !onAuthPage && (
               <>
                 <Link href="/auth/register" className="flex items-center gap-3 rounded-2xl bg-white/5 px-4 py-3 transition-all duration-300 hover:bg-white/10 hover:text-yellow-300">
@@ -303,4 +314,4 @@ export function Header() {
 
     </header>
   );
-}
+}

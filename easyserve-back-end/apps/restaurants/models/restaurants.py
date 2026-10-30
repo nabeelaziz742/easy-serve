@@ -40,8 +40,22 @@ class Restaurant(AbstractTimeStampModel):
     tax_number = models.CharField(max_length=50, blank=True, default="")
     receipt_footer = models.CharField(max_length=255, blank=True, default="")
 
+    # Table booking settings, also managed from the manager Settings page.
+    reservation_slot_minutes = models.PositiveSmallIntegerField(default=30)
+    reservation_max_guests = models.PositiveSmallIntegerField(default=10)
+    reservation_auto_confirm = models.BooleanField(default=False)
+
     def __str__(self):
         return self.name
+
+    def set_daily_hours(self, open_time, close_time):
+        """One opening/closing time for the whole week. Days the manager
+        marked closed stay closed; a restaurant with no hours opens daily."""
+        if not self.hours.update(open_time=open_time, close_time=close_time):
+            RestaurantHour.objects.bulk_create(
+                RestaurantHour(restaurant=self, day_of_week=day, open_time=open_time, close_time=close_time)
+                for day in range(7)
+            )
 
     def bill_breakdown(self, subtotal, order_type=None):
         """Tax and service charge for an item subtotal, rounded to paisa.
@@ -71,6 +85,9 @@ class RestaurantHour(models.Model):
     day_of_week = models.IntegerField()  # 0=Mon … 6=Sun
     open_time = models.TimeField()
     close_time = models.TimeField()
+
+    class Meta:
+        ordering = ["day_of_week", "open_time"]
 
 class RestaurantImage(AbstractTimeStampModel):
     """

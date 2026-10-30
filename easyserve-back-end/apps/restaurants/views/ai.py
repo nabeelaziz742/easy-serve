@@ -36,7 +36,7 @@ class RestaurantTopSuggestionsView(APIView):
 
         ids: List[int] = top_restaurant_ids(n)
         # Fetch active restaurants by those IDs
-        qs = TopRestaurantSerializer.Meta.model.objects.filter(id__in=ids, is_active=True)
+        qs = TopRestaurantSerializer.Meta.model.objects.filter(id__in=ids, is_active=True).prefetch_related("hours")
 
         # Preserve order by rating rank
         order_index = {rid: idx for idx, rid in enumerate(ids)}

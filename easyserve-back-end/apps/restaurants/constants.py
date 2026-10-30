@@ -66,6 +66,7 @@ class ReservationStatus(models.IntegerChoices):
     CANCELLED = 4, "Cancelled"
     COMPLETED = 5, "Completed"
     NO_SHOW = 6, "No Show"
+    REJECTED = 7, "Rejected"
 
     @classmethod
     def model_choices(cls):

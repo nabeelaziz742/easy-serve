@@ -3,7 +3,7 @@ from django.db import transaction
 from django.db.models import Q
 from django.utils import timezone
 
-from apps.restaurants.constants import DineInSessionStatus, TableState, PaymentStatus, OrderStatus
+from apps.restaurants.constants import DineInSessionStatus, TableState, PaymentStatus, OrderStatus, ReservationStatus
 from apps.restaurants.models import DineInSession
 
 # A table scanned and seated but with no order yet stays reserved for the
@@ -116,6 +116,10 @@ def release_table_after_payment(order):
         )
         for session in sessions:
             session.close()
+            # The booked visit is over once its bill is paid.
+            session.reservations.filter(status=ReservationStatus.SEATED.value).update(
+                status=ReservationStatus.COMPLETED.value, updated_at=timezone.now()
+            )
 
         table.table_state = TableState.EMPTY.value
         table.customer_count = 0

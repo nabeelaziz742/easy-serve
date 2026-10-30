@@ -9,6 +9,10 @@ import TableServiceBar from "@/components/dineIn/TableServiceBar";
 import { isStaffPath } from "@/components/layout/staffNav";
 import useStaffAreaLock from "@/hooks/useStaffAreaLock";
 
+// Pages a guest seated at a table uses: menu, item, orders. The waiter/bill
+// buttons stay off everything else (login, home, reservations...).
+const TABLE_SERVICE_PAGES = ["/restaurant/", "/item/", "/dine-in", "/orders"];
+
 export default function LayoutClient({ children }) {
   const pathname = usePathname() || "";
   const signingOutStaff = useStaffAreaLock();
@@ -18,6 +22,7 @@ export default function LayoutClient({ children }) {
   const isStaff = isStaffPath(pathname);
   // Restaurant pages mount their own menu-aware assistant.
   const showChatbot = !isStaff && !pathname.startsWith("/restaurant/");
+  const showTableService = TABLE_SERVICE_PAGES.some((page) => pathname.startsWith(page));
 
   // A staff member who typed a public URL is being signed out; show nothing
   // of the public site meanwhile.
@@ -33,7 +38,7 @@ export default function LayoutClient({ children }) {
       <Footer />
       <CartDrawer />
       {showChatbot && <AIChatbot />}
-      <TableServiceBar />
+      {showTableService && <TableServiceBar />}
     </>
   );
 }

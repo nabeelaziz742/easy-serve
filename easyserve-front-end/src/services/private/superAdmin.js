@@ -7,6 +7,11 @@ export const superAdminApi = privateAPi.enhanceEndpoints({ addTagTypes: ["Restau
       query: () => "/superadmin/restaurants/",
       providesTags: ["Restaurants"],
     }),
+    // Every manager login and the restaurant it runs.
+    getManagers: build.query({
+      query: () => "/superadmin/managers/",
+      providesTags: ["Restaurants"],
+    }),
     getRestaurant: build.query({
       query: (id) => `/superadmin/restaurants/${id}/`,
       providesTags: ["Restaurants"],
@@ -37,6 +42,7 @@ export const superAdminApi = privateAPi.enhanceEndpoints({ addTagTypes: ["Restau
 export const {
   useGetRestaurantsQuery,
   useGetRestaurantQuery,
+  useGetManagersQuery,
   useUpdateRestaurantMutation,
   useOnboardRestaurantMutation,
   useUploadRestaurantLogoMutation,

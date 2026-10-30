@@ -183,6 +183,8 @@ export const privateAPi = createApi({
     'ManagerCashOrders',
     'ManagerOrders',
     'ServiceRequests',
+    'Reservations',
+    'ManagerReservations',
     'reviews',
     'tables',
     'getOrders',

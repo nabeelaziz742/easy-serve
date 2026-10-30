@@ -5,6 +5,7 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from apps.restaurants.constants import DineInSessionStatus, TableState
+from apps.restaurants.services.reservations import check_in_booking, checked_in_summary
 from apps.restaurants.services.table_access import get_scanned_table, read_scan
 from apps.restaurants.services.table_lifecycle import clean_and_get_active_session
 from apps.restaurants.models import DineInSession, Table
@@ -43,6 +44,7 @@ class DineInStartSessionAPIView(APIView):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
+        booking = None
         with transaction.atomic():
             table = get_scanned_table(*scan, queryset=Table.objects.select_for_update())
             restaurant = table.restaurant
@@ -106,6 +108,11 @@ class DineInStartSessionAPIView(APIView):
                 table.customer_count = guests
                 table.save(update_fields=["table_state", "customer_count", "updated_at"])
 
+            # A guest with a booking checks in by scanning: the booking turns
+            # Arrived and this visit's orders belong to it.
+            if not active_session.reservations.exists():
+                booking = check_in_booking(active_session)
+
         return Response(
             {
                 "active_session": True,
@@ -123,6 +130,7 @@ class DineInStartSessionAPIView(APIView):
                     "state": table.get_table_state_display(),
                     "customer_count": table.customer_count,
                 },
+                "reservation": checked_in_summary(booking),
             },
             status=status.HTTP_200_OK,
         )

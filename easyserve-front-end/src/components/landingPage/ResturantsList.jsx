@@ -1,11 +1,12 @@
 "use client";
 
-import React, { Suspense } from "react";
+import React, { Suspense, useState } from "react";
 import {
   MapPin,
   Phone,
   Utensils,
   Star,
+  CalendarCheck,
 } from "lucide-react";
 
 import { motion } from "framer-motion";
@@ -20,6 +21,8 @@ import {
 // ===================== RESTAURANT CARD =====================
 
 import EmptyState from "@/components/feedback/EmptyState";
+import { openingStatus } from "@/utilities/openingHours";
+import ReservationDialog from "@/components/reservations/ReservationDialog";
 import Skeleton from "react-loading-skeleton";
 import "react-loading-skeleton/dist/skeleton.css";
 
@@ -49,13 +52,16 @@ const RestaurantCard = ({
   address,
   phone,
   logo,
+  hours,
   rating = 4.5,
   deliveryTime = "25–35 min",
   badge = "Recommended",
   isReservationMode,
+  onReserve,
 }) => {
 
   const router = useRouter();
+  const status = openingStatus(hours);
 
   return (
     <motion.div
@@ -66,7 +72,7 @@ const RestaurantCard = ({
       className="group relative flex cursor-pointer flex-col overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm transition-shadow duration-300 hover:shadow-xl"
       onClick={() => {
         if (isReservationMode) {
-          router.push(`/reservation?restaurant=${id}`);
+          onReserve({ id, name, logo, hours });
         } else {
           router.push(`/restaurant/${id}`);
         }
@@ -100,7 +106,13 @@ const RestaurantCard = ({
                 {rating}
               </span>
               <span className="text-gray-400">•</span>
-              <span className="whitespace-nowrap font-medium text-gray-500">{deliveryTime}</span>
+              {status ? (
+                <span className={`whitespace-nowrap font-semibold ${status.open ? "text-emerald-700" : "text-red-600"}`}>
+                  {status.label}
+                </span>
+              ) : (
+                <span className="whitespace-nowrap font-medium text-gray-500">{deliveryTime}</span>
+              )}
             </div>
           </div>
         </div>
@@ -126,28 +138,46 @@ const RestaurantCard = ({
         </div>
 
         {/* Button */}
-        <button className="mt-4 w-full rounded-xl bg-green-900 py-2 text-sm font-semibold text-white transition-colors duration-300 hover:bg-green-800">
-          {isReservationMode
-            ? "Select Restaurant"
-            : "View Menu"}
-        </button>
+        <div className="mt-4 flex gap-2">
+          <button className="flex-1 rounded-xl bg-green-900 py-2 text-sm font-semibold text-white transition-colors duration-300 hover:bg-green-800">
+            {isReservationMode ? "Book a Table" : "View Menu"}
+          </button>
+          {!isReservationMode && (
+            <button
+              type="button"
+              title="Book a table"
+              onClick={(event) => {
+                event.stopPropagation();
+                onReserve({ id, name, logo, hours });
+              }}
+              className="inline-flex items-center gap-1.5 rounded-xl border border-yellow-400 bg-yellow-50 px-3 text-xs font-bold text-yellow-900 transition-colors hover:bg-yellow-100"
+            >
+              <CalendarCheck className="h-4 w-4" /> Book
+            </button>
+          )}
+        </div>
 
       </div>
     </motion.div>
   );
 };
 
+// Re-check the lists so a restaurant the super admin disables (or enables)
+// drops off (or appears) without a page refresh.
+const LIVE = { pollingInterval: 10000, refetchOnFocus: true, refetchOnReconnect: true };
+
 function RestaurantsListContent() {
 
   const { data: allRestaurants, isLoading: restaurantsLoading } =
-    useGetRestaurantsQuery();
+    useGetRestaurantsQuery(undefined, LIVE);
 
   const {
     data: aiSuggestions,
     isLoading: aiLoading,
-  } = useGetTopAISuggestionsQuery();
+  } = useGetTopAISuggestionsQuery(undefined, LIVE);
 
   const searchParams = useSearchParams();
+  const [bookingFor, setBookingFor] = useState(null);
 
   const isReservationMode =
     searchParams.get("mode") === "reservation";
@@ -167,6 +197,7 @@ function RestaurantsListContent() {
 
   return (
     <section id="restaurants" className="bg-gradient-to-b from-gray-50 to-white py-24 scroll-mt-12">
+      <ReservationDialog restaurant={bookingFor} onClose={() => setBookingFor(null)} />
 
       <div className="mx-auto max-w-7xl px-5">
 
@@ -264,7 +295,7 @@ function RestaurantsListContent() {
                 <span className="font-semibold">
                   Confirmation:
                 </span>{" "}
-                Instant booking confirmation
+                Booking number at once, the restaurant confirms it
               </div>
 
               <div className="rounded-xl bg-white p-4">
@@ -316,10 +347,12 @@ function RestaurantsListContent() {
         address={item.restaurant.address}
         phone={item.restaurant.phone_number}
         logo={item.restaurant.logo}
+        hours={item.restaurant.hours}
         rating={item.avg_rating?.toFixed(1)}
         deliveryTime={`${20 + index * 2}-${30 + index * 2} min`}
         badge="AI Recommended"
         isReservationMode={isReservationMode}
+        onReserve={setBookingFor}
       />
 
     ))}
@@ -369,6 +402,7 @@ function RestaurantsListContent() {
                 id={restaurant.id}
                 phone={restaurant.phone_number}
                 logo={restaurant.logo}
+                hours={restaurant.hours}
                 address={restaurant.address}
                 name={restaurant.name}
                 description={restaurant.description}
@@ -382,6 +416,7 @@ function RestaurantsListContent() {
                     : "Recommended"
                 }
                 isReservationMode={isReservationMode}
+        onReserve={setBookingFor}
               />
 
             ))}

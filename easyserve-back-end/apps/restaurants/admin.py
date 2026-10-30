@@ -91,8 +91,8 @@ class TableAdmin(admin.ModelAdmin):
 
 @admin.register(Reservation)
 class ReservationAdmin(admin.ModelAdmin):
-    list_display = ('restaurant', 'id', 'user', 'table', 'reservation_time', 'guest_count', 'status')
-    search_fields = ('restaurant__name', 'user__user__username', 'table__table_number')
+    list_display = ('restaurant', 'id', 'booking_code', 'name', 'table', 'reservation_time', 'guest_count', 'status')
+    search_fields = ('restaurant__name', 'booking_code', 'name', 'phone', 'user__user__username', 'table__table_number')
     list_filter = ('status', 'reservation_time')
     ordering = ('-reservation_time',)
 

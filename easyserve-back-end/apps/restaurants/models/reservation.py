@@ -9,6 +9,11 @@ from coresite.mixin import AbstractTimeStampModel
 
 
 class Reservation(AbstractTimeStampModel):
+    class Occasion(models.TextChoices):
+        NONE = "", "None"
+        BIRTHDAY = "birthday", "Birthday"
+        ANNIVERSARY = "anniversary", "Anniversary"
+
     restaurant = models.ForeignKey(
         Restaurant,
         on_delete=models.CASCADE,
@@ -34,6 +39,22 @@ class Reservation(AbstractTimeStampModel):
     name = models.CharField(max_length=120, blank=True)
     phone = models.CharField(max_length=20, blank=True)
     notes = models.TextField(blank=True)
+    occasion = models.CharField(max_length=20, choices=Occasion.choices, blank=True, default="")
+
+    # Short code the guest quotes to find or cancel a booking. Walk-in rows
+    # created when a table is seated have none, which is how booking lists
+    # tell real reservations apart from them.
+    booking_code = models.CharField(max_length=12, unique=True, null=True, blank=True, editable=False)
+
+    # Set when the guest scans the table QR and the booking checks in, so
+    # the orders of that table visit belong to the booking.
+    dine_in_session = models.ForeignKey(
+        "restaurants.DineInSession",
+        on_delete=models.SET_NULL,
+        null=True, blank=True,
+        related_name='reservations'
+    )
+    reminder_sent_at = models.DateTimeField(null=True, blank=True)
 
     status = models.PositiveSmallIntegerField(
         choices=ReservationStatus.model_choices(),
@@ -44,6 +65,7 @@ class Reservation(AbstractTimeStampModel):
     VALID_TRANSITIONS = {
         ReservationStatus.PENDING: {
             ReservationStatus.CONFIRMED,
+            ReservationStatus.REJECTED,
             ReservationStatus.CANCELLED,
         },
         ReservationStatus.CONFIRMED: {

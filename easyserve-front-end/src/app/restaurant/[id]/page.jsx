@@ -5,16 +5,18 @@ import { useDispatch, useSelector } from "react-redux";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { motion } from "framer-motion";
 import { toast } from "sonner";
-import { Utensils, MapPin, Users, Sparkles, Phone } from "lucide-react";
+import { Utensils, MapPin, Users, Sparkles, Phone, Clock, CalendarCheck } from "lucide-react";
 
 import { MenuItemCard } from "@/components/landingPage/MenuItemCard";
 import AIChatbot from "@/components/Aichatbot";
-import { useGetRestaurantMenusQuery } from "@/services/public/resturants";
+import { useGetRestaurantMenusQuery, useGetRestaurantQuery } from "@/services/public/resturants";
 import { useValidateTableMutation } from "@/services/public/dineIn";
 import { setDineInContext } from "@/store/slices/dineInSlice";
 import { onBecameGuest } from "@/store/slices/authSlice";
 import { readSession } from "@/utilities/authStorage";
 import { clearSavedDineIn, readSavedDineIn } from "@/utilities/dineInStorage";
+import { openingStatus } from "@/utilities/openingHours";
+import ReservationDialog from "@/components/reservations/ReservationDialog";
 
 function Restaurant() {
   const param = useParams();
@@ -30,6 +32,7 @@ function Restaurant() {
   // initializer produced different server/client markup and caused hydration
   // errors on QR dine-in pages.
   const [restoringDineIn, setRestoringDineIn] = useState(false);
+  const [booking, setBooking] = useState(false);
 
   const qrTable = searchParams.get("table");
   // The table's secret from the printed QR. Without it the backend will
@@ -131,8 +134,18 @@ function Restaurant() {
     skip: !param.id || (dineIn?.active && hasDineInMenus),
   });
 
-  const restaurant = dineIn?.active ? dineIn.restaurant : data?.restaurant;
+  // Polled so the page closes by itself when the super admin disables the
+  // restaurant (the API then answers 404), for dine-in guests too.
+  const { error: availabilityError } = useGetRestaurantQuery(param.id, {
+    skip: !param.id,
+    pollingInterval: 10000,
+    refetchOnFocus: true,
+  });
+  const disabled = availabilityError?.status === 404;
+
+  const restaurant = disabled ? null : dineIn?.active ? dineIn.restaurant : data?.restaurant;
   const menus = hasDineInMenus ? dineIn.menus : data?.menus;
+  const openStatus = openingStatus(restaurant?.hours);
 
   if (validatingQrTable || restoringDineIn) {
     return (
@@ -149,7 +162,7 @@ function Restaurant() {
   }
 
   if (!restaurant) {
-    if (menuError) {
+    if (menuError || disabled) {
       return (
         <div className="flex min-h-[60vh] items-center justify-center px-4">
           <div className="saas-card w-full max-w-md p-6 text-center shadow-md">
@@ -222,9 +235,33 @@ function Restaurant() {
                   <span>{restaurant.address}</span>
                 </div>
               )}
+
+              {openStatus && (
+                <div className="mt-2 flex items-center gap-2 text-xs">
+                  <Clock className="h-3.5 w-3.5 text-yellow-600" />
+                  <span className={`font-semibold ${openStatus.open ? "text-emerald-700" : "text-red-600"}`}>
+                    {openStatus.label}
+                  </span>
+                </div>
+              )}
             </div>
+
+            {!dineIn.active && (
+              <button
+                type="button"
+                onClick={() => setBooking(true)}
+                className="inline-flex shrink-0 items-center justify-center gap-2 rounded-xl bg-yellow-400 px-5 py-3 text-sm font-bold text-black shadow-lg shadow-yellow-500/20 transition hover:bg-yellow-300"
+              >
+                <CalendarCheck className="h-4 w-4" /> Book a Table
+              </button>
+            )}
           </div>
         </motion.div>
+
+        <ReservationDialog
+          restaurant={booking ? { ...restaurant, id: restaurant.id ?? Number(param.id) } : null}
+          onClose={() => setBooking(false)}
+        />
 
         {/* Menu Sections */}
         {menus?.map((menu) => (

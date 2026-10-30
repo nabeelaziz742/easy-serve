@@ -1,5 +1,6 @@
 from apps.dashboard.repositories import TableRepository
 from apps.restaurants.constants import TableState
+from apps.restaurants.services.reservations import upcoming_bookings_by_table
 from apps.restaurants.services.table_lifecycle import clean_and_get_active_session
 
 
@@ -10,6 +11,7 @@ class TableService:
         tables_data = []
 
         tables = TableRepository.get_all_tables(restaurant_id)
+        reserved = upcoming_bookings_by_table(restaurant_id)
 
         for table in tables:
             # The shared lifecycle decides whether the table is in use and
@@ -36,6 +38,7 @@ class TableService:
                 "orderId": None,
                 "customer_name": None,
                 "review": None,
+                "reservation": reserved.get(table.id),
             }
 
             if order and status != TableState.EMPTY.name:

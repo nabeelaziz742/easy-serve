@@ -1,6 +1,6 @@
 from rest_framework import serializers
 
-from apps.restaurants.models import Menu, MenuItem, MenuItemIngredient, RestaurantImage, Restaurant
+from apps.restaurants.models import Menu, MenuItem, MenuItemIngredient, RestaurantHour, RestaurantImage, Restaurant
 from apps.restaurants.serializers.category import CategoryLiteSerializer
 from apps.userprofile.models import UserProfile
 
@@ -25,8 +25,15 @@ class RestaurantImageSerializer(serializers.ModelSerializer):
         fields = ['id', 'restaurant', 'image', 'is_primary']
         read_only_fields = ['id', 'restaurant']
 
+class OpeningHourSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = RestaurantHour
+        fields = ['day_of_week', 'open_time', 'close_time']
+
+
 class RestaurantSerializer(serializers.ModelSerializer):
     images = RestaurantImageSerializer(many=True, read_only=True)
+    hours = OpeningHourSerializer(many=True, read_only=True)
     image = serializers.ImageField(write_only=True, required=False)
     owners = serializers.PrimaryKeyRelatedField(
         many=True,
@@ -51,6 +58,7 @@ class RestaurantSerializer(serializers.ModelSerializer):
             'phone_number',
             'email',
             'logo',
+            'hours',
             'images',
             'image',
             'owners',
@@ -110,6 +118,7 @@ class RestaurantSerializer(serializers.ModelSerializer):
         return instance
 
 class TopRestaurantSerializer(serializers.ModelSerializer):
+    hours = OpeningHourSerializer(many=True, read_only=True)
 
     class Meta:
         model = Restaurant
@@ -120,6 +129,7 @@ class TopRestaurantSerializer(serializers.ModelSerializer):
             'address',
             'phone_number',
             'logo',
+            'hours',
         ]
         read_only_fields = ['id']
 
@@ -136,9 +146,11 @@ class RestaurantSerializerForMenu(serializers.ModelSerializer):
     """
     Lite serializer for Restaurant model.
     """
+    hours = OpeningHourSerializer(many=True, read_only=True)
+
     class Meta:
         model = Restaurant
-        fields = ['id', 'name', 'description', 'address', 'cuisine']
+        fields = ['id', 'name', 'description', 'address', 'cuisine', 'hours']
         read_only_fields = ['id']
 
 class MenuItemIngredientSerializer(serializers.ModelSerializer):

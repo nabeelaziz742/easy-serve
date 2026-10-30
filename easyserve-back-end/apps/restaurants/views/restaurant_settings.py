@@ -35,6 +35,8 @@ class RestaurantSettingsSerializer(serializers.ModelSerializer):
     service_charge_percent = serializers.DecimalField(
         max_digits=5, decimal_places=2, min_value=Decimal("0"), max_value=Decimal("100")
     )
+    reservation_slot_minutes = serializers.IntegerField(min_value=15, max_value=120, required=False)
+    reservation_max_guests = serializers.IntegerField(min_value=1, max_value=50, required=False)
 
     class Meta:
         model = Restaurant
@@ -43,6 +45,7 @@ class RestaurantSettingsSerializer(serializers.ModelSerializer):
             "phone_number", "email",
             "tax_label", "tax_percent", "service_charge_percent", "tax_number", "receipt_footer",
             "hours",
+            "reservation_slot_minutes", "reservation_max_guests", "reservation_auto_confirm",
         ]
         read_only_fields = ["id"]
 

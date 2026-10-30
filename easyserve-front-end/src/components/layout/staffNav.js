@@ -17,6 +17,7 @@ import {
   ReceiptText,
   Store,
   Plus,
+  CalendarClock,
 } from "lucide-react";
 
 // One menu for every staff role, so the manager, waiter and chef panels are
@@ -55,6 +56,7 @@ const MANAGER = [
     title: "Operations",
     items: [
       { href: "/manager/orders", label: "Orders & Bills", icon: ReceiptText },
+      { href: "/manager/reservations", label: "Reservations", icon: CalendarClock },
       { href: "/manager/menu", label: "Menu Items", icon: UtensilsCrossed },
       { href: "/manager/analytics", label: "Analytics", icon: BarChart3 },
     ],

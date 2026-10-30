@@ -2,7 +2,8 @@
 
 import { useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
-import { Users, User, Phone, Utensils, Sparkles, AlertTriangle } from "lucide-react";
+import { Users, User, Phone, Utensils, Sparkles, AlertTriangle, CalendarCheck } from "lucide-react";
+import { toast } from "sonner";
 import {
   setDineInGuests,
   setGuestInfo,
@@ -10,6 +11,7 @@ import {
 } from "@/store/slices/dineInSlice";
 import { useStartDineInSessionMutation } from "@/services/public/dineIn";
 import { DINE_IN_STORAGE_KEY } from "@/utilities/dineInStorage";
+import { formatTime } from "@/utilities/openingHours";
 
 export default function GuestSelector({ onContinue }) {
   const dispatch = useDispatch();
@@ -23,6 +25,13 @@ export default function GuestSelector({ onContinue }) {
   const recommendedMin = Math.max(1, capacity - 2);
   const recommendedMax = capacity;
   const isOverCapacity = Number(guests || 0) > capacity;
+  // A confirmed booking about to start at this table (from the QR check).
+  const booking = dineIn.active_session ? null : dineIn.booking;
+
+  const fillFromBooking = () => {
+    dispatch(setDineInGuests(Math.min(booking.guests, capacity)));
+    dispatch(setGuestInfo({ name: booking.name, phone: dineIn.phone }));
+  };
 
   const handleContinue = async () => {
     setError("");
@@ -70,6 +79,10 @@ export default function GuestSelector({ onContinue }) {
         JSON.stringify(persistedContext)
       );
 
+      if (response.reservation) {
+        toast.success(`Welcome, ${response.reservation.name}! Your booking is checked in.`);
+      }
+
       onContinue();
     } catch (err) {
       setError(
@@ -100,6 +113,29 @@ export default function GuestSelector({ onContinue }) {
           </span>
         </div>
       </div>
+
+      {booking && (
+        <div className="flex items-center gap-3 rounded-2xl border border-emerald-200 bg-emerald-50 p-3.5">
+          <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-emerald-600 text-white">
+            <CalendarCheck size={18} />
+          </span>
+          <div className="min-w-0 flex-1">
+            <p className="text-sm font-bold text-emerald-900">Booked for {booking.name}?</p>
+            <p className="text-xs text-emerald-700">
+              {booking.guests} guests at {formatTime(booking.time)}. Continue and your booking is checked in.
+            </p>
+          </div>
+          {guests !== Math.min(booking.guests, capacity) && (
+            <button
+              type="button"
+              onClick={fillFromBooking}
+              className="shrink-0 rounded-xl bg-emerald-600 px-3 py-2 text-xs font-bold text-white transition hover:bg-emerald-700"
+            >
+              That&apos;s me
+            </button>
+          )}
+        </div>
+      )}
 
       {/* Guest Count Selection */}
       <div>

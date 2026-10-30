@@ -13,8 +13,8 @@ const ACTIONS = [
 ];
 
 // Floating buttons for a guest seated through the table QR code: call the
-// waiter or ask for the bill without waving across the room. Shown only
-// while the browser holds a table session.
+// waiter or ask for the bill without waving across the room. Shown only on
+// the guest's table pages (see layoutClient) while the visit is active.
 export default function TableServiceBar() {
   const dineIn = useSelector((state) => state.dineIn);
   const [token, setToken] = useState(null);
@@ -32,8 +32,9 @@ export default function TableServiceBar() {
   });
   const [createRequest, { isLoading }] = useCreateTableRequestMutation();
 
-  // A token left over from a finished visit (bill paid, table closed).
-  if (!token || data?.active === false) return null;
+  // Wait for the server to confirm the visit: a token can be left over from
+  // a finished one (bill paid, table closed).
+  if (!token || data?.active !== true) return null;
 
   const openKinds = new Set((data?.results || []).map((request) => request.kind));
 

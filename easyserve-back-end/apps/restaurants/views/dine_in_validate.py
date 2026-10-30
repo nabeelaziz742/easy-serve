@@ -1,9 +1,11 @@
 from django.db.models import Prefetch
+from django.utils import timezone
 from rest_framework.permissions import AllowAny
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
 
+from apps.restaurants.services.reservations import booking_at_table
 from apps.restaurants.services.table_access import get_scanned_table, read_scan
 from apps.restaurants.services.table_lifecycle import clean_and_get_active_session
 from apps.restaurants.models import Table, Menu, MenuItem
@@ -69,6 +71,15 @@ class DineInValidateAPIView(APIView):
             ],
             "menus": MenuSerializer(menus, many=True).data,
         }
+
+        # Greet a guest whose booking is at this table and let them fill in
+        # their details from it.
+        booking = None if active_session else booking_at_table(table)
+        response["booking"] = (
+            {"name": booking.name, "guests": booking.guest_count, "time": timezone.localtime(booking.reservation_time).strftime("%H:%M")}
+            if booking
+            else None
+        )
 
         if active_session:
             response["session"] = {

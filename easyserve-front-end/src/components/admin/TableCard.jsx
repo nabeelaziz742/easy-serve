@@ -2,14 +2,18 @@
 
 import { useState } from "react";
 import { motion } from "framer-motion";
-import { Users, Clock, MessageSquare, Utensils, Star, QrCode } from "lucide-react";
+import { Users, Clock, MessageSquare, Utensils, Star, QrCode, CalendarClock } from "lucide-react";
 import ReviewModal from "./ReviewModal";
 import { cn } from "@/lib/utils";
 import { itemVariants, hoverLift } from "@/lib/motion";
 import { downloadTableQr } from "@/utilities/tableQr";
+import { formatTime } from "@/utilities/openingHours";
 
 export default function TableCard({ table }) {
-  const { number, status, customers, orderItems, orderTime, orderId } = table;
+  const { number, customers, orderItems, orderTime, orderId, reservation } = table;
+  // A free table with a confirmed booking about to start is held for it.
+  // A booking later today only marks it as booked.
+  const status = reservation?.held && table.status === "EMPTY" ? "RESERVED" : table.status;
   const [openReview, setOpenReview] = useState(false);
 
   const minutesAgo =
@@ -127,6 +131,22 @@ export default function TableCard({ table }) {
               {minutesAgo === null ? "No orders" : `${minutesAgo}m ago`}
             </span>
           </div>
+
+          {reservation && (
+            <p
+              className={cn(
+                "flex items-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-[11px] font-bold",
+                reservation.held
+                  ? "border-purple-200 bg-purple-50 text-purple-800"
+                  : "border-indigo-200 bg-indigo-50/60 text-indigo-800"
+              )}
+            >
+              <CalendarClock className="h-3.5 w-3.5 shrink-0" />
+              <span className="truncate">
+                {reservation.held ? "Reserved" : "Booked"} {formatTime(reservation.time)} · {reservation.name || "Guest"} ({reservation.guests})
+              </span>
+            </p>
+          )}
 
           {/* Active Orders List */}
           {(orderItems ?? []).length > 0 && (

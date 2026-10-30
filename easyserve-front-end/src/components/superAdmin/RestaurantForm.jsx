@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { toast } from "sonner";
-import { ImagePlus, Loader2, Store, Table2, UserCog, Utensils } from "lucide-react";
+import { Clock, ImagePlus, Loader2, Store, Table2, UserCog, Utensils } from "lucide-react";
 
 // "manager.username" style names map straight onto the API's nested payload.
 // createOnly fields are set once when the restaurant is added.
@@ -17,6 +17,14 @@ const SECTIONS = [
       { name: "phone_number", label: "Phone", type: "tel", placeholder: "0300 1234567" },
       { name: "cuisine", label: "Cuisine", placeholder: "BBQ", maxLength: 20 },
       { name: "email", label: "Email", type: "email", placeholder: "info@karachigrill.pk" },
+    ],
+  },
+  {
+    title: "Timings",
+    icon: Clock,
+    fields: [
+      { name: "open_time", label: "Opening time", type: "time", required: true, defaultValue: "12:00" },
+      { name: "close_time", label: "Closing time", type: "time", required: true, defaultValue: "23:00" },
     ],
   },
   {
@@ -164,7 +172,7 @@ export default function RestaurantForm({ initial, onSubmit, isLoading, submitLab
                 key={field.name}
                 error={errors[field.name]}
                 {...field}
-                defaultValue={initial ? valueAt(initial, field.name) : field.defaultValue}
+                defaultValue={(initial && valueAt(initial, field.name)) ?? field.defaultValue}
               />
             ))}
           </div>

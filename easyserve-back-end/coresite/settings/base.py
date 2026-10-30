@@ -148,6 +148,27 @@ FROM_EMAIL = env("EMAIL_FROM")
 REACT_DOMAIN = env("REACT_DOMAIN")
 
 # ==================================================
+# RESERVATION REMINDERS
+# ==================================================
+# Which service sends the same-day welcome reminder: "" (none, managers send
+# it from WhatsApp by hand), "whatsapp" (WhatsApp Cloud API), "twilio" (SMS),
+# "console" (prints it, for testing) or a dotted path to a sender class.
+RESERVATION_REMINDER_SENDER = env("RESERVATION_REMINDER_SENDER", default="")
+# Added to local numbers such as 0300 1234567 to make 923001234567.
+RESERVATION_PHONE_COUNTRY_CODE = env("RESERVATION_PHONE_COUNTRY_CODE", default="92")
+
+WHATSAPP_TOKEN = env("WHATSAPP_TOKEN", default="")
+WHATSAPP_PHONE_NUMBER_ID = env("WHATSAPP_PHONE_NUMBER_ID", default="")
+# Business-started WhatsApp messages need an approved template. Its body
+# takes five values: name, restaurant, time, guests and the cancel link.
+WHATSAPP_TEMPLATE = env("WHATSAPP_TEMPLATE", default="")
+WHATSAPP_TEMPLATE_LANGUAGE = env("WHATSAPP_TEMPLATE_LANGUAGE", default="en")
+
+TWILIO_ACCOUNT_SID = env("TWILIO_ACCOUNT_SID", default="")
+TWILIO_AUTH_TOKEN = env("TWILIO_AUTH_TOKEN", default="")
+TWILIO_FROM_NUMBER = env("TWILIO_FROM_NUMBER", default="")
+
+# ==================================================
 # REDIS / CHANNELS
 # ==================================================
 
@@ -264,4 +285,4 @@ LOGGING = {
 
 STRIPE_SECRET_KEY = env("STRIPE_SECRET_KEY", default="")
 STRIPE_PUBLISHABLE_KEY = env("STRIPE_PUBLISHABLE_KEY", default="")
-STRIPE_WEBHOOK_SECRET = env("STRIPE_WEBHOOK_SECRET", default="")
+STRIPE_WEBHOOK_SECRET = env("STRIPE_WEBHOOK_SECRET", default="")

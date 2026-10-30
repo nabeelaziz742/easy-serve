@@ -7,6 +7,7 @@ import PageHeader from "@/components/layout/PageHeader";
 import { Skeleton } from "@/components/ui/skeleton";
 import RestaurantForm from "@/components/superAdmin/RestaurantForm";
 import RestaurantStatusButton from "@/components/superAdmin/RestaurantStatusButton";
+import ChangeManager from "@/components/superAdmin/ChangeManager";
 import {
   useGetRestaurantQuery,
   useUpdateRestaurantMutation,
@@ -59,7 +60,17 @@ export default function EditRestaurantPage() {
       {isLoading || !restaurant ? (
         <Skeleton className="h-96 rounded-xl" />
       ) : (
-        <RestaurantForm initial={restaurant} isLoading={isSaving || isUploading} submitLabel="Save changes" onSubmit={save} />
+        <>
+          {/* Remount when the manager changes so the login fields show the new manager. */}
+          <RestaurantForm
+            key={restaurant.manager?.username ?? "no-manager"}
+            initial={restaurant}
+            isLoading={isSaving || isUploading}
+            submitLabel="Save changes"
+            onSubmit={save}
+          />
+          <ChangeManager restaurant={restaurant} />
+        </>
       )}
     </div>
   );

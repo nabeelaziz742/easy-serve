@@ -18,7 +18,7 @@ class RestaurantViewSet(ModelViewSet):
     """
     A ViewSet to list, create, retrieve, update, and delete restaurants.
     """
-    queryset = Restaurant.objects.all()
+    queryset = Restaurant.objects.prefetch_related('hours', 'images')
     serializer_class = RestaurantSerializer
     pagination_class = None  # Disable pagination for this ViewSet
 

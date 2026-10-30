@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { motion } from "framer-motion";
-import { Clock, Loader2, Percent, Receipt, Save, Settings, Store } from "lucide-react";
+import { CalendarClock, Clock, Loader2, Percent, Receipt, Save, Settings, Store } from "lucide-react";
 import { toast } from "sonner";
 import PageHeader from "@/components/layout/PageHeader";
 import ErrorState from "@/components/feedback/ErrorState";
@@ -20,6 +20,7 @@ const DAYS = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"
 const PROFILE_FIELDS = ["name", "cuisine", "description", "phone_number", "email", "address", "city", "country"];
 const BILLING_FIELDS = ["tax_label", "tax_percent", "service_charge_percent", "tax_number", "receipt_footer"];
 const SAMPLE_SUBTOTAL = 1000;
+const SLOT_OPTIONS = [15, 30, 45, 60, 90, 120];
 
 const hhmm = (t) => (t ? String(t).slice(0, 5) : "");
 
@@ -28,6 +29,9 @@ function toForm(data) {
   [...PROFILE_FIELDS, ...BILLING_FIELDS].forEach((key) => {
     form[key] = data?.[key] ?? "";
   });
+  form.reservation_slot_minutes = data?.reservation_slot_minutes ?? 30;
+  form.reservation_max_guests = data?.reservation_max_guests ?? 10;
+  form.reservation_auto_confirm = Boolean(data?.reservation_auto_confirm);
   const byDay = Object.fromEntries((data?.hours || []).map((h) => [h.day_of_week, h]));
   // A restaurant that never set hours starts with every day open.
   const noHoursYet = !data?.hours?.length;
@@ -46,6 +50,9 @@ function toPayload(form) {
   });
   payload.tax_percent = form.tax_percent === "" ? "0" : String(form.tax_percent);
   payload.service_charge_percent = form.service_charge_percent === "" ? "0" : String(form.service_charge_percent);
+  payload.reservation_slot_minutes = Number(form.reservation_slot_minutes);
+  payload.reservation_max_guests = Number(form.reservation_max_guests) || 1;
+  payload.reservation_auto_confirm = form.reservation_auto_confirm;
   payload.hours = form.hours
     .map((h, day) => ({ ...h, day_of_week: day }))
     .filter((h) => h.open)
@@ -127,7 +134,7 @@ export default function RestaurantSettingsPage() {
     <PageHeader
       icon={Settings}
       title="Settings"
-      description="Restaurant details, opening hours and how bills are calculated."
+      description="Restaurant details, opening hours, table bookings and how bills are calculated."
       actions={
         form && (
           <button
@@ -223,6 +230,37 @@ export default function RestaurantSettingsPage() {
               </div>
             );
           })}
+        </div>
+      </Section>
+
+      <Section icon={CalendarClock} title="Table bookings" description="Guests can book times inside your opening hours, up to an hour before closing.">
+        <div className="grid gap-3 sm:grid-cols-3">
+          <Field label="Time slot every">
+            <select
+              value={form.reservation_slot_minutes}
+              onChange={set("reservation_slot_minutes")}
+              className="h-9 w-full rounded-md border border-zinc-200 bg-white px-2 text-sm"
+            >
+              {SLOT_OPTIONS.map((m) => (
+                <option key={m} value={m}>{m} minutes</option>
+              ))}
+            </select>
+          </Field>
+          <Field label="Most guests in one online booking">
+            <Input type="number" min="1" max="50" value={form.reservation_max_guests} onChange={set("reservation_max_guests")} />
+          </Field>
+          <label className="flex cursor-pointer items-start gap-2 rounded-xl border border-zinc-200 p-3 text-sm sm:mt-5">
+            <input
+              type="checkbox"
+              checked={form.reservation_auto_confirm}
+              onChange={(e) => setForm((f) => ({ ...f, reservation_auto_confirm: e.target.checked }))}
+              className="mt-0.5 h-4 w-4 accent-green-800"
+            />
+            <span>
+              <span className="block font-semibold text-zinc-800">Confirm bookings automatically</span>
+              <span className="text-xs text-zinc-500">Off: you confirm each request on the Reservations page.</span>
+            </span>
+          </label>
         </div>
       </Section>
 

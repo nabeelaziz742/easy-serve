@@ -47,6 +47,8 @@ class RestaurantOnboardingTests(TestCase):
                 "email": "ali@karachigrill.pk", "password": "StrongPass#1",
             },
             "table_count": 12,
+            "open_time": "12:00",
+            "close_time": "23:30",
             **overrides,
         }
 
@@ -68,6 +70,7 @@ class RestaurantOnboardingTests(TestCase):
 
         self.assertEqual(list(restaurant.menus.values_list("name", flat=True)), ["Main Menu"])
 
+        self.assertEqual(restaurant.hours.count(), 7)
         tables = list(restaurant.tables.order_by("table_number"))
         self.assertEqual([t.table_number for t in tables], list(range(1, 13)))
         self.assertTrue(all(t.qr_code and t.qr_key for t in tables))
@@ -116,7 +119,7 @@ class RestaurantOnboardingTests(TestCase):
         self.client.post(ONBOARD_URL, self.payload(), format="json")
         Restaurant.objects.create(name="Lahore Tikka")
 
-        with self.assertNumQueries(2):  # restaurants (with table count), their managers
+        with self.assertNumQueries(3):  # restaurants (with table count), their managers, hours
             res = self.client.get(ONBOARD_URL)
         self.assertEqual(res.status_code, status.HTTP_200_OK)
         self.assertEqual([r["name"] for r in res.data], ["Lahore Tikka", "Karachi Grill"])
@@ -125,6 +128,7 @@ class RestaurantOnboardingTests(TestCase):
             "first_name": "Ali", "last_name": "Raza", "phone": "",
         })
         self.assertEqual(res.data[1]["table_count"], 12)
+        self.assertEqual((res.data[1]["open_time"], res.data[1]["close_time"]), ("12:00", "23:30"))
         self.assertIsNone(res.data[0]["manager"])
         self.assertEqual(res.data[0]["table_count"], 0)
 
@@ -195,6 +199,47 @@ class RestaurantEditAndDisableTests(TestCase):
         self.assertIn("/media/restaurant_logos/", res.data["logo"])
         public = APIClient().get("/api/restaurants/restaurants/").data
         self.assertEqual(public[0]["logo"], res.data["logo"])
+
+    def test_timings_update_every_open_day_and_keep_closed_days(self):
+        self.restaurant.set_daily_hours("12:00", "23:00")
+        self.restaurant.hours.filter(day_of_week=6).delete()  # manager closed Sundays
+
+        res = self.admin.patch(self.url, {"open_time": "10:00", "close_time": "22:00"}, format="json")
+        self.assertEqual(res.status_code, status.HTTP_200_OK, res.data)
+        self.assertEqual((res.data["open_time"], res.data["close_time"]), ("10:00", "22:00"))
+        hours = list(self.restaurant.hours.values_list("day_of_week", "open_time", "close_time"))
+        self.assertEqual([h[0] for h in hours], list(range(6)))
+        self.assertTrue(all(str(h[1]) == "10:00:00" and str(h[2]) == "22:00:00" for h in hours))
+        public = APIClient().get(f"/api/restaurants/restaurants/{self.restaurant.id}/").data
+        self.assertEqual(public["hours"][0]["open_time"], "10:00:00")
+
+    def test_both_times_are_needed(self):
+        res = self.admin.patch(self.url, {"open_time": "10:00"}, format="json")
+        self.assertEqual(res.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("close_time", res.data)
+
+    def test_change_manager_moves_an_existing_manager(self):
+        other = Restaurant.objects.create(name="Lahore Tikka")
+        moved = staff("manager", "bilal", other)
+
+        managers = self.admin.get("/api/superadmin/managers/").data
+        self.assertIn({"id": moved.id, "username": "bilal", "email": "bilal@example.com", "name": "bilal",
+                       "restaurant": {"id": other.id, "name": "Lahore Tikka"}}, managers)
+
+        res = self.admin.patch(self.url, {"manager_id": moved.id}, format="json")
+        self.assertEqual(res.status_code, status.HTTP_200_OK, res.data)
+        self.assertEqual(res.data["manager"]["username"], "bilal")
+        moved.profile.refresh_from_db()
+        self.manager.profile.refresh_from_db()
+        self.assertEqual(moved.profile.restaurant, self.restaurant)
+        self.assertIsNone(self.manager.profile.restaurant)  # old manager unlinked
+        self.assertEqual(self.waiter.profile.restaurant, self.restaurant)  # staff untouched
+        self.assertIsNone(self.admin.get(f"{ONBOARD_URL}{other.id}/").data["manager"])
+
+    def test_change_manager_only_accepts_manager_accounts(self):
+        res = self.admin.patch(self.url, {"manager_id": self.waiter.id}, format="json")
+        self.assertEqual(res.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("manager_id", res.data)
 
     def test_manager_email_must_be_unique(self):
         res = self.admin.patch(self.url, {"manager": {"email": "SARA@example.com"}}, format="json")

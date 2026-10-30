@@ -19,6 +19,7 @@ class TableSerializer(serializers.Serializer):
     orderId = serializers.IntegerField(allow_null=True)
     customer_name = serializers.CharField(allow_null=True)
     review = serializers.DictField(allow_null=True)
+    reservation = serializers.DictField(allow_null=True)
 
     def get_qrCode(self, table):
         request = self.context.get("request")

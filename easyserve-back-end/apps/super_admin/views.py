@@ -10,6 +10,7 @@ from utils.permissions import IsSuperAdmin
 from apps.restaurants.models import Restaurant, Orders
 from apps.restaurants.constants import PaymentStatus
 from apps.core.models.user import User
+from apps.userprofile.models import UserProfile
 from apps.super_admin.serializers import (
     RestaurantOnboardingSerializer, RestaurantUpdateSerializer, restaurants_with_summary,
 )
@@ -87,6 +88,24 @@ class RestaurantOnboardingAPIView(ListCreateAPIView):
 
     def get_queryset(self):
         return restaurants_with_summary()
+
+
+class ManagerListAPIView(APIView):
+    """Every manager login and the restaurant it runs, for "Change manager"."""
+    permission_classes = [IsSuperAdmin]
+
+    def get(self, request):
+        profiles = UserProfile.objects.filter(user__user_type="manager").select_related("user", "restaurant")
+        return Response([
+            {
+                "id": p.user_id,
+                "username": p.user.username,
+                "email": p.user.email,
+                "name": f"{p.first_name} {p.last_name}".strip(),
+                "restaurant": {"id": p.restaurant_id, "name": p.restaurant.name} if p.restaurant else None,
+            }
+            for p in profiles.order_by("user__username")
+        ])
 
 
 class RestaurantDetailAPIView(RetrieveUpdateAPIView):
